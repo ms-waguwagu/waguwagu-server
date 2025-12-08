@@ -1,7 +1,6 @@
 import { Controller, Post, Body, Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { NicknameDto } from './dto/nickname.dto';
-import type { Response } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -16,7 +15,7 @@ export class AuthController {
 
     return {
       message: '토큰 발급 완료',
-      accessToken, // 여기서 토큰을 클라이언트로 보냅니다.
+      accessToken,
     };
   }
 }
