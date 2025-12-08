@@ -15,11 +15,11 @@ export class Renderer {
 
   draw(gameState) {
     // 1. 검은 배경
-    this.ctx.fillStyle = "black";
+    this.ctx.fillStyle = "#020715";
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
     // 2. 맵(벽) 그리기
-    this.ctx.fillStyle = "blue"; // 벽 색상
+    this.ctx.fillStyle = "#7DAFF2"; // 벽 색상
     for (let row = 0; row < MAP_ROWS; row++) {
       for (let col = 0; col < MAP_COLS; col++) {
         if (MAP_DATA[row][col] === 1) {

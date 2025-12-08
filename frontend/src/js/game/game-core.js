@@ -4,7 +4,7 @@
 import { MAP_DATA, TILE_SIZE, MAP_COLS, MAP_ROWS } from "./map.js";
 
 export const CONSTANTS = {
-  PLAYER_SPEED: 4,
+  PLAYER_SPEED: 1.5,
   PLAYER_SIZE: 18, // 플레이어 크기는 타일보다 작아야 움직이기 편함
   // MAP 크기는 타일 수 * 타일 크기로 자동 계산
   MAP_WIDTH: MAP_COLS * TILE_SIZE,
