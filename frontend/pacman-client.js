@@ -72,26 +72,25 @@ const attachKeyboardHandlers = () => {
 const runGameLoop = () => {
   if (!game || !renderer) return;
 
-  // 플레이어별 조작키에 따라 게임 엔진에 입력 전달
-  Object.entries(PLAYER_CONTROLS).forEach(([playerId, controls]) => {
-    if (!game.getState().players[playerId]) return;
-
-    // 한 번에 하나의 방향만 처리해서 대각선 입력 막기
-    if (keys[controls.up]) {
-      game.processInput(playerId, "ArrowUp");
-    } else if (keys[controls.down]) {
-      game.processInput(playerId, "ArrowDown");
-    } else if (keys[controls.left]) {
-      game.processInput(playerId, "ArrowLeft");
-    } else if (keys[controls.right]) {
-      game.processInput(playerId, "ArrowRight");
-    }
+  // 플레이어 입력 처리
+  Object.entries(PLAYER_CONTROLS).forEach(([id, ctrl]) => {
+    const p = game.getState().players[id];
+    if (!p) return;
+    if (keys[ctrl.up]) game.processInput(id, "ArrowUp");
+    else if (keys[ctrl.down]) game.processInput(id, "ArrowDown");
+    else if (keys[ctrl.left]) game.processInput(id, "ArrowLeft");
+    else if (keys[ctrl.right]) game.processInput(id, "ArrowRight");
   });
 
-  // 현재 게임 상태를 화면에 그림
+  // 유령 이동
+  game.updateGhosts();
+
+  // 화면 그리기
   renderer.draw(game.getState());
-  // 다음 프레임 예약
-  animationFrameId = requestAnimationFrame(runGameLoop);
+
+  // 게임 오버 체크 후 다음 프레임 예약
+  if (!game.getState().gameOver)
+    animationFrameId = requestAnimationFrame(runGameLoop);
 };
 
 // 게임 루프 중지
@@ -115,8 +114,13 @@ const startLocalGame = () => {
     game.addPlayer(playerId, config.color, spawn.x, spawn.y);
     console.log(`${playerId} Spawned at:`, spawn); // 디버깅용 로그
   });
+
+  game.addGhost("ghost1", "red", 12, 1);
+  game.addGhost("ghost2", "pink", 12, 1);
+  game.addGhost("ghost3", "orange", 12, 1);
+
   attachKeyboardHandlers();
-  runGameLoop();
+  runGameLoop(); // 그냥 호출만
 };
 
 // 게임 시작 버튼 클릭 처리

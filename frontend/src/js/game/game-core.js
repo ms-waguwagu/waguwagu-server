@@ -1,10 +1,8 @@
-// 추후 nest로 이전 예정
-// 좌표 계산, 충돌 판정, 이동 속도 등 게임의 핵심 로직 담당
-
-import { MAP_DATA, TILE_SIZE, MAP_COLS, MAP_ROWS } from "./map.js";
+import { MAP_DATA, TILE_SIZE, MAP_ROWS, MAP_COLS } from "./map.js";
 
 export const CONSTANTS = {
   PLAYER_SPEED: 4,
+  GHOST_SPEED: 2, // 유령 속도
   PLAYER_SIZE: 18, // 플레이어 크기는 타일보다 작아야 움직이기 편함
   // MAP 크기는 타일 수 * 타일 크기로 자동 계산
   MAP_WIDTH: MAP_COLS * TILE_SIZE,
@@ -13,11 +11,13 @@ export const CONSTANTS = {
 
 export class GameCore {
   constructor() {
-    // 게임의 '상태(State)' 데이터
     this.state = {
-      players: {}, // id: { x, y, color }
-      map: MAP_DATA, // 맵 데이터도 상태에 포함 (나중에 클라이언트에 전송용)
+      players: {},
+      ghosts: {},
+      map: MAP_DATA,
+      gameOver: false,
     };
+    this.ghostDirections = {};
   }
 
   // 플레이어 추가
@@ -32,61 +32,121 @@ export class GameCore {
     };
   }
 
-  // 입력(Input)을 받아서 상태(State)를 변경
-  // 서버에서는 이 함수를 프론트에서 받은 입력 패킷으로 실행
+  // 안전하게 유령 스폰
+  addGhost(id, color) {
+    const { col: gridX, row: gridY } = this.getRandomFreeTile();
+    this.state.ghosts[id] = {
+      x: gridX * TILE_SIZE + 10,
+      y: gridY * TILE_SIZE + 10,
+      color: color,
+    };
+
+    // 초기 랜덤 방향
+    const dirs = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+    this.ghostDirections[id] = dirs[Math.floor(Math.random() * 4)];
+  }
+
+  // 길(Path, 0) 위 랜덤 타일 선택
+  getRandomFreeTile() {
+    let row, col;
+    do {
+      row = Math.floor(Math.random() * MAP_ROWS);
+      col = Math.floor(Math.random() * MAP_COLS);
+    } while (MAP_DATA[row][col] !== 0);
+    return { row, col };
+  }
+
   processInput(playerId, direction) {
     const player = this.state.players[playerId];
-    if (!player) return;
+    if (!player || this.state.gameOver) return;
 
     let nextX = player.x;
     let nextY = player.y;
 
-    // 1. 이동할 예상 좌표 계산
-    if (direction === "ArrowUp")
-      (nextX = player.x), (nextY = player.y - CONSTANTS.PLAYER_SPEED);
-    if (direction === "ArrowDown")
-      (nextX = player.x), (nextY = player.y + CONSTANTS.PLAYER_SPEED);
-    if (direction === "ArrowLeft")
-      (nextX = player.x - CONSTANTS.PLAYER_SPEED), (nextY = player.y);
-    if (direction === "ArrowRight")
-      (nextX = player.x + CONSTANTS.PLAYER_SPEED), (nextY = player.y);
+    if (direction === "ArrowUp") nextY -= CONSTANTS.PLAYER_SPEED;
+    if (direction === "ArrowDown") nextY += CONSTANTS.PLAYER_SPEED;
+    if (direction === "ArrowLeft") nextX -= CONSTANTS.PLAYER_SPEED;
+    if (direction === "ArrowRight") nextX += CONSTANTS.PLAYER_SPEED;
 
-    // 2. 충돌 체크: 벽이 아니면 위치 업데이트
     if (!this.checkCollision(nextX, nextY)) {
       player.x = nextX;
       player.y = nextY;
     }
   }
 
-  // 충돌 감지 함수
   checkCollision(x, y) {
     const size = CONSTANTS.PLAYER_SIZE;
-
-    // 플레이어의 네 모서리 좌표 확인
     const points = [
-      { x: x, y: y }, // 좌상단
-      { x: x + size, y: y }, // 우상단
-      { x: x, y: y + size }, // 좌하단
-      { x: x + size, y: y + size }, // 우하단
+      { x: x, y: y },
+      { x: x + size, y: y },
+      { x: x, y: y + size },
+      { x: x + size, y: y + size },
     ];
 
     for (const point of points) {
-      // 픽셀 좌표 -> 그리드(배열) 인덱스로 변환
       const col = Math.floor(point.x / TILE_SIZE);
       const row = Math.floor(point.y / TILE_SIZE);
-
-      // 맵 범위 밖이거나, 벽(= 1)이면 충돌
       if (
         row < 0 ||
         row >= MAP_ROWS ||
         col < 0 ||
         col >= MAP_COLS ||
         MAP_DATA[row][col] === 1
-      ) {
-        return true; // 충돌 발생
+      )
+        return true;
+    }
+    return false;
+  }
+
+  updateGhosts() {
+    for (const id in this.state.ghosts) {
+      const ghost = this.state.ghosts[id];
+
+      // 랜덤 방향 변경 확률
+      if (Math.random() < 0.02) {
+        // 2% 확률로 방향 바꿈
+        const dirs = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+        this.ghostDirections[id] = dirs[Math.floor(Math.random() * 4)];
+      }
+
+      let dir = this.ghostDirections[id];
+      let nextX = ghost.x;
+      let nextY = ghost.y;
+
+      switch (dir) {
+        case "ArrowUp":
+          nextY -= CONSTANTS.GHOST_SPEED;
+          break;
+        case "ArrowDown":
+          nextY += CONSTANTS.GHOST_SPEED;
+          break;
+        case "ArrowLeft":
+          nextX -= CONSTANTS.GHOST_SPEED;
+          break;
+        case "ArrowRight":
+          nextX += CONSTANTS.GHOST_SPEED;
+          break;
+      }
+
+      // 벽 충돌 시 무작위 다른 방향
+      if (this.checkCollision(nextX, nextY)) {
+        const dirs = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+        this.ghostDirections[id] = dirs[Math.floor(Math.random() * 4)];
+      } else {
+        ghost.x = nextX;
+        ghost.y = nextY;
+      }
+
+      // 플레이어와 충돌 체크
+      for (const playerId in this.state.players) {
+        const player = this.state.players[playerId];
+        const dx = player.x - ghost.x;
+        const dy = player.y - ghost.y;
+        if (Math.sqrt(dx * dx + dy * dy) < CONSTANTS.PLAYER_SIZE) {
+          this.state.gameOver = true;
+        }
       }
     }
-    return false; // 충돌 없음
   }
 
   getState() {
