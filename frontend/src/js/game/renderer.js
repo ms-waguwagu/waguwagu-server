@@ -14,12 +14,10 @@ export class Renderer {
   }
 
   draw(gameState) {
-    // 1. 검은 배경
     this.ctx.fillStyle = "black";
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // 2. 맵(벽) 그리기
-    this.ctx.fillStyle = "blue"; // 벽 색상
+    this.ctx.fillStyle = "blue";
     for (let row = 0; row < MAP_ROWS; row++) {
       for (let col = 0; col < MAP_COLS; col++) {
         if (MAP_DATA[row][col] === 1) {
@@ -33,7 +31,6 @@ export class Renderer {
       }
     }
 
-    // 3. 플레이어 그리기
     Object.values(gameState.players).forEach((player) => {
       this.ctx.fillStyle = player.color;
       this.ctx.fillRect(
@@ -43,5 +40,30 @@ export class Renderer {
         CONSTANTS.PLAYER_SIZE
       );
     });
+
+    // 유령 그리기
+    Object.values(gameState.ghosts).forEach((ghost) => {
+      this.ctx.fillStyle = ghost.color;
+      this.ctx.beginPath();
+      this.ctx.arc(
+        ghost.x + CONSTANTS.PLAYER_SIZE / 2,
+        ghost.y + CONSTANTS.PLAYER_SIZE / 2,
+        CONSTANTS.PLAYER_SIZE / 2,
+        0,
+        Math.PI * 2
+      );
+      this.ctx.fill();
+    });
+
+    // 게임 종료 표시
+    if (gameState.gameOver) {
+      this.ctx.fillStyle = "red";
+      this.ctx.font = "40px sans-serif";
+      this.ctx.fillText(
+        "게임 종료!",
+        this.canvas.width / 2 - 100,
+        this.canvas.height / 2
+      );
+    }
   }
 }
