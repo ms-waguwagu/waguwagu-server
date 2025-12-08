@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WAGUWAGU Pacman (Dev Mode)</title>
+    <style>
+      /* 간단한 스타일 병합 */
+      body {
+        font-family: sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #222;
+        color: white;
+        margin: 0;
+      }
+      #app {
+        background: #333;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        text-align: center;
+      }
+      #pacman-canvas {
+        border: 2px solid #555;
+        background-color: black;
+        display: block;
+        margin: 0 auto;
+      }
+      input,
+      button {
+        padding: 10px;
+        margin: 5px 0;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      button {
+        cursor: pointer;
+        background-color: #f1c40f;
+        border: none;
+        font-weight: bold;
+        color: black;
+      }
+      button:hover {
+        background-color: #f39c12;
+      }
+      #game-info {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        font-weight: bold;
+      }
+    </style>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <div id="main-screen">
+        <h1>WAGUWAGU</h1>
+        <input type="text" id="nickname-input" placeholder="닉네임 입력" />
+        <button id="start-button">게임 시작</button>
+        <p id="status-message" style="color: #ff6b6b; height: 20px"></p>
+      </div>
+
+      <div id="game-screen" style="display: none">
+        <div id="game-info">
+          <span
+            >내 닉네임: <span id="my-nickname" style="color: yellow"></span
+          ></span>
+          <span>방 번호: <span id="room-id"></span></span>
+        </div>
+        <canvas id="pacman-canvas" width="600" height="400"></canvas>
+        <p style="font-size: 0.9em; color: #aaa">조작: 방향키 (↑↓←→)</p>
+      </div>
+    </div>
+
+    <script type="module" src="../pacman-client.js"></script>
+  </body>
+</html>
