@@ -1,5 +1,6 @@
 import { GameCore } from "./src/js/game/game-core.js";
 import { Renderer } from "./src/js/game/renderer.js";
+import { SPAWN_POINTS } from "./src/js/game/map.js";
 
 const nicknameInput = document.getElementById("nickname-input");
 const startButton = document.getElementById("start-button");
@@ -10,12 +11,14 @@ const myNicknameLabel = document.getElementById("my-nickname");
 const roomIdLabel = document.getElementById("room-id");
 
 // 플레이어별 조작키 매핑
+// 동적 위치 할당으로 수정해야함!
 const PLAYER_CONTROLS = {
   player1: {
     label: "플레이어 1",
     color: "yellow",
-    gridX: 1,
-    gridY: 1,
+    // gridX: 1,
+    // gridY: 1,
+    spawnIndex: 0, // 첫 번째 'S' 위치 사용
     up: "ArrowUp",
     down: "ArrowDown",
     left: "ArrowLeft",
@@ -24,8 +27,9 @@ const PLAYER_CONTROLS = {
   player2: {
     label: "플레이어 2",
     color: "cyan",
-    gridX: 13,
-    gridY: 8,
+    // gridX: 13,
+    // gridY: 8,
+    spawnIndex: 1, // 두 번째 'S' 위치 사용
     up: "KeyW",
     down: "KeyS",
     left: "KeyA",
@@ -103,8 +107,12 @@ const startLocalGame = () => {
   game = new GameCore();
   renderer = new Renderer("pacman-canvas");
 
-  Object.entries(PLAYER_CONTROLS).forEach(([id, cfg]) => {
-    game.addPlayer(id, cfg.color, cfg.gridX, cfg.gridY);
+  Object.entries(PLAYER_CONTROLS).forEach(([playerId, config]) => {
+    // 맵 파일에서 파싱된 스폰 좌표 가져오기
+    // 만약 스폰 포인트가 부족하면 기본값(1,1) 사용 (에러 방지)
+    const spawn = SPAWN_POINTS[config.spawnIndex] || { x: 1, y: 1 };
+    game.addPlayer(playerId, config.color, spawn.x, spawn.y);
+    console.log(`${playerId} Spawned at:`, spawn); // 디버깅용 로그
   });
 
   game.addGhost("ghost1", "red", 12, 1);

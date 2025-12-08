@@ -2,8 +2,9 @@ import { MAP_DATA, TILE_SIZE, MAP_ROWS, MAP_COLS } from "./map.js";
 
 export const CONSTANTS = {
   PLAYER_SPEED: 4,
-  PLAYER_SIZE: 20,
   GHOST_SPEED: 2, // 유령 속도
+  PLAYER_SIZE: 18, // 플레이어 크기는 타일보다 작아야 움직이기 편함
+  // MAP 크기는 타일 수 * 타일 크기로 자동 계산
   MAP_WIDTH: MAP_COLS * TILE_SIZE,
   MAP_HEIGHT: MAP_ROWS * TILE_SIZE,
 };
@@ -19,10 +20,13 @@ export class GameCore {
     this.ghostDirections = {};
   }
 
-  addPlayer(id, color, gridX = 1, gridY = 1) {
+  // 플레이어 추가
+  // gridX, gridY를 직접 넣지 않고, 스폰 인덱스(0~4)를 사용할 수도 있음
+  addPlayer(id, color, gridX, gridY) {
     this.state.players[id] = {
-      x: gridX * TILE_SIZE + 10,
-      y: gridY * TILE_SIZE + 10,
+      // 중앙 정렬 보정값 수정 (타일 크기 절반 - 플레이어 크기 절반)
+      x: gridX * TILE_SIZE + (TILE_SIZE - CONSTANTS.PLAYER_SIZE) / 2,
+      y: gridY * TILE_SIZE + (TILE_SIZE - CONSTANTS.PLAYER_SIZE) / 2,
       color: color,
       score: 0,
     };
