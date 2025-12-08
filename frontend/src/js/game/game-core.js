@@ -1,8 +1,15 @@
-import { MAP_DATA, TILE_SIZE, MAP_ROWS, MAP_COLS } from "./map.js";
+import {
+  GHOST_POINTS,
+  MAP_DATA,
+  TILE_SIZE,
+  MAP_ROWS,
+  MAP_COLS,
+} from "./map.js";
 
 export const CONSTANTS = {
+  GHOST_SPEED: 3, // 유령 속도
+  GHOST_SIZE: 22,
   PLAYER_SPEED: 4,
-  GHOST_SPEED: 2, // 유령 속도
   PLAYER_SIZE: 18, // 플레이어 크기는 타일보다 작아야 움직이기 편함
   // MAP 크기는 타일 수 * 타일 크기로 자동 계산
   MAP_WIDTH: MAP_COLS * TILE_SIZE,
@@ -34,10 +41,13 @@ export class GameCore {
 
   // 안전하게 유령 스폰
   addGhost(id, color) {
-    const { col: gridX, row: gridY } = this.getRandomFreeTile();
+    // G 위치 중 랜덤 선택
+    const { x: gridX, y: gridY } =
+      GHOST_POINTS[Math.floor(Math.random() * GHOST_POINTS.length)];
+
     this.state.ghosts[id] = {
-      x: gridX * TILE_SIZE + 10,
-      y: gridY * TILE_SIZE + 10,
+      x: gridX * TILE_SIZE + (TILE_SIZE - CONSTANTS.GHOST_SIZE) / 2,
+      y: gridY * TILE_SIZE + (TILE_SIZE - CONSTANTS.GHOST_SIZE) / 2,
       color: color,
     };
 

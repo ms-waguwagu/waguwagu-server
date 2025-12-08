@@ -9,16 +9,15 @@ const mainScreen = document.getElementById("main-screen");
 const gameScreen = document.getElementById("game-screen");
 const myNicknameLabel = document.getElementById("my-nickname");
 const roomIdLabel = document.getElementById("room-id");
+const restartButton = document.getElementById("restart-button");
 
 // 플레이어별 조작키 매핑
-// 동적 위치 할당으로 수정해야함!
 const PLAYER_CONTROLS = {
   player1: {
     label: "플레이어 1",
     color: "yellow",
-    // gridX: 1,
-    // gridY: 1,
-    spawnIndex: 0, // 첫 번째 'S' 위치 사용
+    gridX: 1,
+    gridY: 1,
     up: "ArrowUp",
     down: "ArrowDown",
     left: "ArrowLeft",
@@ -27,9 +26,8 @@ const PLAYER_CONTROLS = {
   player2: {
     label: "플레이어 2",
     color: "cyan",
-    // gridX: 13,
-    // gridY: 8,
-    spawnIndex: 1, // 두 번째 'S' 위치 사용
+    gridX: 13,
+    gridY: 8,
     up: "KeyW",
     down: "KeyS",
     left: "KeyA",
@@ -88,9 +86,13 @@ const runGameLoop = () => {
   // 화면 그리기
   renderer.draw(game.getState());
 
-  // 게임 오버 체크 후 다음 프레임 예약
-  if (!game.getState().gameOver)
-    animationFrameId = requestAnimationFrame(runGameLoop);
+  if (game.getState().gameOver) {
+    statusMessage.textContent = "게임 종료! 다시 시작하려면 버튼 클릭!";
+    restartButton.style.display = "block";
+    return;
+  }
+
+  animationFrameId = requestAnimationFrame(runGameLoop);
 };
 
 // 게임 루프 중지
@@ -103,24 +105,36 @@ const stopGameLoop = () => {
 
 // 로컬 게임 시작
 const startLocalGame = () => {
-  stopGameLoop();
+  stopGameLoop(); // 기존 루프 종료
   game = new GameCore();
   renderer = new Renderer("pacman-canvas");
 
+  // 플레이어 스폰
   Object.entries(PLAYER_CONTROLS).forEach(([playerId, config]) => {
-    // 맵 파일에서 파싱된 스폰 좌표 가져오기
-    // 만약 스폰 포인트가 부족하면 기본값(1,1) 사용 (에러 방지)
     const spawn = SPAWN_POINTS[config.spawnIndex] || { x: 1, y: 1 };
     game.addPlayer(playerId, config.color, spawn.x, spawn.y);
-    console.log(`${playerId} Spawned at:`, spawn); // 디버깅용 로그
+    console.log(`${playerId} Spawned at:`, spawn);
   });
 
-  game.addGhost("ghost1", "red", 12, 1);
-  game.addGhost("ghost2", "pink", 12, 1);
-  game.addGhost("ghost3", "orange", 12, 1);
-
   attachKeyboardHandlers();
-  runGameLoop(); // 그냥 호출만
+  runGameLoop(); // 루프 시작
+
+  // 10초마다 유령 1마리씩 스폰
+  const ghostColors = ["red", "pink", "orange", "blue", "green"];
+  let ghostIndex = 0;
+
+  const spawnNextGhost = () => {
+    if (ghostIndex >= ghostColors.length) return; // 모든 유령 스폰 완료
+    const color = ghostColors[ghostIndex];
+    game.addGhost(`ghost${ghostIndex + 1}`, color);
+    console.log(`Ghost ${ghostIndex + 1} spawned!`);
+    ghostIndex++;
+    if (ghostIndex < ghostColors.length) {
+      setTimeout(spawnNextGhost, 10000); // 10초 뒤 다음 유령 스폰
+    }
+  };
+
+  spawnNextGhost(); // 첫 유령 스폰 시작
 };
 
 // 게임 시작 버튼 클릭 처리
@@ -140,6 +154,12 @@ startButton.addEventListener("click", () => {
   mainScreen.style.display = "none";
   gameScreen.style.display = "block";
   startLocalGame();
+});
+
+restartButton.addEventListener("click", () => {
+  restartButton.style.display = "none";
+  statusMessage.textContent = "";
+  startLocalGame(); // 게임 다시 시작
 });
 
 // 페이지를 떠날 때 정리 작업

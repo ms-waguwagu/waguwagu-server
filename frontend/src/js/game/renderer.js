@@ -46,9 +46,9 @@ export class Renderer {
       this.ctx.fillStyle = ghost.color;
       this.ctx.beginPath();
       this.ctx.arc(
-        ghost.x + CONSTANTS.PLAYER_SIZE / 2,
-        ghost.y + CONSTANTS.PLAYER_SIZE / 2,
-        CONSTANTS.PLAYER_SIZE / 2,
+        ghost.x + CONSTANTS.GHOST_SIZE / 2,
+        ghost.y + CONSTANTS.GHOST_SIZE / 2,
+        CONSTANTS.GHOST_SIZE / 2,
         0,
         Math.PI * 2
       );
