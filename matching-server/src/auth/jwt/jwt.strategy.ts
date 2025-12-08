@@ -16,8 +16,8 @@ const extractJwtFromCookie = (req: Request) => {
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private configService: ConfigService) {
     super({
-      // 1. 쿠키에서 토큰을 추출
-      jwtFromRequest: extractJwtFromCookie,
+      // 1. Bearer Token 방식 사용
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false, // 만료 시간을 엄격히 검사
       secretOrKey: configService.get<string>('JWT_SECRET'),
     });
