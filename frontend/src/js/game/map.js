@@ -44,7 +44,8 @@ const MAP_DESIGN = [
 // 문자열 맵을 0(길)과 1(벽)의 2차원 배열로 변환하는 파서
 const parseMap = (design) => {
   const mapData = [];
-  const spawnPoints = []; // 스폰 위치 저장 {x, y}
+  const spawnPoints = []; // 플레이어 스폰
+  const ghostPoints = []; // 유령 스폰
 
   for (let row = 0; row < design.length; row++) {
     const currentRow = [];
@@ -56,19 +57,16 @@ const parseMap = (design) => {
       if (char === "#") {
         currentRow.push(1); // 벽
       } else {
-        // 'S', 'G', '.', '-', ' ' 모두 길(0)로 처리
-        currentRow.push(0);
-
-        // 스폰 포인트 좌표 저장 (그리드 좌표)
-        if (char === "S") {
-          spawnPoints.push({ x: col, y: row });
-        }
+        currentRow.push(0); // 길
+        if (char === "S") spawnPoints.push({ x: col, y: row });
+        if (char === "G") ghostPoints.push({ x: col, y: row });
       }
     }
+
     mapData.push(currentRow);
   }
 
-  return { mapData, spawnPoints };
+  return { mapData, spawnPoints, ghostPoints };
 };
 
 // 파싱 실행
@@ -76,6 +74,6 @@ const parsed = parseMap(MAP_DESIGN);
 
 export const MAP_DATA = parsed.mapData;
 export const SPAWN_POINTS = parsed.spawnPoints; // 자동 추출된 스폰 포인트들
-
+export const GHOST_POINTS = parsed.ghostPoints;
 export const MAP_ROWS = MAP_DATA.length;
 export const MAP_COLS = MAP_DATA[0].length;

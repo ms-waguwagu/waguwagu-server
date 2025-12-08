@@ -33,7 +33,6 @@ export class Renderer {
       }
     }
 
-    // 3. 플레이어 그리기
     Object.values(gameState.players).forEach((player) => {
       this.ctx.fillStyle = player.color;
       this.ctx.fillRect(
@@ -43,5 +42,30 @@ export class Renderer {
         CONSTANTS.PLAYER_SIZE
       );
     });
+
+    // 유령 그리기
+    Object.values(gameState.ghosts).forEach((ghost) => {
+      this.ctx.fillStyle = ghost.color;
+      this.ctx.beginPath();
+      this.ctx.arc(
+        ghost.x + CONSTANTS.GHOST_SIZE / 2,
+        ghost.y + CONSTANTS.GHOST_SIZE / 2,
+        CONSTANTS.GHOST_SIZE / 2,
+        0,
+        Math.PI * 2
+      );
+      this.ctx.fill();
+    });
+
+    // 게임 종료 표시
+    if (gameState.gameOver) {
+      this.ctx.fillStyle = "red";
+      this.ctx.font = "40px sans-serif";
+      this.ctx.fillText(
+        "게임 종료!",
+        this.canvas.width / 2 - 100,
+        this.canvas.height / 2
+      );
+    }
   }
 }

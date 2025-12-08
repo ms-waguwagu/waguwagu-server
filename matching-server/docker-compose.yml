@@ -1,0 +1,35 @@
+services:
+  # 1. Redis 서비스 정의
+  redis:
+    image: redis:7.2-alpine
+    container_name: waguwagu-redis
+    hostname: redis # 매칭 서버가 접속할 호스트 이름 (REDIS_HOST)
+    ports:
+      # 로컬에서 redis cli 등으로 접속 테스트를 원할 경우에만 주석 해제
+      # - "6379:6379"
+      - "6379"
+    # 장애 발생 시 자동으로 재시작 시도
+    restart: always
+
+  # 2. 매칭 서버 서비스 정의
+  matching-server:
+    build:
+      context: . # Dockerfile이 위치한 디렉토리
+      dockerfile: Dockerfile # 위에서 작성한 Dockerfile 이름
+    container_name: waguwagu-matching
+    ports:
+      - "3000:3000"
+    # Redis가 완전히 실행된 후에 매칭 서버를 시작
+    depends_on:
+      - redis
+    # 환경 변수 설정
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      NODE_ENV: development
+      # JWT Secret은 실제로는 AWS Secrets Manager를 사용해야 함
+      # 여기서는 로컬 테스트용 임시 키를 사용
+      JWT_SECRET: "waguwagu-secret"
+    restart: always
+    command: npm run start
+    
