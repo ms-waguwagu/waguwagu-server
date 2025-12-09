@@ -1,8 +1,9 @@
 // pacman-client.js
 
-import { Renderer } from "./src/js/game/renderer.js";
+import { Renderer } from "./src/game/renderer.js";
 import { CONFIG } from "./config.js";
 import { io } from "https://cdn.socket.io/4.5.4/socket.io.esm.min.js";
+import { loginNickname } from "./src/api/api.js";
 
 // ====== 전역 상태 ======
 let socket = null;
@@ -134,27 +135,41 @@ function sendInputLoop() {
 }
 
 // ====== 게임 시작 버튼 처리 ======
-startButton.addEventListener("click", () => {
+startButton.addEventListener("click", async () => {
   const nickname = nicknameInput.value.trim();
+	
   if (!nickname) {
     statusMessage.textContent = "닉네임을 입력해주세요.";
     nicknameInput.focus();
     return;
   }
 
-  statusMessage.textContent = "";
+	try {
+    const { accessToken } = await loginNickname(nickname);
 
-  // UI 전환
-  myNicknameLabel.textContent = nickname;
-  const roomId = "DEV-ROOM"; // 일단 하드코딩, 나중에 매칭 서버랑 연동
-  roomIdLabel.textContent = roomId;
+    // 토큰과 닉네임을 localStorage에 저장
+    localStorage.setItem("waguwagu_token", accessToken);
+    localStorage.setItem("waguwagu_nickname", nickname);
 
-  mainScreen.style.display = "none";
-  gameScreen.style.display = "block";
+    console.log("토큰/닉네임 저장 완료:", accessToken, nickname);
+
+		// UI 전환
+		statusMessage.textContent = "";
+		myNicknameLabel.textContent = nickname;
+
+		const roomId = "DEV-ROOM"; // 일단 하드코딩, 나중에 매칭 서버랑 연동
+		roomIdLabel.textContent = roomId;
+
+		mainScreen.style.display = "none";
+		gameScreen.style.display = "block";
 
   // 서버 WebSocket 연결 + 입력 전송 시작
   connectWebSocket(roomId, nickname);
-  sendInputLoop();
+  sendInputLoop();}
+	catch (error) {
+    console.error("닉네임 저장/서버 연결 중 오류:", error);
+    statusMessage.textContent = "닉네임 저장 중 오류가 발생했습니다.";
+  }
 });
 
 // ====== 페이지 떠날 때 정리 ======

@@ -8,7 +8,7 @@ export class MatchingController {
   constructor(private readonly matchingService: MatchingService) {}
 
   // 닉네임으로 게임 시작 요청 및 매칭 큐 진입
-  @Post('enter')
+  @Post('queue')
   @UseGuards(AuthGuard('jwt'))
   async enterQueue(@Req() req: Request) {
     const user = (req as any).user as { userId: string; nickname: string };
