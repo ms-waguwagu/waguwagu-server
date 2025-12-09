@@ -130,11 +130,23 @@ export class GameEngineService {
     this.cols = map[0].length;
   }
 
+	// 클라이언트 초기화를 위한 맵 데이터 반환
+	getMapData() {
+    return {
+      map: this.map,  
+			dots: this.dots,         
+      rows: this.rows,
+      cols: this.cols,
+      tileSize: this.tileSize, 
+    };
+  }
+
   // 플레이어 수 반환
   playerCount() {
     return Object.keys(this.players).length;
   }
 
+  // interval 정지
   stopInterval() {
     if (this.interval) {
       clearInterval(this.interval);
@@ -371,13 +383,29 @@ export class GameEngineService {
   // ===== 상태 반환 (Gateway → 클라이언트 브로드캐스트) =====
 
   getState() {
+
+		// 1. 원본 데이터 개수 확인
+    const rawCount = Object.keys(this.players).length;
+
+    // 2. 만약 0명이면 로그 출력
+    if (rawCount === 0) {
+      console.error("🚨 비상! getState()를 호출할 때 플레이어가 없음!");
+      console.trace(); // 누가 이 함수를 불렀는지 추적 (Call Stack 출력)
+    }
+
+    // 3. 직렬화 (JSON 변환) 수행
+    const serializedPlayers = JSON.parse(JSON.stringify(this.players));
+    const serializedDots = JSON.parse(JSON.stringify(this.dots));
+    
+    // ❗️ 정리 필요 ❗️
     return {
-      players: JSON.parse(JSON.stringify(this.players)),
+      players: serializedPlayers,
+      dots: serializedDots,
       ghosts: JSON.parse(JSON.stringify(this.ghosts)),
-      dots: JSON.parse(JSON.stringify(this.dots)),
       gameOver: this.gameOver,
       gameOverPlayerId: this.gameOverPlayerId,
       gameOverReason: this.gameOverReason,
+
     };
   }
 

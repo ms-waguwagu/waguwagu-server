@@ -7,7 +7,8 @@ import { io } from "https://cdn.socket.io/4.5.4/socket.io.esm.min.js";
 // ====== 전역 상태 ======
 let socket = null;
 let renderer = null;
-let myPlayerId = null;
+let latestGameState = null; 
+let animationFrameId = null; // 루프 ID 저장용 
 
 const keys = {};
 
@@ -65,19 +66,56 @@ function connectWebSocket(roomId, nickname) {
     socket.emit("join-room", { roomId, nickname });
   });
 
-  // 서버가 방 입장 완료 알려줌
-  socket.on("joined", ({ playerId, roomId }) => {
-    myPlayerId = playerId;
-    roomIdLabel.textContent = roomId;
-    console.log("🎮 Joined room:", roomId, "my ID:", playerId);
+  // 서버가 방 입장 완료 알림
+	socket.on("init-game", (data) => {
+    const { playerId, roomId, mapData, initialState } = data;
+    
+    console.log("Map data received from server:", mapData);
+    console.log(`My ID: ${playerId}, Joined Room: ${roomId}`);
+
+    // 서버에서 받은 맵 데이터로 렌더러 생성
+    renderer = new Renderer("pacman-canvas", mapData);
+    
+    // 초기 상태 한번 그려주기
+    renderer.draw(initialState);
+		
   });
 
   // 서버에서 현재 상태 내려줌 (players 객체)
   socket.on("state", (serverState) => {
-    if (!renderer) return;
-    renderer.draw(serverState);
+
+		const playerCount = serverState.players ? Object.keys(serverState.players).length : 0;
+  const dotsCount = serverState.dots ? serverState.dots.length : 0;
+
+  if (!serverState || playerCount === 0 || dotsCount === 0) {
+    console.warn(
+      `[State Warning] State is incomplete! Players: ${playerCount}, Dots: ${dotsCount}`
+    );
+  } else {
+   
+  }
+    window.gameState = serverState; // 전역 변수 업데이트 (디버깅용)
+    latestGameState = serverState;  // 렌더링용 변수 업데이트
   });
 }
+
+// ====== 렌더링 루프 ======
+function gameLoop() {
+  if (renderer && latestGameState) {
+    renderer.draw(latestGameState);
+  }
+	// 다음 프레임 예약 및 ID 저장
+  animationFrameId = requestAnimationFrame(gameLoop);
+}
+
+// 2. 루프 시작/정지 헬퍼
+function startGameLoop() {
+  if (animationFrameId) cancelAnimationFrame(animationFrameId); // 기존 루프 중지
+  gameLoop(); // 새 루프 시작
+}
+
+// 게임 루프 시작
+startGameLoop();
 
 // ====== 입력 전송 루프 (30FPS) ======
 function sendInputLoop() {
@@ -113,9 +151,6 @@ startButton.addEventListener("click", () => {
 
   mainScreen.style.display = "none";
   gameScreen.style.display = "block";
-
-  // 캔버스 렌더러 생성
-  renderer = new Renderer("pacman-canvas");
 
   // 서버 WebSocket 연결 + 입력 전송 시작
   connectWebSocket(roomId, nickname);
