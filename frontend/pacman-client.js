@@ -106,8 +106,10 @@ const stopGameLoop = () => {
 // 로컬 게임 시작
 const startLocalGame = () => {
   stopGameLoop(); // 기존 루프 종료
+
   game = new GameCore();
   renderer = new Renderer("pacman-canvas");
+  document.getElementById("scoreboard").style.display = "block";
 
   // 플레이어 스폰
   Object.entries(PLAYER_CONTROLS).forEach(([playerId, config]) => {
@@ -153,6 +155,7 @@ startButton.addEventListener("click", () => {
   roomIdLabel.textContent = "DEV-ROOM";
   mainScreen.style.display = "none";
   gameScreen.style.display = "block";
+
   startLocalGame();
 });
 
