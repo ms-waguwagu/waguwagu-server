@@ -1,14 +1,8 @@
 // 게임 엔진 (GameCore.js)
 
-import { MAP_DATA, TILE_SIZE, MAP_COLS, MAP_ROWS, generateDots } from "./map.js";
+import { MAP_DATA, GHOST_POINTS, TILE_SIZE, MAP_COLS, MAP_ROWS, generateDots } from "./map.js";
 
-import {
-  GHOST_POINTS,
-  MAP_DATA,
-  TILE_SIZE,
-  MAP_ROWS,
-  MAP_COLS,
-} from "./map.js";
+
 
 export const CONSTANTS = {
   PLAYER_SPEED: 2,
@@ -19,21 +13,7 @@ export const CONSTANTS = {
   MAP_HEIGHT: MAP_ROWS * TILE_SIZE,
 };
 
-// ===============================
-// DOT 생성 함수
-// ===============================
-export function generateDots(map) {
-  const dots = [];
 
-  for (let row = 0; row < MAP_ROWS; row++) {
-    for (let col = 0; col < MAP_COLS; col++) {
-      if (map[row][col] === 0) {
-        dots.push({ x: col, y: row, eaten: false });
-      }
-    }
-  }
-  return dots;
-}
 
 export class GameCore {
   constructor() {
@@ -169,67 +149,5 @@ export class GameCore {
       return true;
     }
     return false;
-  // ------------------------------
-  // 유령 업데이트 (기존 그대로)
-  // ------------------------------
-  updateGhosts() {
-    for (const id in this.state.ghosts) {
-      const ghost = this.state.ghosts[id];
-
-      if (Math.random() < 0.02) {
-        const dirs = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
-        this.ghostDirections[id] = dirs[Math.floor(Math.random() * 4)];
-      }
-
-      let nextX = ghost.x;
-      let nextY = ghost.y;
-
-      switch (this.ghostDirections[id]) {
-        case "ArrowUp":
-          nextY -= CONSTANTS.GHOST_SPEED;
-          break;
-        case "ArrowDown":
-          nextY += CONSTANTS.GHOST_SPEED;
-          break;
-        case "ArrowLeft":
-          nextX -= CONSTANTS.GHOST_SPEED;
-          break;
-        case "ArrowRight":
-          nextX += CONSTANTS.GHOST_SPEED;
-          break;
-      }
-
-      if (this.checkCollision(nextX, nextY)) {
-        const dirs = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
-        this.ghostDirections[id] = dirs[Math.floor(Math.random() * 4)];
-      } else {
-        ghost.x = nextX;
-        ghost.y = nextY;
-      }
-
-      // 플레이어와 충돌 시 게임 종료
-      for (const pid in this.state.players) {
-        const p = this.state.players[pid];
-        const dx = p.x - ghost.x;
-        const dy = p.y - ghost.y;
-        if (Math.sqrt(dx * dx + dy * dy) < CONSTANTS.PLAYER_SIZE) {
-          this.state.gameOver = true;
-        }
-      }
-    }
-  }
-
-  getState() {
-    return this.state;
-  }
-
-  getFinalResults() {
-    return Object.entries(this.state.players)
-      .map(([id, p]) => ({
-        id,
-        score: p.score,
-        color: p.color,
-      }))
-      .sort((a, b) => b.score - a.score);
   }
 }

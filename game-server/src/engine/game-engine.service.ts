@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable prettier/prettier */
 // backend/src/game/engine/game-engine.service.ts
 import { Injectable } from '@nestjs/common';
@@ -101,6 +102,7 @@ export class GameEngineService {
   readonly tileSize = TILE_SIZE;
 
   intervalRunning = false;
+  interval: NodeJS.Timeout | null = null;  // ⭐ interval 저장
 
   constructor() {
     const { map, dots } = parseMap(MAP_DESIGN);
@@ -109,6 +111,21 @@ export class GameEngineService {
 
     this.rows = map.length;
     this.cols = map[0].length;
+  }
+
+  // ⭐ 플레이어 수 반환
+  playerCount() {
+    return Object.keys(this.players).length;
+  }
+
+  // ⭐ interval 정지
+  stopInterval() {
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = null;
+      this.intervalRunning = false;
+      console.log("⛔ Room interval stopped");
+    }
   }
 
   // ===== 플레이어 관리 =====

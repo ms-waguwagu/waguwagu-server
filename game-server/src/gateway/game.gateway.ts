@@ -34,9 +34,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const room = this.rooms[roomId];
     if (!room) return;
 
+    // 플레이어 제거
     room.removePlayer(client.id);
 
-    // 방 전체에게 player 제거 브로드캐스트
+    // 플레이어가 아무도 없으면 방 삭제
+    if (room.playerCount() === 0) {
+      console.log(`🧹 Room ${roomId} is now empty → deleting room`);
+
+      room.stopInterval(); // interval 정지
+      delete this.rooms[roomId]; // 완전 삭제
+      return;
+    }
+
+    // 남아있는 플레이어들에게 상태 전송
     this.server.to(roomId).emit('state', room.getState());
   }
 

@@ -1,12 +1,13 @@
 // pacman-client.js
 
 import { Renderer } from "./src/js/game/renderer.js";
+import { CONFIG } from "./config.js";
 import { io } from "https://cdn.socket.io/4.5.4/socket.io.esm.min.js";
 
 // ====== 전역 상태 ======
 let socket = null;
 let renderer = null;
-let myPlayerId = null;
+let myPlayerId = null;  
 
 const keys = {};
 
@@ -18,7 +19,7 @@ const mainScreen = document.getElementById("main-screen");
 const gameScreen = document.getElementById("game-screen");
 const myNicknameLabel = document.getElementById("my-nickname");
 const roomIdLabel = document.getElementById("room-id");
-const restartButton = document.getElementById("restart-button");
+const restartButton = document.getElementById("restart-btn");
 
 // (점수판 / 모달 DOM은 나중에 서버가 점수/게임종료를 줄 때 다시 붙이자)
 
@@ -32,12 +33,25 @@ window.addEventListener("keyup", (e) => {
   keys[e.code] = false;
 });
 
+export function connectSocket() {
+  socket = io(CONFIG.SOCKET_URL, {
+    transports: ["websocket"],
+  });
+
+  socket.on("connect", () => {
+    console.log("🟢 Connected:", socket.id);
+  });
+
+  socket.on("state", (state) => {
+    window.gameState = state;
+  });
+}
 
 // ====== WebSocket 연결 ======
 function connectWebSocket(roomId, nickname) {
-socket = io("http://localhost:3000/game", {
-  transports: ["polling", "websocket"],
-});
+  socket = io(CONFIG.SOCKET_URL, {
+    transports: ["websocket"], // websocket만 사용 권장
+  });
 
   socket.on("connect", () => {
     console.log("🟢 Connected:", socket.id);
@@ -105,15 +119,16 @@ startButton.addEventListener("click", () => {
   sendInputLoop();
 });
 
-// TODO:이거 수정 필요!!!!!!!!!!!!!
 // ====== 페이지 떠날 때 정리 ======
-  startLocalGame();
+window.addEventListener("beforeunload", () => {
+  if (socket) socket.disconnect();
 });
 
 restartButton.addEventListener("click", () => {
   restartButton.style.display = "none";
   statusMessage.textContent = "";
-  startLocalGame(); // 게임 다시 시작
+  mainScreen.style.display = "block";
+  gameScreen.style.display = "none";
 });
 
 // 페이지를 떠날 때 정리 작업
