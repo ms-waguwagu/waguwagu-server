@@ -7,7 +7,7 @@ import {
 } from "./map.js";
 
 export const CONSTANTS = {
-  PLAYER_SPEED: 1.5,
+  PLAYER_SPEED: 2,
   GHOST_SPEED: 3,
   GHOST_SIZE: 22,
   PLAYER_SIZE: 18,
@@ -38,7 +38,7 @@ export class GameCore {
       ghosts: {},
       map: MAP_DATA,
       gameOver: false,
-      dots: generateDots(MAP_DATA),  // ← 🔥 DOT 자동 생성
+      dots: generateDots(MAP_DATA), // ← 🔥 DOT 자동 생성
     };
 
     this.ghostDirections = {};
@@ -57,6 +57,25 @@ export class GameCore {
   }
 
   // ------------------------------
+  // 유령 스폰
+  // ------------------------------
+  addGhost(id, color) {
+    // G 위치 중 랜덤 선택
+    const { x: gridX, y: gridY } =
+      GHOST_POINTS[Math.floor(Math.random() * GHOST_POINTS.length)];
+
+    this.state.ghosts[id] = {
+      x: gridX * TILE_SIZE + (TILE_SIZE - CONSTANTS.GHOST_SIZE) / 2,
+      y: gridY * TILE_SIZE + (TILE_SIZE - CONSTANTS.GHOST_SIZE) / 2,
+      color: color,
+    };
+
+    // 초기 랜덤 방향
+    const dirs = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+    this.ghostDirections[id] = dirs[Math.floor(Math.random() * 4)];
+  }
+
+  // ------------------------------
   // DOT 먹기 처리
   // ------------------------------
   checkDotCollision(player) {
@@ -66,7 +85,7 @@ export class GameCore {
     for (const dot of this.state.dots) {
       if (!dot.eaten && dot.x === px && dot.y === py) {
         dot.eaten = true;
-        player.score += 10;     // 🔥 점수 증가
+        player.score += 10; // 🔥 점수 증가
       }
     }
   }
@@ -90,7 +109,7 @@ export class GameCore {
       player.x = nextX;
       player.y = nextY;
 
-      this.checkDotCollision(player);   // ← 🔥 DOT 먹기 처리
+      this.checkDotCollision(player); // ← 🔥 DOT 먹기 처리
     }
   }
 
@@ -140,10 +159,18 @@ export class GameCore {
       let nextY = ghost.y;
 
       switch (this.ghostDirections[id]) {
-        case "ArrowUp": nextY -= CONSTANTS.GHOST_SPEED; break;
-        case "ArrowDown": nextY += CONSTANTS.GHOST_SPEED; break;
-        case "ArrowLeft": nextX -= CONSTANTS.GHOST_SPEED; break;
-        case "ArrowRight": nextX += CONSTANTS.GHOST_SPEED; break;
+        case "ArrowUp":
+          nextY -= CONSTANTS.GHOST_SPEED;
+          break;
+        case "ArrowDown":
+          nextY += CONSTANTS.GHOST_SPEED;
+          break;
+        case "ArrowLeft":
+          nextX -= CONSTANTS.GHOST_SPEED;
+          break;
+        case "ArrowRight":
+          nextX += CONSTANTS.GHOST_SPEED;
+          break;
       }
 
       if (this.checkCollision(nextX, nextY)) {
