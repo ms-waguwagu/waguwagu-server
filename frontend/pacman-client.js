@@ -166,9 +166,9 @@ startButton.addEventListener("click", async () => {
   // 서버 WebSocket 연결 + 입력 전송 시작
   connectWebSocket(roomId, nickname);
   sendInputLoop();}
-	catch (error) {
+  catch (error) {
     console.error("닉네임 저장/서버 연결 중 오류:", error);
-    statusMessage.textContent = "닉네임 저장 중 오류가 발생했습니다.";
+    statusMessage.textContent = error.message;
   }
 });
 
