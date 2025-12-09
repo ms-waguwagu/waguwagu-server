@@ -3,6 +3,13 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // ⭐ WebSocket handshake + REST 를 위해 CORS 필수
+  app.enableCors({
+    origin: '*',
+    credentials: false,
+  });
+
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

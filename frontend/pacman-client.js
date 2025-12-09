@@ -1,6 +1,16 @@
-import { GameCore } from "./src/js/game/game-core.js";
-import { Renderer } from "./src/js/game/renderer.js";
+// pacman-client.js
 
+import { Renderer } from "./src/js/game/renderer.js";
+import { io } from "https://cdn.socket.io/4.5.4/socket.io.esm.min.js";
+
+// ====== 전역 상태 ======
+let socket = null;
+let renderer = null;
+let myPlayerId = null;
+
+const keys = {};
+
+// ====== DOM 요소 ======
 const nicknameInput = document.getElementById("nickname-input");
 const startButton = document.getElementById("start-button");
 const statusMessage = document.getElementById("status-message");
@@ -9,111 +19,66 @@ const gameScreen = document.getElementById("game-screen");
 const myNicknameLabel = document.getElementById("my-nickname");
 const roomIdLabel = document.getElementById("room-id");
 
-// 플레이어별 조작키 매핑
-const PLAYER_CONTROLS = {
-  player1: {
-    label: "플레이어 1",
-    color: "yellow",
-    gridX: 1,
-    gridY: 1,
-    up: "ArrowUp",
-    down: "ArrowDown",
-    left: "ArrowLeft",
-    right: "ArrowRight",
-  },
-  player2: {
-    label: "플레이어 2",
-    color: "cyan",
-    gridX: 13,
-    gridY: 8,
-    up: "KeyW",
-    down: "KeyS",
-    left: "KeyA",
-    right: "KeyD",
-  },
-};
+// (점수판 / 모달 DOM은 나중에 서버가 점수/게임종료를 줄 때 다시 붙이자)
 
-// 게임 엔진 / 렌더러 / 루프 관련 변수
-let game = null;
-let renderer = null;
-let animationFrameId = null;
 
-// 키보드 입력 상태 저장 객체 (누르고 있는지 true/false)
-const keys = {};
+// ====== 키보드 입력 상태 관리 ======
+window.addEventListener("keydown", (e) => {
+  keys[e.code] = true;
+});
 
-// 키가 눌릴 때 실행
-const handleKeyDown = (event) => {
-  keys[event.code] = true;
-};
+window.addEventListener("keyup", (e) => {
+  keys[e.code] = false;
+});
 
-// 키가 떼어질 때 실행
-const handleKeyUp = (event) => {
-  keys[event.code] = false;
-};
 
-// 기존 키보드 이벤트 제거 (중복 등록 방지)
-const detachKeyboardHandlers = () => {
-  window.removeEventListener("keydown", handleKeyDown);
-  window.removeEventListener("keyup", handleKeyUp);
-};
+// ====== WebSocket 연결 ======
+function connectWebSocket(roomId, nickname) {
+socket = io("http://localhost:3000/game", {
+  transports: ["polling", "websocket"],
+});
 
-// 키보드 이벤트 등록
-const attachKeyboardHandlers = () => {
-  detachKeyboardHandlers();
-  window.addEventListener("keydown", handleKeyDown);
-  window.addEventListener("keyup", handleKeyUp);
-};
+  socket.on("connect", () => {
+    console.log("🟢 Connected:", socket.id);
 
-// 게임 루프 (매 프레임마다 실행)
-const runGameLoop = () => {
-  if (!game || !renderer) return;
-
-  // 플레이어별 조작키에 따라 게임 엔진에 입력 전달
-  Object.entries(PLAYER_CONTROLS).forEach(([playerId, controls]) => {
-    if (!game.getState().players[playerId]) return;
-
-    // 한 번에 하나의 방향만 처리해서 대각선 입력 막기
-    if (keys[controls.up]) {
-      game.processInput(playerId, "ArrowUp");
-    } else if (keys[controls.down]) {
-      game.processInput(playerId, "ArrowDown");
-    } else if (keys[controls.left]) {
-      game.processInput(playerId, "ArrowLeft");
-    } else if (keys[controls.right]) {
-      game.processInput(playerId, "ArrowRight");
-    }
+    // 방 입장 요청 (B단계에서 만든 join-room 기반)
+    socket.emit("join-room", { roomId, nickname });
   });
 
-  // 현재 게임 상태를 화면에 그림
-  renderer.draw(game.getState());
-  // 다음 프레임 예약
-  animationFrameId = requestAnimationFrame(runGameLoop);
-};
-
-// 게임 루프 중지
-const stopGameLoop = () => {
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId);
-    animationFrameId = null;
-  }
-};
-
-// 로컬 게임 시작
-const startLocalGame = () => {
-  stopGameLoop();
-  game = new GameCore();
-  renderer = new Renderer("pacman-canvas");
-
-  Object.entries(PLAYER_CONTROLS).forEach(([playerId, config]) => {
-    game.addPlayer(playerId, config.color, config.gridX, config.gridY);
+  // 서버가 방 입장 완료 알려줌
+  socket.on("joined", ({ playerId, roomId }) => {
+    myPlayerId = playerId;
+    roomIdLabel.textContent = roomId;
+    console.log("🎮 Joined room:", roomId, "my ID:", playerId);
   });
-  attachKeyboardHandlers();
-  runGameLoop();
-};
 
-// 게임 시작 버튼 클릭 처리
+  // 서버에서 현재 상태 내려줌 (players 객체)
+  socket.on("state", (serverState) => {
+  if (!renderer) return;
+  renderer.draw(serverState);
+  });
+}
+
+
+// ====== 입력 전송 루프 (30FPS) ======
+function sendInputLoop() {
+  setInterval(() => {
+    if (!socket) return;
+
+    const dir = { dx: 0, dy: 0 };
+
+    if (keys["ArrowUp"]) dir.dy = -1;
+    else if (keys["ArrowDown"]) dir.dy = 1;
+    else if (keys["ArrowLeft"]) dir.dx = -1;
+    else if (keys["ArrowRight"]) dir.dx = 1;
+
+    socket.emit("input", { dir });
+  }, 33); // ≒ 30FPS
+}
+
+
+// ====== 게임 시작 버튼 처리 ======
 startButton.addEventListener("click", () => {
-  // 닉네임 입력 검사
   const nickname = nicknameInput.value.trim();
   if (!nickname) {
     statusMessage.textContent = "닉네임을 입력해주세요.";
@@ -121,17 +86,26 @@ startButton.addEventListener("click", () => {
     return;
   }
 
-  // UI 업데이트
   statusMessage.textContent = "";
+
+  // UI 전환
   myNicknameLabel.textContent = nickname;
-  roomIdLabel.textContent = "DEV-ROOM";
+  const roomId = "DEV-ROOM"; // 일단 하드코딩, 나중에 매칭 서버랑 연동
+  roomIdLabel.textContent = roomId;
+
   mainScreen.style.display = "none";
   gameScreen.style.display = "block";
-  startLocalGame();
+
+  // 캔버스 렌더러 생성
+  renderer = new Renderer("pacman-canvas");
+
+  // 서버 WebSocket 연결 + 입력 전송 시작
+  connectWebSocket(roomId, nickname);
+  sendInputLoop();
 });
 
-// 페이지를 떠날 때 정리 작업
+
+// ====== 페이지 떠날 때 정리 ======
 window.addEventListener("beforeunload", () => {
-  stopGameLoop();
-  detachKeyboardHandlers();
+  if (socket) socket.disconnect();
 });
