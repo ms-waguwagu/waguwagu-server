@@ -26,10 +26,16 @@ const restartButton = document.getElementById("restart-btn");
 
 // ====== 키보드 입력 상태 관리 ======
 window.addEventListener("keydown", (e) => {
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
+    e.preventDefault(); // 화면 스크롤 차단
+  }
   keys[e.code] = true;
 });
 
 window.addEventListener("keyup", (e) => {
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
+    e.preventDefault();
+  }
   keys[e.code] = false;
 });
 
