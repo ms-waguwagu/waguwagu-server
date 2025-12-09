@@ -60,6 +60,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(`Client ${client.id} joining room ${roomId}`);
     console.log('현재 생성된 rooms:', Object.keys(this.rooms));
 
+		
     // 방 객체 없으면 생성
     if (!this.rooms[roomId]) {
       this.rooms[roomId] = new GameEngineService();
@@ -74,7 +75,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     room.addPlayer(client.id, nickname);
 
     // 내 ID 전달
-    client.emit('joined', { playerId: client.id, roomId });
+		// 맵 데이터를 포함한 초기 정보를 전송
+		client.emit('init-game', {
+      playerId: client.id,
+      roomId: roomId,
+      mapData: room.getMapData(), // 맵 데이터(벽, 크기) 전송
+      initialState: room.getState() // 현재 점, 플레이어 위치
+    });
 
     // 방 전체에 현재 상태 전달
     this.server.to(roomId).emit('state', room.getState());
@@ -83,8 +90,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!room.intervalRunning) {
       room.intervalRunning = true;
 
-      setInterval(() => {
-        room.update(); // ⭐ 게임 엔진 틱 돌리기
+      room.interval = setInterval(() => {
+        room.update(); // 게임 엔진 틱 돌리기
         this.server.to(roomId).emit('state', room.getState());
       }, 1000 / 30);
     }

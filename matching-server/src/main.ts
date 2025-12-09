@@ -7,8 +7,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
-	app.use(cookieParser());
+  app.use(cookieParser());
 
-  await app.listen(configService.get<string>('PORT') || 3000); // 개발환경에서는 기본값 허용
+  app.enableCors({
+    origin: '*',
+    credentials: false,
+  });
+
+  await app.listen(configService.get<string>('PORT') || 3000); 
 }
 bootstrap();

@@ -113,12 +113,23 @@ export class GameEngineService {
     this.cols = map[0].length;
   }
 
-  // ⭐ 플레이어 수 반환
+	// 클라이언트 초기화를 위한 맵 데이터 반환
+	getMapData() {
+    return {
+      map: this.map,  
+			dots: this.dots,         
+      rows: this.rows,
+      cols: this.cols,
+      tileSize: this.tileSize, 
+    };
+  }
+
+  // 플레이어 수 반환
   playerCount() {
     return Object.keys(this.players).length;
   }
 
-  // ⭐ interval 정지
+  // interval 정지
   stopInterval() {
     if (this.interval) {
       clearInterval(this.interval);
@@ -244,11 +255,24 @@ export class GameEngineService {
   // ===== 상태 반환 (Gateway → 클라이언트 브로드캐스트) =====
 
   getState() {
-  return {
-    players: JSON.parse(JSON.stringify(this.players)),
-    dots: JSON.parse(JSON.stringify(this.dots)),
-  };
-}
+		// 1. 원본 데이터 개수 확인
+    const rawCount = Object.keys(this.players).length;
+
+    // 2. 만약 0명이면 로그 출력
+    if (rawCount === 0) {
+      console.error("🚨 비상! getState()를 호출할 때 플레이어가 없음!");
+      console.trace(); // 누가 이 함수를 불렀는지 추적 (Call Stack 출력)
+    }
+
+    // 3. 직렬화 (JSON 변환) 수행
+    const serializedPlayers = JSON.parse(JSON.stringify(this.players));
+    const serializedDots = JSON.parse(JSON.stringify(this.dots));
+    
+    return {
+      players: serializedPlayers,
+      dots: serializedDots,
+    };
+  }
 
   // 모든 dot이 먹혔는지 (나중에 게임 종료 처리에 사용)
   allDotsEaten(): boolean {
@@ -256,10 +280,10 @@ export class GameEngineService {
   }
 
   // 게임 리셋 (원하면 사용)
-resetGame() {
+  resetGame() {
   const { map, dots } = parseMap(MAP_DESIGN);
-  this.map = map;
-  this.dots = dots;
+    this.map = map;
+    this.dots = dots;
 
     // 기존 플레이어는 유지하되 위치/점수만 초기화
     for (const p of Object.values(this.players)) {
