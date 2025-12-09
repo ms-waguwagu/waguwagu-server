@@ -18,6 +18,7 @@ const mainScreen = document.getElementById("main-screen");
 const gameScreen = document.getElementById("game-screen");
 const myNicknameLabel = document.getElementById("my-nickname");
 const roomIdLabel = document.getElementById("room-id");
+const restartButton = document.getElementById("restart-button");
 
 // (점수판 / 모달 DOM은 나중에 서버가 점수/게임종료를 줄 때 다시 붙이자)
 
@@ -104,8 +105,18 @@ startButton.addEventListener("click", () => {
   sendInputLoop();
 });
 
-
+// TODO:이거 수정 필요!!!!!!!!!!!!!
 // ====== 페이지 떠날 때 정리 ======
+  startLocalGame();
+});
+
+restartButton.addEventListener("click", () => {
+  restartButton.style.display = "none";
+  statusMessage.textContent = "";
+  startLocalGame(); // 게임 다시 시작
+});
+
+// 페이지를 떠날 때 정리 작업
 window.addEventListener("beforeunload", () => {
   if (socket) socket.disconnect();
 });

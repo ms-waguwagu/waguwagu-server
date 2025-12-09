@@ -97,3 +97,13 @@ export function generateDots(map) {
 
   return dots;
 }
+
+
+// 파싱 실행
+const parsed = parseMap(MAP_DESIGN);
+
+export const MAP_DATA = parsed.mapData;
+export const SPAWN_POINTS = parsed.spawnPoints; // 자동 추출된 스폰 포인트들
+export const GHOST_POINTS = parsed.ghostPoints;
+export const MAP_ROWS = MAP_DATA.length;
+export const MAP_COLS = MAP_DATA[0].length;
