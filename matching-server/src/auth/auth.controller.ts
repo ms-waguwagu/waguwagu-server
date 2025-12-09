@@ -8,14 +8,20 @@ export class AuthController {
 
   @Post('nickname')
   async nickname(@Body() nicknameDto: NicknameDto) {
-    const { nickname } = nicknameDto;
+    try{	
+			const { nickname } = nicknameDto;
 
-    // JWT 토큰 생성
-    const { accessToken } = await this.authService.nickname(nickname);
+    	// JWT 토큰 생성
+    	const { accessToken } = await this.authService.nickname(nickname);
 
-    return {
-      message: '토큰 발급 완료',
-      accessToken,
-    };
+    	return {
+      	message: '토큰 발급 완료',
+      	accessToken,
+    	};
+			} catch (err) {
+      	return {
+        	message: err.message,
+      	};
+    }
   }
 }
