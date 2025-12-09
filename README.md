@@ -44,12 +44,17 @@ waguwagu-server/
 │       │
 │       ├── engine/               # 게임 틱 엔진 및 물리 처리
 │       │   ├── game-engine.service.ts
+│       │   ├── ghost.service.ts
 │       │   ├── physics.service.ts
 │       │   └── score.service.ts
 │       │
 │       ├── state/                # 게임 상태 (read/write)
 │       │   ├── game-state.ts
-│       │   └── player-state.ts
+│       │   ├── player-state.ts
+│       │   └── ghost-state.ts
+│       │
+│       ├── pathfinding/
+│       │   └── pathfinding.ts
 │       │
 │       ├── types/
 │       │   ├── direction.type.ts
