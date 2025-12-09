@@ -7,7 +7,7 @@ import { io } from "https://cdn.socket.io/4.5.4/socket.io.esm.min.js";
 // ====== 전역 상태 ======
 let socket = null;
 let renderer = null;
-let myPlayerId = null;  
+let myPlayerId = null;
 
 const keys = {};
 
@@ -23,13 +23,18 @@ const restartButton = document.getElementById("restart-btn");
 
 // (점수판 / 모달 DOM은 나중에 서버가 점수/게임종료를 줄 때 다시 붙이자)
 
-
 // ====== 키보드 입력 상태 관리 ======
 window.addEventListener("keydown", (e) => {
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
+    e.preventDefault(); // 화면 스크롤 차단
+  }
   keys[e.code] = true;
 });
 
 window.addEventListener("keyup", (e) => {
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
+    e.preventDefault();
+  }
   keys[e.code] = false;
 });
 
@@ -69,11 +74,10 @@ function connectWebSocket(roomId, nickname) {
 
   // 서버에서 현재 상태 내려줌 (players 객체)
   socket.on("state", (serverState) => {
-  if (!renderer) return;
-  renderer.draw(serverState);
+    if (!renderer) return;
+    renderer.draw(serverState);
   });
 }
-
 
 // ====== 입력 전송 루프 (30FPS) ======
 function sendInputLoop() {
@@ -90,7 +94,6 @@ function sendInputLoop() {
     socket.emit("input", { dir });
   }, 33); // ≒ 30FPS
 }
-
 
 // ====== 게임 시작 버튼 처리 ======
 startButton.addEventListener("click", () => {
