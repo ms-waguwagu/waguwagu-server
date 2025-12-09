@@ -69,6 +69,21 @@ const parseMap = (design) => {
   return { mapData, spawnPoints, ghostPoints };
 };
 
+export function generateDots(map) {
+  const dots = [];
+
+  for (let row = 0; row < map.length; row++) {
+    for (let col = 0; col < map[row].length; col++) {
+      if (map[row][col] === 0) {
+        dots.push({ x: col, y: row, eaten: false });
+      }
+    }
+  }
+
+  return dots;
+}
+
+
 // 파싱 실행
 const parsed = parseMap(MAP_DESIGN);
 

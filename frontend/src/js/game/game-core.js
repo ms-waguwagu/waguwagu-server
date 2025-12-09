@@ -8,13 +8,28 @@ import {
 
 export const CONSTANTS = {
   PLAYER_SPEED: 1.5,
-  GHOST_SPEED: 3, // 유령 속도
+  GHOST_SPEED: 3,
   GHOST_SIZE: 22,
-  PLAYER_SIZE: 18, // 플레이어 크기는 타일보다 작아야 움직이기 편함
-  // MAP 크기는 타일 수 * 타일 크기로 자동 계산
+  PLAYER_SIZE: 18,
   MAP_WIDTH: MAP_COLS * TILE_SIZE,
   MAP_HEIGHT: MAP_ROWS * TILE_SIZE,
 };
+
+// ===============================
+// DOT 생성 함수
+// ===============================
+export function generateDots(map) {
+  const dots = [];
+
+  for (let row = 0; row < MAP_ROWS; row++) {
+    for (let col = 0; col < MAP_COLS; col++) {
+      if (map[row][col] === 0) {
+        dots.push({ x: col, y: row, eaten: false });
+      }
+    }
+  }
+  return dots;
+}
 
 export class GameCore {
   constructor() {
@@ -23,15 +38,17 @@ export class GameCore {
       ghosts: {},
       map: MAP_DATA,
       gameOver: false,
+      dots: generateDots(MAP_DATA),  // ← 🔥 DOT 자동 생성
     };
+
     this.ghostDirections = {};
   }
 
+  // ------------------------------
   // 플레이어 추가
-  // gridX, gridY를 직접 넣지 않고, 스폰 인덱스(0~4)를 사용할 수도 있음
+  // ------------------------------
   addPlayer(id, color, gridX, gridY) {
     this.state.players[id] = {
-      // 중앙 정렬 보정값 수정 (타일 크기 절반 - 플레이어 크기 절반)
       x: gridX * TILE_SIZE + (TILE_SIZE - CONSTANTS.PLAYER_SIZE) / 2,
       y: gridY * TILE_SIZE + (TILE_SIZE - CONSTANTS.PLAYER_SIZE) / 2,
       color: color,
@@ -39,33 +56,24 @@ export class GameCore {
     };
   }
 
-  // 안전하게 유령 스폰
-  addGhost(id, color) {
-    // G 위치 중 랜덤 선택
-    const { x: gridX, y: gridY } =
-      GHOST_POINTS[Math.floor(Math.random() * GHOST_POINTS.length)];
+  // ------------------------------
+  // DOT 먹기 처리
+  // ------------------------------
+  checkDotCollision(player) {
+    const px = Math.floor(player.x / TILE_SIZE);
+    const py = Math.floor(player.y / TILE_SIZE);
 
-    this.state.ghosts[id] = {
-      x: gridX * TILE_SIZE + (TILE_SIZE - CONSTANTS.GHOST_SIZE) / 2,
-      y: gridY * TILE_SIZE + (TILE_SIZE - CONSTANTS.GHOST_SIZE) / 2,
-      color: color,
-    };
-
-    // 초기 랜덤 방향
-    const dirs = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
-    this.ghostDirections[id] = dirs[Math.floor(Math.random() * 4)];
+    for (const dot of this.state.dots) {
+      if (!dot.eaten && dot.x === px && dot.y === py) {
+        dot.eaten = true;
+        player.score += 10;     // 🔥 점수 증가
+      }
+    }
   }
 
-  // 길(Path, 0) 위 랜덤 타일 선택
-  getRandomFreeTile() {
-    let row, col;
-    do {
-      row = Math.floor(Math.random() * MAP_ROWS);
-      col = Math.floor(Math.random() * MAP_COLS);
-    } while (MAP_DATA[row][col] !== 0);
-    return { row, col };
-  }
-
+  // ------------------------------
+  // 입력 처리
+  // ------------------------------
   processInput(playerId, direction) {
     const player = this.state.players[playerId];
     if (!player || this.state.gameOver) return;
@@ -81,11 +89,17 @@ export class GameCore {
     if (!this.checkCollision(nextX, nextY)) {
       player.x = nextX;
       player.y = nextY;
+
+      this.checkDotCollision(player);   // ← 🔥 DOT 먹기 처리
     }
   }
 
+  // ------------------------------
+  // 벽 충돌 체크
+  // ------------------------------
   checkCollision(x, y) {
     const size = CONSTANTS.PLAYER_SIZE;
+
     const points = [
       { x: x, y: y },
       { x: x + size, y: y },
@@ -93,52 +107,45 @@ export class GameCore {
       { x: x + size, y: y + size },
     ];
 
-    for (const point of points) {
-      const col = Math.floor(point.x / TILE_SIZE);
-      const row = Math.floor(point.y / TILE_SIZE);
+    for (const p of points) {
+      const col = Math.floor(p.x / TILE_SIZE);
+      const row = Math.floor(p.y / TILE_SIZE);
+
       if (
         row < 0 ||
         row >= MAP_ROWS ||
         col < 0 ||
         col >= MAP_COLS ||
         MAP_DATA[row][col] === 1
-      )
+      ) {
         return true;
+      }
     }
     return false;
   }
 
+  // ------------------------------
+  // 유령 업데이트 (기존 그대로)
+  // ------------------------------
   updateGhosts() {
     for (const id in this.state.ghosts) {
       const ghost = this.state.ghosts[id];
 
-      // 랜덤 방향 변경 확률
       if (Math.random() < 0.02) {
-        // 2% 확률로 방향 바꿈
         const dirs = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
         this.ghostDirections[id] = dirs[Math.floor(Math.random() * 4)];
       }
 
-      let dir = this.ghostDirections[id];
       let nextX = ghost.x;
       let nextY = ghost.y;
 
-      switch (dir) {
-        case "ArrowUp":
-          nextY -= CONSTANTS.GHOST_SPEED;
-          break;
-        case "ArrowDown":
-          nextY += CONSTANTS.GHOST_SPEED;
-          break;
-        case "ArrowLeft":
-          nextX -= CONSTANTS.GHOST_SPEED;
-          break;
-        case "ArrowRight":
-          nextX += CONSTANTS.GHOST_SPEED;
-          break;
+      switch (this.ghostDirections[id]) {
+        case "ArrowUp": nextY -= CONSTANTS.GHOST_SPEED; break;
+        case "ArrowDown": nextY += CONSTANTS.GHOST_SPEED; break;
+        case "ArrowLeft": nextX -= CONSTANTS.GHOST_SPEED; break;
+        case "ArrowRight": nextX += CONSTANTS.GHOST_SPEED; break;
       }
 
-      // 벽 충돌 시 무작위 다른 방향
       if (this.checkCollision(nextX, nextY)) {
         const dirs = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
         this.ghostDirections[id] = dirs[Math.floor(Math.random() * 4)];
@@ -147,11 +154,11 @@ export class GameCore {
         ghost.y = nextY;
       }
 
-      // 플레이어와 충돌 체크
-      for (const playerId in this.state.players) {
-        const player = this.state.players[playerId];
-        const dx = player.x - ghost.x;
-        const dy = player.y - ghost.y;
+      // 플레이어와 충돌 시 게임 종료
+      for (const pid in this.state.players) {
+        const p = this.state.players[pid];
+        const dx = p.x - ghost.x;
+        const dy = p.y - ghost.y;
         if (Math.sqrt(dx * dx + dy * dy) < CONSTANTS.PLAYER_SIZE) {
           this.state.gameOver = true;
         }

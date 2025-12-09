@@ -46,11 +46,27 @@
       button:hover {
         background-color: #f39c12;
       }
+      #scoreboard {
+        position: fixed;
+        right: 20px;
+        top: 80px;
+        width: 220px;
+        padding: 15px;
+        background: rgba(0,0,0,0.55);
+        border-radius: 10px;
+        backdrop-filter: blur(5px);
+        font-size: 18px;
+      }
+      #score-entries div {
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+      }
+
       #game-info {
         display: flex;
         justify-content: space-between;
-        margin-bottom: 10px;
         font-weight: bold;
+        margin-bottom: 10px;
       }
     </style>
 
@@ -96,6 +112,11 @@
           다시 시작
         </button>
       </div>
+
+          <!-- 오른쪽 고정 점수판 -->
+    <div id="scoreboard">
+      <h3> 순위 </h3>
+      <div id="score-entries"></div>
     </div>
 
     <script type="module" src="../pacman-client.js"></script>
