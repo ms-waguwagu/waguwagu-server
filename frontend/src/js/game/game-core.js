@@ -1,3 +1,7 @@
+// 게임 엔진 (GameCore.js)
+
+import { MAP_DATA, TILE_SIZE, MAP_COLS, MAP_ROWS, generateDots } from "./map.js";
+
 import {
   GHOST_POINTS,
   MAP_DATA,
@@ -56,6 +60,7 @@ export class GameCore {
     };
   }
 
+  // TODO: 수정 필요!!! 백엔드로 
   // ------------------------------
   // 유령 스폰
   // ------------------------------
@@ -109,13 +114,11 @@ export class GameCore {
       player.x = nextX;
       player.y = nextY;
 
-      this.checkDotCollision(player); // ← 🔥 DOT 먹기 처리
+      this.checkDotCollision(player);
+      this.checkEndConditions();
     }
   }
 
-  // ------------------------------
-  // 벽 충돌 체크
-  // ------------------------------
   checkCollision(x, y) {
     const size = CONSTANTS.PLAYER_SIZE;
 
@@ -143,6 +146,29 @@ export class GameCore {
     return false;
   }
 
+  //TODO: 수정 필요!!!
+  checkDotCollision(player) {
+    const px = Math.floor(player.x / TILE_SIZE);
+    const py = Math.floor(player.y / TILE_SIZE);
+
+    for (const dot of this.state.dots) {
+      if (!dot.eaten && dot.x === px && dot.y === py) {
+        dot.eaten = true;
+        player.score += 10;
+      }
+    }
+  }
+
+  checkEndConditions() {
+    const allDotsEaten = this.state.dots.every(dot => dot.eaten);
+
+    if (allDotsEaten) {
+      window.dispatchEvent(
+        new CustomEvent("game-end", { detail: { reason: "ALL_DOTS" } })
+      );
+      return true;
+    }
+    return false;
   // ------------------------------
   // 유령 업데이트 (기존 그대로)
   // ------------------------------
@@ -195,5 +221,15 @@ export class GameCore {
 
   getState() {
     return this.state;
+  }
+
+  getFinalResults() {
+    return Object.entries(this.state.players)
+      .map(([id, p]) => ({
+        id,
+        score: p.score,
+        color: p.color,
+      }))
+      .sort((a, b) => b.score - a.score);
   }
 }
