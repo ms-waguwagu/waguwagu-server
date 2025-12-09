@@ -1,30 +1,14 @@
 import { Injectable } from '@nestjs/common';
+import { GhostService } from './ghost.service';
+import { PlayerState } from '../state/player-state';
+import { GhostState } from '../state/ghost-state';
 
-type Direction = { dx: number; dy: number };
-
-interface PlayerState {
-  id: string;
-  x: number; // 픽셀 좌표
-  y: number; // 픽셀 좌표
-  dir: Direction; // 현재 이동 방향 (-1,0,1)
-  color: string;
-  score: number;
-  nickname: string;
-}
+export type Direction = { dx: number; dy: number };
 
 interface Dot {
   x: number; // 타일 좌표
   y: number; // 타일 좌표
   eaten: boolean;
-}
-
-interface GhostState {
-  id: string;
-  x: number; // 픽셀 좌표
-  y: number; // 픽셀 좌표
-  dir: Direction;
-  speed: number;
-  color: string;
 }
 
 const TILE_SIZE = 28;
@@ -34,35 +18,35 @@ const PLAYER_SPEED = 4;
 const MAP_DESIGN: string[] = [
   '###############################', // 0
   '#.............................#', // 1
-  "#.#.###.###.###.###.###.###.#.#", // 2
-  "#.#.#...#.....#.#.....#...#.#.#", // 3
-  "#.#...#...###.....###...#...#.#", // 4
-  "#.#.###.#.....#.#.....#.###.#.#", // 5
-  "#.......######...######.......#", // 6
-  "#.#.###........#........###.#.#", // 7
-  "#.#...#.######.#.######.#...#.#", // 8
-  "#.#.#.#....#.......#....#.#.#.#", // 9
-  "#.#...#.##.#.#####.#.##.#...#.#", // 10
-  "#...###.#.............#.###...#", // 11
-  "#.#.....#.###GGGGG###.#.....#.#", // 12
-  "#.#.###.#.#GGG.G.GGG#.#.###.#.#", // 13
-  "#...#...#.#GGG.G.GGG#.#...#...#", // 14
-  "###.#.#...#GGG.G.GGG#...#.#.###", // 15
-  "#...#...#.#GGG.G.GGG#.#...#...#", // 16
-  "#.#.###.#.#GGG.G.GGG#.#.###.#.#", // 17
-  "#.#.....#.###GGGGG###.#.....#.#", // 18
-  "#...###.#.............#.###...#", // 19
-  "#.#...#.##.#.#####.#.##.#...#.#", // 20
-  "#.#.#.#....#.......#....#.#.#.#", // 21
-  "#.#...#.######.#.######.#...#.#", // 22
-  "#.#.###........#........###.#.#", // 23
-  "#.......######...######.......#", // 24
-  "#.#.###.#.....#.#.....#.###.#.#", // 25
-  "#.#.#.....###.....###.....#.#.#", // 26
-  "#.#...#.#.....#.#.....#.#...#.#", // 27
-  "#.#.###.###.###.###.###.###.#.#", // 28
-  "#.............................#", // 29
-  "###############################", // 30
+  '#.#.###.###.###.###.###.###.#.#', // 2
+  '#.#.#...#.....#.#.....#...#.#.#', // 3
+  '#.#...#...###.....###...#...#.#', // 4
+  '#.#.###.#.....#.#.....#.###.#.#', // 5
+  '#.......######...######.......#', // 6
+  '#.#.###........#........###.#.#', // 7
+  '#.#...#.######.#.######.#...#.#', // 8
+  '#.#.#.#....#.......#....#.#.#.#', // 9
+  '#.#...#.##.#.#####.#.##.#...#.#', // 10
+  '#...###.#.............#.###...#', // 11
+  '#.#.....#.###GGGGG###.#.....#.#', // 12
+  '#.#.###.#.#GGG.G.GGG#.#.###.#.#', // 13
+  '#...#...#.#GGG.G.GGG#.#...#...#', // 14
+  '###.#.#...#GGG.G.GGG#...#.#.###', // 15
+  '#...#...#.#GGG.G.GGG#.#...#...#', // 16
+  '#.#.###.#.#GGG.G.GGG#.#.###.#.#', // 17
+  '#.#.....#.###GGGGG###.#.....#.#', // 18
+  '#...###.#.............#.###...#', // 19
+  '#.#...#.##.#.#####.#.##.#...#.#', // 20
+  '#.#.#.#....#.......#....#.#.#.#', // 21
+  '#.#...#.######.#.######.#...#.#', // 22
+  '#.#.###........#........###.#.#', // 23
+  '#.......######...######.......#', // 24
+  '#.#.###.#.....#.#.....#.###.#.#', // 25
+  '#.#.#.....###.....###.....#.#.#', // 26
+  '#.#...#.#.....#.#.....#.#...#.#', // 27
+  '#.#.###.###.###.###.###.###.#.#', // 28
+  '#.............................#', // 29
+  '###############################', // 30
 ];
 
 const PLAYER_COLORS = ['yellow', 'cyan', 'magenta', 'orange', 'lime'];
@@ -103,6 +87,8 @@ function parseMap(design: string[]): {
 
 @Injectable()
 export class GameEngineService {
+  private ghostService: GhostService;
+
   private players: Record<string, PlayerState> = {};
   private ghosts: Record<string, GhostState> = {};
   private map: number[][];
@@ -127,18 +113,19 @@ export class GameEngineService {
     this.dots = dots;
     this.ghostSpawns = ghostSpawns;
 
+    this.ghostService = new GhostService(this.map);
     this.rows = map.length;
     this.cols = map[0].length;
   }
 
-	// 클라이언트 초기화를 위한 맵 데이터 반환
-	getMapData() {
+  // 클라이언트 초기화를 위한 맵 데이터 반환
+  getMapData() {
     return {
-      map: this.map,  
-			dots: this.dots,         
+      map: this.map,
+      dots: this.dots,
       rows: this.rows,
       cols: this.cols,
-      tileSize: this.tileSize, 
+      tileSize: this.tileSize,
     };
   }
 
@@ -187,7 +174,6 @@ export class GameEngineService {
   }
 
   // ===== 유령 관리 =====
-
   addGhost(id: string, opts?: Partial<{ color: string; speed: number }>) {
     if (this.ghostSpawns.length === 0) {
       console.warn('⚠ G 스폰 타일이 없습니다! 유령 생성 실패');
@@ -241,9 +227,7 @@ export class GameEngineService {
       this.updatePlayer(player);
     }
 
-    for (const ghost of Object.values(this.ghosts)) {
-      this.updateGhost(ghost);
-    }
+    this.ghostService.updateGhosts(this.ghosts, Object.values(this.players));
 
     this.checkPlayerGhostCollision();
   }
@@ -260,32 +244,6 @@ export class GameEngineService {
       player.y = nextY;
       this.checkDotCollision(player);
     }
-  }
-
-  private updateGhost(ghost: GhostState) {
-    // 단순 랜덤 워크-ish: 현재 방향 유지, 벽 만나면 방향 변경
-    const nextX = ghost.x + ghost.dir.dx * ghost.speed;
-    const nextY = ghost.y + ghost.dir.dy * ghost.speed;
-
-    if (this.checkCollision(nextX, nextY)) {
-      // 방향 변경 시, 가능한 방향(벽이 아닌) 중 선택
-      const possible = this.getAvailableDirections(ghost);
-      if (possible.length > 0) {
-        ghost.dir = possible[Math.floor(Math.random() * possible.length)];
-      } else {
-        // 완전 막혔으면 랜덤 방향으로
-        ghost.dir = this.randomDir();
-      }
-      return;
-    }
-
-    // 약간의 랜덤 방향 변경 (좀 더 자연스럽게)
-    if (Math.random() < 0.01) {
-      ghost.dir = this.randomDir();
-    }
-
-    ghost.x = nextX;
-    ghost.y = nextY;
   }
 
   private getAvailableDirections(ghost: GhostState): Direction[] {
@@ -384,20 +342,19 @@ export class GameEngineService {
   // ===== 상태 반환 (Gateway → 클라이언트 브로드캐스트) =====
 
   getState() {
-
-		// 1. 원본 데이터 개수 확인
+    // 1. 원본 데이터 개수 확인
     const rawCount = Object.keys(this.players).length;
 
     // 2. 만약 0명이면 로그 출력
     if (rawCount === 0) {
-      console.error("🚨 비상! getState()를 호출할 때 플레이어가 없음!");
+      console.error('🚨 비상! getState()를 호출할 때 플레이어가 없음!');
       console.trace(); // 누가 이 함수를 불렀는지 추적 (Call Stack 출력)
     }
 
     // 3. 직렬화 (JSON 변환) 수행
     const serializedPlayers = JSON.parse(JSON.stringify(this.players));
     const serializedDots = JSON.parse(JSON.stringify(this.dots));
-    
+
     // ❗️ 정리 필요 ❗️
     return {
       players: serializedPlayers,
@@ -406,7 +363,6 @@ export class GameEngineService {
       gameOver: this.gameOver,
       gameOverPlayerId: this.gameOverPlayerId,
       gameOverReason: this.gameOverReason,
-
     };
   }
 
