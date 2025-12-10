@@ -2,7 +2,7 @@
 // 화면 그리기 담당
 
 const CONSTANTS = {
-  GHOST_SIZE: 22,
+  GHOST_SIZE: 20,
   PLAYER_SIZE: 18,
 };
 
@@ -162,6 +162,22 @@ export class Renderer {
   });
 }
 
+    Object.values(players).forEach((player) => {
+      this.ctx.fillStyle = player.color;
+      const radius = CONSTANTS.PLAYER_SIZE / 2; // 반지름 계산
+
+      // 원으로 그리기
+      this.ctx.beginPath();
+      this.ctx.arc(
+        player.x + radius,
+        player.y + radius,
+        radius,
+        0,
+        Math.PI * 2
+      ); // 원을 그리는 코드
+      this.ctx.fill();
+    });
+  }
 
   // -------------------------------
   // 점수판 업데이트
