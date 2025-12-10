@@ -27,6 +27,7 @@ export class MatchingController {
   }
 
   @Get('queue-length')
+	@UseGuards(AuthGuard('jwt'))
   async getQueueStatus() {
     // 1. Redis에서 총 큐 길이 조회
     const totalLength = await this.matchingService.getQueueLength();
@@ -36,7 +37,7 @@ export class MatchingController {
     // 2. 현재 매칭 그룹의 인원수 계산
     let currentCount = totalLength % MAX_PLAYERS;
 
-    // 3. 5명으로 꽉 찼을 경우, 모듈러 결과는 0이 되므로 5로 처리 (예: 5/5, 10/5)
+    // 3. 5명으로 꽉 찼을 경우, 모듈러 결과는 0이 되므로 5로 처리 (예: 5/5)
     if (currentCount === 0 && totalLength > 0) {
       currentCount = MAX_PLAYERS;
     }
