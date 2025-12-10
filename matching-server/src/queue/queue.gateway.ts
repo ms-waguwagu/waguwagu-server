@@ -1,13 +1,23 @@
-import { OnGatewayConnection, OnGatewayDisconnect } from "@nestjs/websockets";
-import { WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
-import { Server, Socket } from "socket.io";
-import { QueueService } from "./queue.service";
-import { JwtService } from "@nestjs/jwt";
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  SubscribeMessage,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  ConnectedSocket,
+} from '@nestjs/websockets';
+import { Server, Socket } from 'socket.io';
+import { QueueService } from './queue.service';
+import { JwtService } from '@nestjs/jwt';
+import { Logger } from '@nestjs/common';
+
 
 @WebSocketGateway({ namespace: 'queue', cors: { origin: '*' } })
 export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
+
+	private readonly logger = new Logger(QueueGateway.name);
 
   // 핵심!! UserId와 SocketId를 연결하는 맵
   private connectedUsers: Map<string, string> = new Map();
@@ -20,41 +30,116 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleConnection(client: Socket) {
     try {
       const token = client.handshake.auth.token?.split(' ')[1];
-      if (!token) throw new Error('Token missing');
+      if (!token) throw new Error('토큰 없음');
       
       const decoded = this.jwtService.verify(token);
-      const userId = decoded.uuid; // 혹은 decoded.sub 등 토큰 구조에 맞게
+      const userId = decoded.uuid; 
       
       // 연결될 때 맵에 적어둠
       this.connectedUsers.set(userId, client.id);
-      client.data.userId = userId; // 나중에 disconnect 때 쓰려고 저장
+      client.data.userId = userId; // disconnect 때 쓰려고 저장
 
-    } catch (e) {
+      this.logger.log(`클라이언트 연결 성공: ${decoded.nickname} (${client.id})`);
+    } catch (error) {
+      this.logger.warn(`클라이언트 연결 실패: ${error.message}`);
       client.disconnect();
     }
   }
 
   handleDisconnect(client: Socket) {
-    // 나갈 때도 맵에서 지움
+    // 나갈 때 맵에서 지움
     const userId = client.data.userId;
-    if (userId) {
-      this.connectedUsers.delete(userId);
+
+		if (!userId) return;
+
+    this.connectedUsers.delete(userId);
+		this.logger.log(`클라이언트 연결 해제: ${userId}`);
+		// 연결이 끊기면 자동으로 대기열 취소
+      try {
+        this.queueService.cancelQueue(userId);
+        this.logger.log(`연결 끊김으로 인한 매칭 취소: ${userId}`);
+      } catch (e) {
+        // 이미 매칭되었거나 큐에 없는 경우 무시
+      }
+  }
+
+  // 대기열 입장 요청
+  @SubscribeMessage('join_queue')
+  async handleJoinQueue(@ConnectedSocket() client: Socket) {
+    const { userId, nickname } = client.data;
+
+    try {
+      await this.queueService.enterQueue(userId, nickname);
+      
+      // 성공 응답 전송
+      client.emit('queue_joined', { message: '대기열 진입 성공' });
+
+      // 대기열 상태 갱신하여 모두에게 푸시
+      this.broadcastQueueStatus();
+
+    } catch (error) {
+      client.emit('error', { message: error.message });
     }
   }
 
-  // ... (join_queue 등 기존 코드)
+	// 대기열 취소 요청
+  @SubscribeMessage('cancel_queue')
+  async handleCancelQueue(@ConnectedSocket() client: Socket) {
+    const { userId } = client.data;
 
-  // 워커가 호출할 함수: "이 사람들에게 매칭됐다고 알려줘!"
-  broadcastMatchFound(userIds: string[]) {
+    try {
+      await this.queueService.cancelQueue(userId);
+      
+      client.emit('queue_cancelled', { message: '대기열 취소 성공' });
+      
+      // 상태 갱신 푸시
+      this.broadcastQueueStatus();
+
+    } catch (error) {
+      client.emit('error', { message: error.message });
+    }
+  }
+
+	// 대기열 상태 조회
+  // 클라이언트가 요청할 수도 있고, 서버가 변경될 때마다 뿌릴 수도 있음
+  @SubscribeMessage('request_queue_status')
+  async handleRequestQueueStatus(@ConnectedSocket() client: Socket) {
+     const status = await this.getQueueStatusData();
+     client.emit('queue_status', status);
+  }
+
+  // Worker가 호출할 함수. 매칭 성사 알림
+  broadcastMatchFound(userIds: string[], roomInfo: any) {
     userIds.forEach((userId) => {
       const socketId = this.connectedUsers.get(userId);
       if (socketId) {
-        // 그 사람에게만 콕 집어서 전송
         this.server.to(socketId).emit('match_found', {
-          message: '매칭 성공! 잠시 후 게임이 시작됩니다.',
-          participants: userIds // 필요하다면 보냄
+            message: '매칭 성공! 게임 서버로 이동합니다.',
+            ...roomInfo
         });
       }
     });
+  }
+
+	// 헬퍼: 현재 큐 상태 데이터 생성
+  private async getQueueStatusData() {
+    const totalLength = await this.queueService.getQueueLength();
+    const MAX_PLAYERS = 5;
+    let currentCount = totalLength % MAX_PLAYERS;
+
+    if (currentCount === 0 && totalLength > 0) {
+      currentCount = MAX_PLAYERS;
+    }
+
+    return {
+      currentCount,
+      totalQueueLength: totalLength,
+    };
+  }
+
+	// 헬퍼: 모든 접속자에게 큐 상태 푸시 (인원 변동 시 호출)
+  async broadcastQueueStatus() {
+    const status = await this.getQueueStatusData();
+    this.server.emit('queue_status', status); // namespace 전체 방송
   }
 }

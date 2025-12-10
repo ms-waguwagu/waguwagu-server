@@ -1,10 +1,14 @@
 import { Controller, Post, UseGuards, Req, Get } from '@nestjs/common';
 import { QueueService } from './queue.service';
+import { QueueGateway } from './queue.gateway';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('queue')
 export class QueueController {
-	constructor(private readonly queueService: QueueService) {}
+	constructor(
+		private readonly queueService: QueueService,
+		private readonly queueGateway: QueueGateway,
+	) {}
 
 	// 닉네임으로 게임 시작 요청 및 매칭 큐 진입
 	@Post('')
@@ -19,6 +23,9 @@ export class QueueController {
 			user.userId,
 			user.nickname,
 		);
+
+		// 2. 대기열 상태 변경 알림
+		this.queueGateway.broadcastQueueStatus();
 
 		return {
 			message: '매칭 대기열에 성공적으로 진입했습니다.',
@@ -60,6 +67,9 @@ export class QueueController {
 		const user = (req as any).user as { userId: string; nickname: string };
 
 		await this.queueService.cancelQueue(user.userId);
+
+		// 2. 대기열 상태 변경 알림
+		this.queueGateway.broadcastQueueStatus();
 
 		return {
 			message: '매칭이 취소되었습니다.',

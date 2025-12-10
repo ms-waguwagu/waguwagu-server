@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
 import { RankingModule } from './ranking/ranking.module';
-import { GatewayModule } from './gateway/gateway.module';
+import { GameModule } from './gateway/game.module';
 
 @Module({
   imports: [
@@ -11,7 +11,7 @@ import { GatewayModule } from './gateway/gateway.module';
     }),
 
     RankingModule, // ⭐ REST API 활성화
-    GatewayModule, // ⭐ WebSocket + GameEngine 초기화
+    GameModule, // ⭐ WebSocket + GameEngine 초기화
   ],
 })
 export class AppModule {}

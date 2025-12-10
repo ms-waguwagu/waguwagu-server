@@ -4,10 +4,11 @@ import { QueueController } from './queue.controller';
 import { QueueService } from './queue.service';
 import { AuthModule } from '../auth/auth.module';
 
+
 @Module({
 	imports: [AuthModule],
 	controllers: [QueueController],
 	providers: [QueueGateway, QueueService],
-	exports: [QueueService],
+	exports: [QueueService, QueueGateway],
 })
 export class QueueModule {}

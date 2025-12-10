@@ -107,12 +107,12 @@ export class QueueService implements OnModuleInit {
     const sessionKey = `session:${userId}`;
     const queueKey = 'match_queue';
 
-    console.log(`\n🔍 [Cancel Debug Start] 요청 UserID: ${userId}`);
+    console.log(`\n매칭 취소 요청 UserID: ${userId}`);
 
     // 1. 세션 상태 조회
     const currentStatus = await this.redis.hget(sessionKey, 'status');
     console.log(
-      `👉 Redis 세션 상태 (HGET ${sessionKey} status):`,
+      `Redis 세션 상태 (HGET ${sessionKey} status):`,
       currentStatus,
     );
 
@@ -163,5 +163,18 @@ export class QueueService implements OnModuleInit {
   ): Promise<void> {
     const sessionKey = `session:${userId}`;
     await this.redis.hset(sessionKey, 'status', newStatus);
+  }
+
+	// 매칭 실패 시 유저들을 다시 큐 앞쪽에 복구
+  async rollbackParticipants(participants: string[]): Promise<void> {
+    const queueKey = 'match_queue';
+    if (!participants || participants.length === 0) return;
+
+    await this.redis.lpush(queueKey, ...participants);
+    
+    // 상태도 다시 WAITING으로 변경
+    for (const userId of participants) {
+        await this.updateStatus(userId, 'WAITING');
+    }
   }
 }
