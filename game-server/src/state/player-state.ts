@@ -1,10 +1,15 @@
+/* eslint-disable prettier/prettier */
 export interface PlayerState {
-    id: string;                // 플레이어 고유 ID
-    x: number;                 // 현재 x 좌표 (픽셀 단위)
-    y: number;                 // 현재 y 좌표 (픽셀 단위)
-    dir: { dx: number; dy: number }; // 현재 이동 방향 (-1,0,1)
-    color: string;             // 플레이어 색상 (렌더링용)
-    score: number;             // 점수 (dot 먹으면 올라감)
-    nickname: string;          // 플레이어 닉네임
-  }
-  
+    id: string;                
+    x: number;                 
+    y: number;                 
+    dir: { dx: number; dy: number };
+    color: string;             
+    score: number;             
+    nickname: string;          
+
+    // ⭐ 신규 추가 — 스턴 기능 관련 필드
+    stunned: boolean;           // 현재 스턴 상태인지 여부
+    stunEndTime: number;        // 스턴 해제 시간 (timestamp)
+    alpha: number;              // 렌더링 투명도 (1.0 또는 0.4)
+}
