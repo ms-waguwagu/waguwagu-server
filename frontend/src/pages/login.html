@@ -3,18 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WAGUWAGU - Login</title>
+    <title>WAGUWAGU Login</title>
     <link rel="stylesheet" href="../styles/main.css" />
+    <link rel="stylesheet" href="../styles/ranking.css" />
   </head>
   <body>
-    <div id="app">
-      <div id="main-screen">
+    <!-- 메인 화면 -->
+    <div id="main-screen" style="display: flex;">
+      <!-- 왼쪽 랭킹 패널 -->
+      <div id="ranking-panel">
+        <h2>WEEKLY TOP 10</h2>
+        <div id="ranking-list">
+          <div class="empty-ranking">로딩 중...</div>
+        </div>
+      </div>
+
+      <!-- 중앙 게임 시작 카드 -->
+      <div id="app">
         <h1>WAGUWAGU</h1>
         <input type="text" id="nickname-input" placeholder="닉네임 입력" />
         <button id="start-button">게임 시작</button>
-        <p id="status-message" style="color: #ff6b6b; height: 20px"></p>
+        <p id="status-message"></p>
       </div>
     </div>
+
     <script type="module" src="../js/login.js"></script>
   </body>
 </html>

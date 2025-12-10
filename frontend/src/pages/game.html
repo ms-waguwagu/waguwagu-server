@@ -23,21 +23,24 @@
 
   <!-- 사이드 점수판 -->
   <div id="scoreboard">
+		<h2>GAME OVER</h2>
     <h3>🏆 점수판</h3>
     <div id="score-entries"></div>
+		<p>5초 뒤 메인으로 이동합니다.</p>
   </div>
 
   <p style="font-size: 0.9em; color: #aaa; margin-top:10px;">조작: 방향키 (↑↓←→)</p>
 
-  <!-- 게임 종료 모달 -->
-  <div id="game-end-modal" class="modal hidden">
+  <!-- 게임 종료 모달 점수판과 겹쳐서 임시 주석 처리-->
+  <!-- <div id="game-end-modal" class="modal hidden">
     <div class="modal-content">
       <h2>게임 종료!</h2>
       <div id="final-score-list"></div>
-      <!-- <button id="restart-btn">다시 시작</button> -->
       <button id="home-btn" style="margin-left: 10px;">홈으로</button>
     </div>
-  </div>
+  </div> -->
+
+  <!-- <div id="game-end-text">GAME OVER</div> -->
 
 </div>
 <script type="module" src="../../pacman-client.js"></script>

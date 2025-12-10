@@ -1,5 +1,6 @@
 import { Renderer } from "../game/renderer.js";
 import { io } from "https://cdn.socket.io/4.5.4/socket.io.esm.min.js";
+import { CONFIG } from "../../config.js";
 
 export class GameManager {
   constructor({ nickname, roomId, token, socketUrl, gameScreen, gameEndModal, homeButton, finalScoreList }) {
@@ -21,6 +22,9 @@ export class GameManager {
     this.animationFrameId = null;
     this.inputLoopInterval = null;
     this.keys = {};
+    
+    // Flags
+    this.gameOverHandled = false;
 
     this.setupEventListeners();
   }
@@ -73,7 +77,17 @@ export class GameManager {
     this.socket.on("state", (serverState) => {
       if (!serverState) return;
 
-      if (serverState.gameOver) {
+      const playerCount = serverState.players ? Object.keys(serverState.players).length : 0;
+      const dotsCount = serverState.dots ? serverState.dots.length : 0;
+
+      if (playerCount === 0 || dotsCount === 0) {
+        console.warn(
+          `[State Warning] State is incomplete! Players: ${playerCount}, Dots: ${dotsCount}`
+        );
+      }
+
+      if (serverState.gameOver && !this.gameOverHandled) {
+        this.gameOverHandled = true;
         this.showGameEndModal(serverState);
       }
 
@@ -81,9 +95,99 @@ export class GameManager {
     });
   }
 
-  showGameEndModal() {
+  showGameEndModal(state) {
+    // 1. 점수판 업데이트
+    const scoreEntries = document.getElementById("score-entries");
+    if (scoreEntries && state.players) {
+        const players = Object.values(state.players).sort((a, b) => b.score - a.score);
+        scoreEntries.innerHTML = "";
+        players.forEach((player, i) => {
+            scoreEntries.innerHTML += `
+              <div>
+                ${i + 1}위 - ${player.nickname} : ${player.score}
+              </div>
+            `;
+        });
+    }
+
+    // 2. 점수판 중앙 이동 애니메이션
+    const scoreboard = document.getElementById("scoreboard");
+    if (scoreboard) {
+        scoreboard.classList.add("game-over");
+    }
+
+    // 3. 종료 텍스트 (옵션)
+    const gameEndText = document.getElementById("game-end-text");
+    if (gameEndText) {
+        gameEndText.classList.add("show");
+    }
+
+    // 4. 모달 표시 (기존 로직 유지)
     if (this.gameEndModal) {
       this.gameEndModal.classList.remove("hidden");
+      
+      let html = "<ul>";
+      if (state.players) {
+        const players = Object.values(state.players).sort((a, b) => b.score - a.score);
+        for (const p of players) {
+          html += `<li>${p.nickname} : ${p.score}점</li>`;
+        }
+      }
+      html += "</ul>";
+
+      if (state.gameOverReason) {
+        html += `<p>종료 사유: ${state.gameOverReason}</p>`;
+      }
+
+      if (this.finalScoreList) {
+        this.finalScoreList.innerHTML = html;
+      }
+    }
+    
+    // 5초 후 메인으로 자동 이동
+    setTimeout(() => { this.stop(); window.location.href = "login.html"; }, 5000);
+  }
+
+  async loadRanking() {
+    try {
+      const response = await fetch(CONFIG.API_URL + "/ranking/top");
+      if (!response.ok) throw new Error("Failed to fetch");
+  
+      const data = await response.json();
+      const list = document.getElementById("ranking-list");
+      
+      if (!list) return; // 요소가 없으면 중단
+  
+      if (!data || data.length === 0) {
+        list.innerHTML = '<div class="empty-ranking">랭킹 데이터가 없습니다</div>';
+        return;
+      }
+  
+      list.innerHTML = data
+        .map((item, index) => {
+          const date = new Date(item.playedAt);
+          const formatted =
+            `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")} ` +
+            `${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`;
+  
+          return `
+          <div class="ranking-item rank-${item.rank}">
+            <div class="rank">${item.rank}</div>
+            <div class="nick">${item.nickname}</div>
+            <div class="score">
+              ${item.score}<br>
+              <span style="font-size:12px; color:#999;">${formatted}</span>
+            </div>
+          </div>
+        `;
+        })
+        .join("");
+    } catch (error) {
+      console.error("랭킹 로드 실패:", error);
+      const list = document.getElementById("ranking-list");
+      if (list) {
+        list.innerHTML = '<div class="empty-ranking">랭킹을 불러올 수 없습니다</div>';
+      }
     }
   }
 
@@ -112,11 +216,24 @@ export class GameManager {
     this.connectWebSocket();
     this.gameLoop();
     this.startInputLoop();
+    this.loadRanking(); // 랭킹 로드 (요소가 있으면 표시됨)
+    setInterval(() => this.loadRanking(), 30000);
   }
 
   stop() {
     if (this.socket) this.socket.disconnect();
     if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
     if (this.inputLoopInterval) clearInterval(this.inputLoopInterval);
+    
+    // UI Cleanup
+    const scoreboard = document.getElementById("scoreboard");
+    if (scoreboard) scoreboard.classList.remove("game-over");
+    
+    const gameEndText = document.getElementById("game-end-text");
+    if (gameEndText) gameEndText.classList.remove("show");
+    
+    if (this.gameEndModal) this.gameEndModal.classList.add("hidden");
+    
+    this.gameOverHandled = false;
   }
 }
