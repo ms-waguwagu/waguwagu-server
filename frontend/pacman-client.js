@@ -1,64 +1,47 @@
-// pacman-client.js
-
-import { Renderer } from "./src/game/renderer.js";
 import { CONFIG } from "./config.js";
-import { io } from "https://cdn.socket.io/4.5.4/socket.io.esm.min.js";
-import { loginNickname } from "./src/api/api.js";
+import { GameManager } from "./src/js/game.js";
 
-// ====== 전역 상태 ======
-let socket = null;
-let renderer = null;
-let latestGameState = null;
-let animationFrameId = null;
-const keys = {};
+// ====== 초기화 및 인증 체크 ======
+const token = localStorage.getItem("waguwagu_token");
+const nickname = localStorage.getItem("waguwagu_nickname");
+
+if (!token || !nickname) {
+  alert("닉네임을 입력해주세요.");
+  window.location.href = "src/pages/login.html";
+}
 
 // ====== DOM 요소 ======
-const nicknameInput = document.getElementById("nickname-input");
-const startButton = document.getElementById("start-button");
-const statusMessage = document.getElementById("status-message");
-const mainScreen = document.getElementById("main-screen");
 const gameScreen = document.getElementById("game-screen");
 const myNicknameLabel = document.getElementById("my-nickname");
 const roomIdLabel = document.getElementById("room-id");
+const homeButton = document.getElementById("home-btn");
+const gameEndModal = document.getElementById("game-end-modal");
+const finalScoreList = document.getElementById("final-score-list");
 
-// ====== 키보드 입력 상태 관리 ======
-window.addEventListener("keydown", (e) => {
-  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
-    e.preventDefault();
-  }
-  keys[e.code] = true;
+// UI 초기화
+myNicknameLabel.textContent = nickname;
+const roomId = "DEV-ROOM"; // 일단 하드코딩
+roomIdLabel.textContent = roomId;
+
+// ====== 게임 매니저 시작 ======
+const gameManager = new GameManager({
+  nickname,
+  roomId,
+  token,
+  socketUrl: CONFIG.SOCKET_URL,
+  gameScreen,
+  gameEndModal,
+  homeButton,
+  finalScoreList
 });
 
-window.addEventListener("keyup", (e) => {
-  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
-    e.preventDefault();
-  }
-  keys[e.code] = false;
-});
+gameManager.start();
 
-// ====== WebSocket 연결 ======
-function connectWebSocket(roomId, nickname) {
-  socket = io(CONFIG.SOCKET_URL, {
-    transports: ["websocket"],
-  });
-
-  socket.on("connect", () => {
-    console.log("🟢 Connected:", socket.id);
-    socket.emit("join-room", { roomId, nickname });
-  });
-
-  // 초기화 데이터 수신
-  socket.on("init-game", (data) => {
-    const { playerId, roomId, mapData, initialState } = data;
-    
-    console.log("Map data received from server:", mapData);
-    console.log(`My ID: ${playerId}, Joined Room: ${roomId}`);
-
-    renderer = new Renderer("pacman-canvas", mapData);
-    renderer.draw(initialState);
-  });
-
-  // 게임 상태 업데이트
+// ====== 페이지 떠날 때 정리 ======
+window.addEventListener("beforeunload", () => {
+  gameManager.stop();
+  
+  // ❌게임 상태 업데이트❌
   socket.on("state", (serverState) => {
     const playerCount = serverState.players ? Object.keys(serverState.players).length : 0;
     const dotsCount = serverState.dots ? serverState.dots.length : 0;
@@ -72,14 +55,14 @@ function connectWebSocket(roomId, nickname) {
     window.gameState = serverState;
     latestGameState = serverState;
 
-    // 게임 오버 감지
+    // ❌게임 오버 감지❌
     if (serverState.gameOver && !window.__gameOverHandled) {
       window.__gameOverHandled = true;
       handleGameOver(serverState);
     }
   });
 }
-
+//❌
 function onGameOver(finalScores) {
   const scoreboard = document.getElementById("scoreboard");
   const scoreEntries = document.getElementById("score-entries");
@@ -103,87 +86,9 @@ function onGameOver(finalScores) {
 
   // 게임 조작 중단
   window.gameEnded = true;
-}
-
-
-
-
-// ====== 렌더링 루프 ======
-function gameLoop() {
-  if (renderer && latestGameState) {
-    renderer.draw(latestGameState);
-  }
-  animationFrameId = requestAnimationFrame(gameLoop);
-}
-
-function startGameLoop() {
-  if (animationFrameId) cancelAnimationFrame(animationFrameId);
-  gameLoop();
-}
-
-// ====== 입력 전송 루프 (30FPS) ======
-function sendInputLoop() {
-  setInterval(() => {
-    if (!socket) return;
-
-    const dir = { dx: 0, dy: 0 };
-
-    if (keys["ArrowUp"]) dir.dy = -1;
-    else if (keys["ArrowDown"]) dir.dy = 1;
-    else if (keys["ArrowLeft"]) dir.dx = -1;
-    else if (keys["ArrowRight"]) dir.dx = 1;
-
-    socket.emit("input", { dir });
-  }, 33);
-}
-
-// ====== 게임 시작 버튼 처리 ======
-startButton.addEventListener("click", async () => {
-  const nickname = nicknameInput.value.trim();
-	
-  if (!nickname) {
-    statusMessage.textContent = "닉네임을 입력해주세요.";
-    nicknameInput.focus();
-    return;
-  }
-
-	try {
-    const { accessToken } = await loginNickname(nickname);
-
-    // 토큰과 닉네임을 localStorage에 저장
-    localStorage.setItem("waguwagu_token", accessToken);
-    localStorage.setItem("waguwagu_nickname", nickname);
-
-    console.log("토큰/닉네임 저장 완료:", accessToken, nickname);
-
-  myNicknameLabel.textContent = nickname;
-  const roomId = "DEV-ROOM";
-  roomIdLabel.textContent = roomId;
-
-		const roomId = "DEV-ROOM"; // 일단 하드코딩, 나중에 매칭 서버랑 연동
-		roomIdLabel.textContent = roomId;
-
-		mainScreen.style.display = "none";
-		gameScreen.style.display = "block";
-
-  connectWebSocket(roomId, nickname);
-  sendInputLoop();
-  startGameLoop();
-  } catch (error) {
-    console.error("닉네임 저장/서버 연결 중 오류:", error);
-    statusMessage.textContent = error.message;
-  }
-});
-
-
-// ====== 게임 종료 처리 ======
-function handleGameOver(state) {
-  const modal = document.getElementById("game-end-modal");
-  if (modal) {
-    modal.classList.remove("hidden");
-  }
-
-  // 서버에서 보낸 최종 스코어 (players를 점수 순으로 정렬)
+  //❌여기까지 수정필요
+  
+    // ❌서버에서 보낸 최종 스코어 (players를 점수 순으로 정렬)
   const players = Object.values(state.players)
     .sort((a, b) => b.score - a.score);
 
@@ -193,11 +98,10 @@ function handleGameOver(state) {
     setTimeout(() => {
     backToMainScreen();
   }, 5000);
+// ❌여기까지 수정 필요
 }
 
-
-
-// ====== 메인 화면으로 돌아가기 ======
+// =❌===== 메인 화면으로 돌아가기 ======
 function backToMainScreen() {
   const modal = document.getElementById("game-end-modal");
   if (modal) modal.classList.add("hidden");
@@ -224,6 +128,7 @@ function backToMainScreen() {
 
   loadRanking();
   window.__gameOverHandled = false;
+  
 }
 
 
@@ -269,11 +174,8 @@ async function loadRanking() {
     }
   }
 }
+//❌ 여기까지 수정 필요
 
-
-// ====== 페이지 떠날 때 정리 ======
-window.addEventListener("beforeunload", () => {
-  if (socket) socket.disconnect();
 });
 
 // ====== 초기화 ======

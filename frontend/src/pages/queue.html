@@ -1,0 +1,27 @@
+	<!DOCTYPE html>
+	<html>
+	<head>
+		<title>Login</title>
+		<link rel="stylesheet" href="../styles/queue.css">
+	</head>
+	<body>
+		<!-- 대기열 화면	 -->
+			 <div id="queue-screen" >
+        <div class="queue-overlay">
+          <div class="queue-top">
+            <div id="queue-timer">00:00</div>
+            <div class="queue-label">MATCHMAKING QUEUE</div>
+          </div>
+
+          <div class="queue-center">
+            <div class="queue-count-box">
+              <span id="current-queue-count">1</span>
+              <span class="divider">/</span>
+              <span id="max-queue-count">5</span>
+            </div>
+            <p class="queue-status-text">플레이어를 찾는 중입니다...</p>
+          </div>
+
+          <button id="cancel-queue-btn">대기 취소</button>
+        </div>
+      </div>

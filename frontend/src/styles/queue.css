@@ -1,0 +1,117 @@
+/* =========================================
+   대기열 화면 (Queue Screen) 스타일
+   ========================================= */
+
+/* 대기열 컨테이너: 게임 화면 전체를 덮도록 설정 */
+#queue-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.95); /* 배경을 어둡게 처리 */
+  z-index: 100; /* 게임 캔버스보다 위에 뜨도록 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  font-family: 'Courier New', Courier, monospace; /* 레트로 느낌 폰트 */
+}
+
+/* 내부 정렬을 위한 래퍼 */
+.queue-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  height: 80%; /* 화면 높이의 80% 사용 */
+  width: 100%;
+}
+
+/* --- 상단 영역 (타이머 + 제목) --- */
+.queue-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20px;
+}
+
+#queue-timer {
+  font-size: 1.2rem;
+  color: #ffd700; /* 팩맨 노랑 */
+  font-weight: bold;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+  background: #222;
+  padding: 5px 15px;
+  border-radius: 15px;
+  border: 1px solid #444;
+}
+
+.queue-label {
+  font-size: 0.9rem;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* --- 중앙 영역 (인원수) --- */
+.queue-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.queue-count-box {
+  font-size: 4rem; /* 매우 크게 */
+  font-weight: bold;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.5); /* 네온 효과 */
+}
+
+#current-queue-count {
+  color: #00ffff; /* 청록색 (현재 인원) */
+}
+
+.divider {
+  color: #555;
+  font-size: 2.5rem; /* 슬래시는 조금 작게 */
+}
+
+#max-queue-count {
+  color: #fff; /* 흰색 (최대 인원) */
+}
+
+.queue-status-text {
+  margin-top: 15px;
+  font-size: 1rem;
+  color: #ccc;
+  animation: blink 1.5s infinite; /* 깜빡이는 애니메이션 */
+}
+
+/* --- 하단 영역 (취소 버튼) --- */
+#cancel-queue-btn {
+  background-color: transparent;
+  border: 2px solid #ff6b6b;
+  color: #ff6b6b;
+  padding: 10px 30px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-radius: 5px;
+  margin-bottom: 20px;
+}
+
+#cancel-queue-btn:hover {
+  background-color: #ff6b6b;
+  color: white;
+}
+
+/* 깜빡임 애니메이션 정의 */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

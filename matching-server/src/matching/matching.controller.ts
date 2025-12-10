@@ -2,7 +2,6 @@ import { Controller, Post, Body, UseGuards, Req, Get } from '@nestjs/common';
 import { MatchingService } from './matching.service';
 import { AuthGuard } from '@nestjs/passport';
 
-// NestJS에서 API 경로를 'matching'으로 설정합니다.
 @Controller('matching')
 export class MatchingController {
   constructor(private readonly matchingService: MatchingService) {}
