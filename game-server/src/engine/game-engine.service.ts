@@ -1,3 +1,5 @@
+/* eslint-disable prettier/prettier */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable } from '@nestjs/common';
 import { GhostService } from './ghost.service';
 import { PlayerState } from '../state/player-state';
@@ -87,6 +89,8 @@ function parseMap(design: string[]): {
 
 @Injectable()
 export class GameEngineService {
+  roomId: string; // ⭐ 방 ID
+  roomManager: any; // ⭐ 방 관리자 참조
   private ghostService: GhostService;
 
   private players: Record<string, PlayerState> = {};
@@ -101,6 +105,11 @@ export class GameEngineService {
 
   intervalRunning = false;
   interval: NodeJS.Timeout | null = null;
+
+  // 플레이어 정보 반환 (추가)
+  getPlayer(id: string): PlayerState | null {
+    return this.players[id] || null;
+  }
 
   // 게임 상태 표시 (간단히 플래그로 노출)
   gameOver = false;
@@ -333,6 +342,9 @@ export class GameEngineService {
           this.gameOverReason = `caught_by_ghost:${ghost.id}`;
           // 로그 남김
           // console.log('💀 플레이어가 유령에게 잡혔다!', player.id, ghost.id);
+
+          this.onGameOver(); // ← 새 함수 호출
+
           return;
         }
       }
@@ -400,5 +412,44 @@ export class GameEngineService {
     this.gameOver = false;
     this.gameOverPlayerId = null;
     this.gameOverReason = null;
+  }
+
+  // 모든 플레이어 점수 가져오기
+  getAllPlayerScores(): Array<{ playerId: string; nickname: string; score: number }> {
+    return Object.values(this.players).map(p => ({
+      playerId: p.id,
+      nickname: p.nickname,
+      score: p.score,
+    }));
+  }
+
+  onGameOver() {
+    console.log("💀 게임오버 발생! MODE =", process.env.MODE);
+
+    // 👇 게임 종료 시 모든 플레이어 점수 저장
+    const finalScores = this.getAllPlayerScores();
+    console.log('🏆 최종 점수:', finalScores);
+
+    if (process.env.MODE === "DEV") {
+      // DEV 모드: 게임 자동 초기화
+      setTimeout(() => {
+        console.log("🔄 DEV 모드 → 게임 자동 리셋 실행");
+        this.resetGame();
+      }, 5000);
+
+    } else {
+      // PROD 모드: Room 삭제
+      setTimeout(() => {
+        console.log("🔥 PROD 모드 → 방 삭제 실행:", this.roomId);
+        
+        // 👇 null 체크 추가
+        if (this.roomManager && this.roomId) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          this.roomManager.removeRoom(this.roomId);
+        } else {
+          console.error("❌ roomManager 또는 roomId가 없음!");
+        }
+      }, 5000);
+    }
   }
 }
