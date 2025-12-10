@@ -143,3 +143,28 @@
 #game-end-text.show {
   opacity: 1;
 }
+
+/* 기본적으로 숨김 */
+#scoreboard .game-over-title,
+#scoreboard .game-over-message {
+  display: none;
+}
+
+/* 게임 종료 시 (.game-over 클래스가 붙었을 때) 보임 */
+#scoreboard.game-over .game-over-title,
+#scoreboard.game-over .game-over-message {
+  display: block;
+  text-align: center;
+}
+
+#scoreboard .game-over-title {
+  color: #ff6b6b;
+  margin-bottom: 15px;
+  font-size: 24px;
+}
+
+#scoreboard .game-over-message {
+  margin-top: 15px;
+  color: #aaa;
+  font-size: 14px;
+}
