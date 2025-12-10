@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WAGUWAGU Pacman (Dev Mode)</title>
+    <link rel="stylesheet" href="../styles/main.css" />
+    <link rel="stylesheet" href="../styles/game.css" />
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <div id="game-screen" style="position:relative;"> 
+
+			
+  <div id="game-info">
+    <span>내 닉네임: <span id="my-nickname" style="color: yellow"></span></span>
+    <span>방 번호: <span id="room-id"></span></span>
+  </div>
+
+  <canvas id="pacman-canvas" width="600" height="400"></canvas>
+
+  <!-- 사이드 점수판 -->
+  <div id="scoreboard">
+    <h3>🏆 점수판</h3>
+    <div id="score-entries"></div>
+  </div>
+
+  <p style="font-size: 0.9em; color: #aaa; margin-top:10px;">조작: 방향키 (↑↓←→)</p>
+
+  <!-- 게임 종료 모달 -->
+  <div id="game-end-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>게임 종료!</h2>
+      <div id="final-score-list"></div>
+      <!-- <button id="restart-btn">다시 시작</button> -->
+      <button id="home-btn" style="margin-left: 10px;">홈으로</button>
+    </div>
+  </div>
+
+</div>
+<script type="module" src="../../pacman-client.js"></script>
+</body>
+</html>
