@@ -38,10 +38,15 @@ export class GameEngineService {
   gameOverPlayerId: string | null = null;
   gameOverReason: string | null = null;
 
+  // 게임 시작 시간 & 제한 시간 추가
+  gameStartTime: number = Date.now();
+  maxGameDuration = 60000; // 1분 추후 !!시간변경가능!!
+
   constructor() {
     const { map, dots, ghostSpawns } = parseMap(MAP_DESIGN);
     this.map = map;
-    this.dots = dots;
+    this.dots = dots; // 맵 전체에 도트 배치
+    // this.dots = [{ x: 10, y: 10, eaten: false }]; 테스트 시 하나만 생성
     this.ghostSpawns = ghostSpawns;
 
     this.rows = map.length;
@@ -58,20 +63,26 @@ export class GameEngineService {
   }
 
   addPlayer(id: string, nickname: string) {
-    const spawnCol = 1;
-    const spawnRow = 1;
-    const offset = (TILE_SIZE - PLAYER_SIZE) / 2;
-    const color = PLAYER_COLORS[Object.keys(this.players).length % PLAYER_COLORS.length];
+  // 간단히 왼쪽 위 근처 스폰
+  const spawnCol = 1;
+  const spawnRow = 1;
 
-    this.players[id] = {
-      id,
-      nickname,
-      x: spawnCol * TILE_SIZE + offset,
-      y: spawnRow * TILE_SIZE + offset,
-      dir: { dx: 0, dy: 0 },
-      color,
-      score: 0,
-    };
+  const color = this.pickColor();
+
+  this.players[id] = {
+    id,
+    nickname,
+    x: spawnCol * TILE_SIZE + (TILE_SIZE - PLAYER_SIZE) / 2,
+    y: spawnRow * TILE_SIZE + (TILE_SIZE - PLAYER_SIZE) / 2,
+    dir: { dx: 0, dy: 0 },
+    color,
+    score: 0,
+
+    // ⭐ 추가된 스턴 관련 필드들
+    stunned: false,
+    stunEndTime: 0,
+    alpha: 1,   // 정상 플레이어는 불투명
+  };
   }
 
   removePlayer(id: string) {
@@ -106,17 +117,51 @@ export class GameEngineService {
 
   // ========================= 게임 업데이트 =========================
   update() {
-    if (this.gameOver) return;
 
-    // 플레이어 이동
-    for (const p of Object.values(this.players)) this.updatePlayer(p);
+    const now = Date.now();
 
-    // 유령 이동
-    for (const g of Object.values(this.ghosts)) GhostService.updateGhost(g, this.map);
+    // 게임오버 상태면:
+    if (this.gameOver) {
+      
+      // 유령은 계속 움직여야 함!!!
+      this.ghostService.updateGhosts(this.ghosts, Object.values(this.players));
+      return; // 플레이어 업데이트는 하지 않음
+    }
+    
 
-    // 충돌 체크
+    // 평상시 로직 ------------------
+    for (const player of Object.values(this.players)) {
+      if (player.stunned) {
+        if (now >= player.stunEndTime) {
+          player.stunned = false;
+          player.alpha = 1;
+        }
+        continue;
+      }
+
+      this.updatePlayer(player);
+    }
+
+    this.ghostService.updateGhosts(this.ghosts, Object.values(this.players));
     this.checkPlayerGhostCollision();
+
+    // 모든 점을 먹으면 게임 종료
+    if (this.allDotsEaten()) {
+      this.gameOver = true;
+      this.gameOverReason = "all_dots_eaten";
+      this.onGameOver();
+      return;
+    }
+    
+    // 1분 타이머
+    if (now - this.gameStartTime >= this.maxGameDuration) {
+      this.gameOver = true;
+      this.gameOverReason = "time_over";
+      this.onGameOver(); // 점수 저장 + 방 삭제 예약
+      return;
+    }
   }
+
 
   private updatePlayer(player: PlayerState) {
     const { dx, dy } = player.dir;
@@ -163,17 +208,37 @@ export class GameEngineService {
   }
 
   private checkPlayerGhostCollision() {
-    for (const player of Object.values(this.players)) {
-      for (const ghost of Object.values(this.ghosts)) {
-        const dist = Math.hypot(player.x + PLAYER_SIZE / 2 - ghost.x, player.y + PLAYER_SIZE / 2 - ghost.y);
-        if (dist < (PLAYER_SIZE + GHOST_SIZE) / 2 - 2) {
-          this.gameOver = true;
-          this.gameOverPlayerId = player.id;
-          this.gameOverReason = `caught_by_ghost:${ghost.id}`;
-        }
+  for (const player of Object.values(this.players)) {
+
+    // ⬇ 스턴 상태이면 충돌 검사 스킵
+    if (player.stunned) continue;
+
+    for (const ghost of Object.values(this.ghosts)) {
+
+      const pxCenter = player.x + PLAYER_SIZE / 2;
+      const pyCenter = player.y + PLAYER_SIZE / 2;
+      const gxCenter = ghost.x + PLAYER_SIZE / 2;
+      const gyCenter = ghost.y + PLAYER_SIZE / 2;
+
+      const dist = Math.hypot(pxCenter - gxCenter, pyCenter - gyCenter);
+      const threshold = (PLAYER_SIZE + PLAYER_SIZE) / 2;
+
+      if (dist < threshold) {
+
+        // ⭐ 게임오버 제거하고 스턴만 적용
+        player.stunned = true;
+        player.stunEndTime = Date.now() + 10000; // 10초
+        player.alpha = 0.4;
+        player.score = Math.max(0, player.score - 30);
+
+        console.log(`⚡ 플레이어 ${player.nickname} 스턴! 10초간 이동 불가 + 30점 차감`);
+
+        return;
       }
     }
   }
+}
+
 
   // ========================= 상태 반환 =========================
   getMapData() {
@@ -186,27 +251,48 @@ export class GameEngineService {
     };
   }
 
-  getState() {
-    return {
-      players: JSON.parse(JSON.stringify(this.players)),
-      ghosts: JSON.parse(JSON.stringify(this.ghosts)),
-      dots: JSON.parse(JSON.stringify(this.dots)),
-      gameOver: this.gameOver,
-      gameOverPlayerId: this.gameOverPlayerId,
-      gameOverReason: this.gameOverReason,
-    };
+ getState() {
+  // 1. 원본 데이터 개수 확인
+  const rawCount = Object.keys(this.players).length;
+
+  // ⭐ now 선언 (가장 중요!)
+  const now = Date.now();
+
+  // ⭐ remainingTime 계산
+  const remainingTime = Math.max(
+    0,
+    this.maxGameDuration - (now - this.gameStartTime)
+  );
+
+  // 2. 만약 0명이면 로그 출력
+  if (rawCount === 0) {
+    console.error('🚨 비상! getState()를 호출할 때 플레이어가 없음!');
+    console.trace(); // 누가 이 함수를 불렀는지 추적 (Call Stack 출력)
   }
 
-  allDotsEaten() {
-    return this.dots.every(d => d.eaten);
-  }
+  // 3. 직렬화 (JSON 변환) 수행
+  const serializedPlayers = JSON.parse(JSON.stringify(this.players));
+  const serializedDots = JSON.parse(JSON.stringify(this.dots));
+  const serializedGhosts = JSON.parse(JSON.stringify(this.ghosts));
 
-  getAllPlayerScores() {
-    return Object.values(this.players).map(p => ({
-      playerId: p.id,
-      nickname: p.nickname,
-      score: p.score,
-    }));
+  // 4. 최종 반환
+  return {
+    players: serializedPlayers,
+    dots: serializedDots,
+    ghosts: serializedGhosts,
+    gameOver: this.gameOver,
+    gameOverPlayerId: this.gameOverPlayerId,
+    gameOverReason: this.gameOverReason,
+
+    // ⭐ 프론트에 실시간 타이머 전달
+    remainingTime,
+  };
+}
+
+  // ===== 게임 리셋 및 종료 처리 =====
+  // 모든 dot이 먹혔는지 (나중에 게임 종료 처리에 사용)
+  allDotsEaten(): boolean {
+    return this.dots.every((d) => d.eaten);
   }
 
   resetGame() {
@@ -237,11 +323,50 @@ export class GameEngineService {
     this.gameOverReason = null;
   }
 
-  stopInterval() {
-    if (this.interval) {
-      clearInterval(this.interval);
-      this.interval = null;
-      this.intervalRunning = false;
+  // 모든 플레이어 점수 가져오기
+  getAllPlayerScores(): Array<{ playerId: string; nickname: string; score: number }> {
+    return Object.values(this.players).map(p => ({
+      playerId: p.id,
+      nickname: p.nickname,
+      score: p.score,
+    }));
+  }
+
+  onGameOver() {
+    console.log("💀 게임오버 발생! MODE =", process.env.MODE);
+
+    // 👇 게임 종료 시 점수 저장
+    const finalScores = this.getAllPlayerScores();
+    console.log('🏆 최종 점수:', finalScores);
+
+    // ⭐⭐ 클라이언트로 GAME OVER 이벤트 전송 ⭐⭐
+    if (this.roomManager?.server) {
+      this.roomManager.server.to(this.roomId).emit("game-over", {
+        players: finalScores,
+        reason: this.gameOverReason ?? "unknown",
+      });
+      console.log("📢 game-over 이벤트 전송 완료!");
+    } else {
+      console.error("❌ roomManager.server가 없어 game-over 이벤트를 보낼 수 없음");
+    }
+
+    // 이후 기존 로직 그대로 유지
+    if (process.env.MODE === "DEV") {
+      setTimeout(() => {
+        console.log("🔄 DEV 모드 → 게임 자동 리셋 실행");
+        this.resetGame();
+      }, 5000);
+
+    } else {
+      setTimeout(() => {
+        console.log("🔥 PROD 모드 → 방 삭제 실행:", this.roomId);
+
+        if (this.roomManager && this.roomId) {
+          this.roomManager.removeRoom(this.roomId);
+        } else {
+          console.error("❌ roomManager 또는 roomId가 없음!");
+        }
+      }, 5000);
     }
   }
 }

@@ -1,3 +1,4 @@
+
 // 화면 그리기 담당
 
 const CONSTANTS = {
@@ -9,6 +10,7 @@ export class Renderer {
   constructor(canvasId, mapData) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext("2d");
+    this.previousScores = {};
 
     // 서버에서 받은 데이터
     this.map = mapData.map;
@@ -22,6 +24,8 @@ export class Renderer {
     console.log(
       `[Renderer Init] Canvas Size: ${this.canvas.width}x${this.canvas.height} (Rows: ${this.mapRows}, Cols: ${this.mapCols})`
     );
+
+    this.previousScores = {}; // 플레이어 점수 변화 체크용
   }
 
   // -------------------------------
@@ -111,11 +115,53 @@ export class Renderer {
   // 플레이어 그리기
   // -------------------------------
   drawPlayers(players) {
-    Object.values(players).forEach((player) => {
-      this.ctx.fillStyle = player.color;
-      this.ctx.fillRect(player.x, player.y, 18, 18); // 사이즈는 조정 필요
-    });
-  }
+  const ctx = this.ctx;
+
+  Object.values(players).forEach((player) => {
+    ctx.save();
+
+    //  1. 스턴 시 반투명 처리
+    ctx.globalAlpha = player.alpha !== undefined ? player.alpha : 1;
+
+    //  2. 팩맨 애니메이션 값 계산
+    const time = Date.now() / 150;      // 애니메이션 속도
+    const mouthOpen = (Math.sin(time) + 1) / 2; // 0~1 사이값
+    const maxAngle = Math.PI / 3.5;       // 입 최대 벌림 각도
+    const mouthAngle = mouthOpen * maxAngle;
+
+    //  3. 팩맨 위치 / 크기
+    const cx = player.x + CONSTANTS.PLAYER_SIZE / 2;
+    const cy = player.y + CONSTANTS.PLAYER_SIZE / 2;
+    const radius = CONSTANTS.PLAYER_SIZE / 2;
+
+    //  4. 이동 방향에 따라 입 방향도 회전
+    let directionAngle = 0;
+    if (player.dir.dx === 1) directionAngle = 0;                     // →
+    else if (player.dir.dx === -1) directionAngle = Math.PI;         // ←
+    else if (player.dir.dy === -1) directionAngle = -Math.PI / 2;    // ↑
+    else if (player.dir.dy === 1) directionAngle = Math.PI / 2;      // ↓
+
+    // ⭐ 5. 팩맨 그리기
+    ctx.fillStyle = player.color;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+
+    ctx.arc(
+      cx,
+      cy,
+      radius,
+      directionAngle + mouthAngle,
+      directionAngle - mouthAngle,
+      false
+    );
+
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  });
+}
+
 
   // -------------------------------
   // 점수판 업데이트
@@ -141,17 +187,32 @@ export class Renderer {
     playersEntries.sort((a, b) => b.score - a.score);
 
     playersEntries.forEach((p) => {
-      const entry = document.createElement("div");
-      entry.innerHTML = `
-        <span style="color:${p.color}; font-weight:bold;">${p.nickname}</span>
-        : <span class="score-value">${p.score}</span>
-      `;
-      container.appendChild(entry);
+  const entry = document.createElement("div");
 
-      // 점수 애니메이션
-      const scoreValue = entry.querySelector(".score-value");
-      scoreValue.classList.add("score-animate");
-      setTimeout(() => scoreValue.classList.remove("score-animate"), 300);
+  const oldScore = this.previousScores[p.id] ?? p.score;
+
+  entry.innerHTML = `
+    <span class="player-name" style="color:${p.color};">${p.nickname}</span>
+    <span class="player-score score-value">${p.score}</span>
+  `;
+
+  const scoreValue = entry.querySelector(".player-score");
+
+  // 점수 증가 → 초록 애니메이션
+  if (p.score > oldScore) {
+    scoreValue.classList.add("score-increase");
+    setTimeout(() => scoreValue.classList.remove("score-increase"), 500);
+  }
+  // 점수 감소 → 빨간 애니메이션
+  else if (p.score < oldScore) {
+    scoreValue.classList.add("score-decrease");
+    setTimeout(() => scoreValue.classList.remove("score-decrease"), 500);
+  }
+
+  // 점수 저장
+  this.previousScores[p.id] = p.score;
+
+  container.appendChild(entry);
     });
   }
 }
