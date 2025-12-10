@@ -8,9 +8,8 @@ import { loginNickname } from "./src/api/api.js";
 // ====== 전역 상태 ======
 let socket = null;
 let renderer = null;
-let latestGameState = null; 
-let animationFrameId = null; // 루프 ID 저장용 
-
+let latestGameState = null;
+let animationFrameId = null;
 const keys = {};
 
 // ====== DOM 요소 ======
@@ -21,14 +20,11 @@ const mainScreen = document.getElementById("main-screen");
 const gameScreen = document.getElementById("game-screen");
 const myNicknameLabel = document.getElementById("my-nickname");
 const roomIdLabel = document.getElementById("room-id");
-const restartButton = document.getElementById("restart-btn");
-
-// (점수판 / 모달 DOM은 나중에 서버가 점수/게임종료를 줄 때 다시 붙이자)
 
 // ====== 키보드 입력 상태 관리 ======
 window.addEventListener("keydown", (e) => {
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
-    e.preventDefault(); // 화면 스크롤 차단
+    e.preventDefault();
   }
   keys[e.code] = true;
 });
@@ -40,83 +36,90 @@ window.addEventListener("keyup", (e) => {
   keys[e.code] = false;
 });
 
-export function connectSocket() {
+// ====== WebSocket 연결 ======
+function connectWebSocket(roomId, nickname) {
   socket = io(CONFIG.SOCKET_URL, {
     transports: ["websocket"],
   });
 
   socket.on("connect", () => {
     console.log("🟢 Connected:", socket.id);
-  });
-
-  socket.on("state", (state) => {
-    window.gameState = state;
-  });
-}
-
-// ====== WebSocket 연결 ======
-function connectWebSocket(roomId, nickname) {
-  socket = io(CONFIG.SOCKET_URL, {
-    transports: ["websocket"], // websocket만 사용 권장
-  });
-
-  socket.on("connect", () => {
-    console.log("🟢 Connected:", socket.id);
-
-    // 방 입장 요청 (B단계에서 만든 join-room 기반)
     socket.emit("join-room", { roomId, nickname });
   });
 
-  // 서버가 방 입장 완료 알림
-	socket.on("init-game", (data) => {
+  // 초기화 데이터 수신
+  socket.on("init-game", (data) => {
     const { playerId, roomId, mapData, initialState } = data;
     
     console.log("Map data received from server:", mapData);
     console.log(`My ID: ${playerId}, Joined Room: ${roomId}`);
 
-    // 서버에서 받은 맵 데이터로 렌더러 생성
     renderer = new Renderer("pacman-canvas", mapData);
-    
-    // 초기 상태 한번 그려주기
     renderer.draw(initialState);
-		
   });
 
-  // 서버에서 현재 상태 내려줌 (players 객체)
+  // 게임 상태 업데이트
   socket.on("state", (serverState) => {
+    const playerCount = serverState.players ? Object.keys(serverState.players).length : 0;
+    const dotsCount = serverState.dots ? serverState.dots.length : 0;
 
-		const playerCount = serverState.players ? Object.keys(serverState.players).length : 0;
-  const dotsCount = serverState.dots ? serverState.dots.length : 0;
+    if (!serverState || playerCount === 0 || dotsCount === 0) {
+      console.warn(
+        `[State Warning] State is incomplete! Players: ${playerCount}, Dots: ${dotsCount}`
+      );
+    }
 
-  if (!serverState || playerCount === 0 || dotsCount === 0) {
-    console.warn(
-      `[State Warning] State is incomplete! Players: ${playerCount}, Dots: ${dotsCount}`
-    );
-  } else {
-   
-  }
-    window.gameState = serverState; // 전역 변수 업데이트 (디버깅용)
-    latestGameState = serverState;  // 렌더링용 변수 업데이트
+    window.gameState = serverState;
+    latestGameState = serverState;
+
+    // 게임 오버 감지
+    if (serverState.gameOver && !window.__gameOverHandled) {
+      window.__gameOverHandled = true;
+      handleGameOver(serverState);
+    }
   });
 }
+
+function onGameOver(finalScores) {
+  const scoreboard = document.getElementById("scoreboard");
+  const scoreEntries = document.getElementById("score-entries");
+  const gameEndText = document.getElementById("game-end-text");
+
+  // 1) 종료 텍스트 등장
+  gameEndText.classList.add("show");
+
+  // 2) 점수판 데이터 업데이트
+  scoreEntries.innerHTML = "";
+  finalScores.forEach((player, i) => {
+    scoreEntries.innerHTML += `
+      <div>
+        ${i + 1}위 - ${player.nickname} : ${player.score}
+      </div>
+    `;
+  });
+
+  // 3) 점수판을 중앙으로 이동시키기 (애니메이션)
+  scoreboard.classList.add("game-over");
+
+  // 게임 조작 중단
+  window.gameEnded = true;
+}
+
+
+
 
 // ====== 렌더링 루프 ======
 function gameLoop() {
   if (renderer && latestGameState) {
     renderer.draw(latestGameState);
   }
-	// 다음 프레임 예약 및 ID 저장
   animationFrameId = requestAnimationFrame(gameLoop);
 }
 
-// 2. 루프 시작/정지 헬퍼
 function startGameLoop() {
-  if (animationFrameId) cancelAnimationFrame(animationFrameId); // 기존 루프 중지
-  gameLoop(); // 새 루프 시작
+  if (animationFrameId) cancelAnimationFrame(animationFrameId);
+  gameLoop();
 }
-
-// 게임 루프 시작
-startGameLoop();
 
 // ====== 입력 전송 루프 (30FPS) ======
 function sendInputLoop() {
@@ -131,7 +134,7 @@ function sendInputLoop() {
     else if (keys["ArrowRight"]) dir.dx = 1;
 
     socket.emit("input", { dir });
-  }, 33); // ≒ 30FPS
+  }, 33);
 }
 
 // ====== 게임 시작 버튼 처리 ======
@@ -153,9 +156,9 @@ startButton.addEventListener("click", async () => {
 
     console.log("토큰/닉네임 저장 완료:", accessToken, nickname);
 
-		// UI 전환
-		statusMessage.textContent = "";
-		myNicknameLabel.textContent = nickname;
+  myNicknameLabel.textContent = nickname;
+  const roomId = "DEV-ROOM";
+  roomIdLabel.textContent = roomId;
 
 		const roomId = "DEV-ROOM"; // 일단 하드코딩, 나중에 매칭 서버랑 연동
 		roomIdLabel.textContent = roomId;
@@ -163,28 +166,116 @@ startButton.addEventListener("click", async () => {
 		mainScreen.style.display = "none";
 		gameScreen.style.display = "block";
 
-  // 서버 WebSocket 연결 + 입력 전송 시작
   connectWebSocket(roomId, nickname);
-  sendInputLoop();}
-  catch (error) {
+  sendInputLoop();
+  startGameLoop();
+  } catch (error) {
     console.error("닉네임 저장/서버 연결 중 오류:", error);
     statusMessage.textContent = error.message;
   }
 });
+
+
+// ====== 게임 종료 처리 ======
+function handleGameOver(state) {
+  const modal = document.getElementById("game-end-modal");
+  if (modal) {
+    modal.classList.remove("hidden");
+  }
+
+  // 서버에서 보낸 최종 스코어 (players를 점수 순으로 정렬)
+  const players = Object.values(state.players)
+    .sort((a, b) => b.score - a.score);
+
+  // onGameOver 실행
+  onGameOver(players);
+
+    setTimeout(() => {
+    backToMainScreen();
+  }, 5000);
+}
+
+
+
+// ====== 메인 화면으로 돌아가기 ======
+function backToMainScreen() {
+  const modal = document.getElementById("game-end-modal");
+  if (modal) modal.classList.add("hidden");
+
+  gameScreen.style.display = "none";
+  mainScreen.style.display = "flex";
+
+  // 종료 텍스트 숨기기
+  const gameEndText = document.getElementById("game-end-text");
+  if (gameEndText) gameEndText.classList.remove("show");
+
+  // 🔥 점수판 중앙 이동 초기화
+  const scoreboard = document.getElementById("scoreboard");
+  if (scoreboard) scoreboard.classList.remove("game-over");
+
+  if (socket) socket.disconnect();
+  if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
+  renderer = null;
+  latestGameState = null;
+
+  nicknameInput.value = "";
+  statusMessage.textContent = "";
+
+  loadRanking();
+  window.__gameOverHandled = false;
+}
+
+
+// ====== 랭킹 로드 ======
+async function loadRanking() {
+  try {
+    const response = await fetch(CONFIG.API_URL + "/ranking/top");
+    if (!response.ok) throw new Error("Failed to fetch");
+
+    const data = await response.json();
+    const list = document.getElementById("ranking-list");
+
+    if (!data || data.length === 0) {
+      list.innerHTML = '<div class="empty-ranking">랭킹 데이터가 없습니다</div>';
+      return;
+    }
+
+    list.innerHTML = data
+      .map((item, index) => {
+        const date = new Date(item.playedAt);
+        
+        const formatted =
+          `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")} ` +
+          `${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`;
+
+        return `
+        <div class="ranking-item rank-${item.rank}">
+          <div class="rank">${item.rank}</div>
+          <div class="nick">${item.nickname}</div>
+          <div class="score">
+            ${item.score}<br>
+            <span style="font-size:12px; color:#999;">${formatted}</span>
+          </div>
+        </div>
+      `;
+      })
+      .join("");
+  } catch (error) {
+    console.error("랭킹 로드 실패:", error);
+    const list = document.getElementById("ranking-list");
+    if (list) {
+      list.innerHTML = '<div class="empty-ranking">랭킹을 불러올 수 없습니다</div>';
+    }
+  }
+}
+
 
 // ====== 페이지 떠날 때 정리 ======
 window.addEventListener("beforeunload", () => {
   if (socket) socket.disconnect();
 });
 
-restartButton.addEventListener("click", () => {
-  restartButton.style.display = "none";
-  statusMessage.textContent = "";
-  mainScreen.style.display = "block";
-  gameScreen.style.display = "none";
-});
-
-// 페이지를 떠날 때 정리 작업
-window.addEventListener("beforeunload", () => {
-  if (socket) socket.disconnect();
-});
+// ====== 초기화 ======
+loadRanking(); // 페이지 로드 시 랭킹 표시
+setInterval(loadRanking, 30000); // 30초마다 랭킹 갱신
