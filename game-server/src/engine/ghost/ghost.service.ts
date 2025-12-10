@@ -1,7 +1,7 @@
-import { GhostState } from '../state/ghost-state';
-import { randomDirection } from './utils.service';
-import { getPathBFS, findRandomTarget } from '../pathfinding/pathfinding';
-import { TILE_SIZE } from '../map/map.data';
+import { GhostState } from '../../state/ghost-state';
+import { randomDirection } from '../utils.service';
+import { getPathBFS, findRandomTarget } from '../../pathfinding/pathfinding';
+import { TILE_SIZE } from '../../map/map.data';
 
 export class GhostService {
   static updateGhost(ghost: GhostState, map: number[][]) {
@@ -10,7 +10,11 @@ export class GhostService {
       if (ghost.targetY != null) ghost.y = ghost.targetY;
 
       if (!ghost.path || ghost.path.length === 0) {
-        const targetTile = findRandomTarget(map, Math.floor(ghost.x / TILE_SIZE), Math.floor(ghost.y / TILE_SIZE));
+        const targetTile = findRandomTarget(
+          map,
+          Math.floor(ghost.x / TILE_SIZE),
+          Math.floor(ghost.y / TILE_SIZE),
+        );
         if (targetTile) {
           ghost.path = getPathBFS(
             map,
@@ -54,6 +58,9 @@ export class GhostService {
   static reachedTarget(ghost: GhostState) {
     if (ghost.targetX == null || ghost.targetY == null) return true;
     const threshold = 0.5;
-    return Math.abs(ghost.x - ghost.targetX) < threshold && Math.abs(ghost.y - ghost.targetY) < threshold;
+    return (
+      Math.abs(ghost.x - ghost.targetX) < threshold &&
+      Math.abs(ghost.y - ghost.targetY) < threshold
+    );
   }
 }
