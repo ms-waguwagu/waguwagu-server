@@ -7,7 +7,7 @@ export async function matchingQueue() {
     throw new Error("액세스 토큰이 없습니다. 닉네임을 다시 입력해주세요.");
   }
 	
-	const res = await fetch(`${MATCHING_CONFIG.MATCHING_URL}/matching/queue`, {
+	const res = await fetch(`${MATCHING_CONFIG.MATCHING_URL}/queue`, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
@@ -33,7 +33,7 @@ export async function cancelQueue() {
     throw new Error("액세스 토큰이 없습니다. 닉네임을 다시 입력해주세요.");
   }
 	
-	const res = await fetch(`${MATCHING_CONFIG.MATCHING_URL}/matching/cancel`, {
+	const res = await fetch(`${MATCHING_CONFIG.MATCHING_URL}/queue/cancel`, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
@@ -59,7 +59,7 @@ export async function getQueueLength() {
     throw new Error("액세스 토큰이 없습니다. 닉네임을 다시 입력해주세요.");
   }
 	
-	const res = await fetch(`${MATCHING_CONFIG.MATCHING_URL}/matching/queue-length`, {
+	const res = await fetch(`${MATCHING_CONFIG.MATCHING_URL}/queue/length`, {
 		method: "GET",
 		headers: {
 			"Content-Type": "application/json",

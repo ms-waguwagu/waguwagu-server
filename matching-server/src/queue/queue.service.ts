@@ -11,7 +11,7 @@ import fs from 'fs/promises'; // fs 모듈 임포트
 import path from 'path'; // path 모듈 임포트
 
 @Injectable()
-export class MatchingService implements OnModuleInit {
+export class QueueService implements OnModuleInit {
   constructor(@InjectRedis() private readonly redis: Redis) {}
 
   private readonly SESSION_TTL = 3600; // 1시간

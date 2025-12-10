@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import { MatchingService } from './matching.service';
+import { QueueService } from '../queue/queue.service';
 
 @Injectable()
 export class MatchingWorker {
   private readonly logger = new Logger(MatchingWorker.name);
   private isProcessing = false; // 중복 실행 방지용 플래그
 
-  constructor(private readonly matchingService: MatchingService) {}
+  constructor(private readonly queueService: QueueService) {}
 
   // 2초마다 실행
   @Interval(2000)
@@ -21,7 +21,7 @@ export class MatchingWorker {
     try {
       // 2. 대기열에서 5명 추출 시도 (Lua Script 호출)
       const participants =
-        await this.matchingService.extractMatchParticipants(5);
+        await this.queueService.extractMatchParticipants(5);
 
       if (!participants) {
         // 5명이 안 모였으면 무시 (로그 너무 많이 찍히니 생략 가능)
