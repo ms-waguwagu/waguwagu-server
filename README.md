@@ -44,12 +44,17 @@ waguwagu-server/
 │       │
 │       ├── engine/               # 게임 틱 엔진 및 물리 처리
 │       │   ├── game-engine.service.ts
+│       │   ├── ghost.service.ts
 │       │   ├── physics.service.ts
 │       │   └── score.service.ts
 │       │
 │       ├── state/                # 게임 상태 (read/write)
 │       │   ├── game-state.ts
-│       │   └── player-state.ts
+│       │   ├── player-state.ts
+│       │   └── ghost-state.ts
+│       │
+│       ├── pathfinding/
+│       │   └── pathfinding.ts
 │       │
 │       ├── types/
 │       │   ├── direction.type.ts
@@ -100,25 +105,33 @@ waguwagu-server/
 
 ```bash
 cd frontend
-npx http-server -p 5173
+npx http-server -p 5500
 ```
 
 접속 주소:
-🔗 **[http://localhost:5173](http://localhost:5173)**
-
+🔗 **[http://localhost:5500](http://localhost:5500)**
+🔗 **[http://127.0.0.1:5500]**
 ---
 
 ## ▶ 백엔드 실행
 
 ```bash
-cd backend
+# game-server 실행
+cd game-server
 npm install      # 최초 1회
 npm run start:dev
+
+#matching-server 실행
+cd matching-server
+npm install      # 최초 1회
+docker-compose up --build
 ```
 
 웹소켓 서버 주소:
-🔗 ws://localhost:3000/game
+🔗 ws://localhost:3001/game
 
+매칭 서버 주소:
+🔗 http://localhost:3000
 ---
 
 # 🎮 게임 서버 구조 개념
