@@ -75,22 +75,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     delete this.rooms[roomId];
   }
 
-
   // ============================
   // 1) 클라이언트가 방 입장 요청
   // ============================
-	
-	// 컨트롤러에서 호출할 방 생성 메서드
-	createRoomByApi(roomId: string): boolean {
+
+  // 컨트롤러에서 호출할 방 생성 메서드
+  createRoomByApi(roomId: string): boolean {
     if (this.rooms[roomId]) {
       console.log(`⚠️ Room ${roomId} already exists.`);
       return false;
     }
 
-    const engine = new GameEngineService();
+    const engine = new GameEngineService(this.ghostService);
     engine.roomId = roomId;
     engine.roomManager = this;
-    
+
     // 유령 추가 등 초기화
     engine.addGhost('g1');
     engine.addGhost('g2');
