@@ -141,12 +141,18 @@ if (document.getElementById("queue-screen")) {
     if (typeof io !== "undefined") {
       const socket = io("http://localhost:3000/queue", {
         auth: { token: `Bearer ${token}` },
-        transports: ["websocket"],
+        // transports: ["websocket"],
       });
+
+			  // 소켓 연결되면 대기열 진입
+      socket.on("connect", () => {
+        console.log("queue socket connected:", socket.id);
+        socket.emit("join_queue"); // 여기서 서버로 대기열 입장 요청
+      });
+
 
       initQueueScreen(socket, (matchData) => {
         // 매칭 성공 시 게임 페이지로 이동
-        console.log("매칭 성공! 게임 페이지로 이동합니다.", matchData);
         localStorage.setItem("match_data", JSON.stringify(matchData));
         window.location.href = "game.html";
       });

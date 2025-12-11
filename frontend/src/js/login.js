@@ -1,5 +1,5 @@
 import { loginNickname } from "../api/login-api.js";
-import { matchingQueue } from "../api/queue-api.js";
+// import { matchingQueue } from "../api/queue-api.js";
 
 const nicknameInput = document.getElementById("nickname-input");
 const startButton = document.getElementById("start-button");
@@ -24,8 +24,8 @@ startButton.addEventListener("click", async () => {
     console.log("토큰/닉네임 저장 완료:", accessToken, nickname);
 
     // 매칭 큐 진입
-    await matchingQueue();
-    console.log("매칭 큐 진입 성공");
+    // await matchingQueue();
+    // console.log("매칭 큐 진입 성공");
 
     window.location.href = "queue.html";
   } catch (error) {

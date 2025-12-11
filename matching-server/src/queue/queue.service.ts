@@ -107,7 +107,7 @@ export class QueueService implements OnModuleInit {
     const sessionKey = `session:${userId}`;
     const queueKey = 'match_queue';
 
-    console.log(`\n매칭 취소 요청 UserID: ${userId}`);
+    console.log(`\n매칭 취소 UserID: ${userId}`);
 
     // 1. 세션 상태 조회
     const currentStatus = await this.redis.hget(sessionKey, 'status');

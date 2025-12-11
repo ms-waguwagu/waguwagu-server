@@ -39,8 +39,16 @@ export class MatchingWorker {
 			// 2. 고유 Room ID 생성
       const newRoomId = uuidv4();
 
+			 // 매칭된 유저들을 IN_GAME 으로 설정 
+      for (const userId of participants) {
+        await this.queueService.updateStatus(userId, 'IN_GAME');
+        // this.logger.log(
+        //   `[MatchingWorker] 유저 상태 변경 -> IN_GAME (userId=${userId})`,
+        // );
+      }
+
+
       // 3. 게임 룸 생성 요청
-      // const gameServerUrl = 'http://localhost:3001'; 
 			const gameServerUrl = 'http://host.docker.internal:3001'; 
       const response = await axios.post(`${gameServerUrl}/internal/room`, {
         roomId: newRoomId,

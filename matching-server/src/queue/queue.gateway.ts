@@ -46,21 +46,30 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     // 나갈 때 맵에서 지움
     const userId = client.data.userId;
 
 		if (!userId) return;
 
     this.connectedUsers.delete(userId);
-		this.logger.log(`클라이언트 연결 해제: ${userId}`);
-		// 연결이 끊기면 자동으로 대기열 취소
-      try {
-        this.queueService.cancelQueue(userId);
-        this.logger.log(`연결 끊김으로 인한 매칭 취소: ${userId}`);
-      } catch (e) {
-        // 이미 매칭되었거나 큐에 없는 경우 무시
+			try {
+      	const session = await this.queueService.getSessionInfo(userId);
+      	const status = session?.status;
+
+      //이미 매칭되었거나 게임 중이면 큐 취소를 시도하지 않음
+      	if (status !== 'WAITING') {
+        this.logger.log(
+          `disconnect: userId=${userId}, status=${status}`,
+        );
+        return;
       }
+
+      await this.queueService.cancelQueue(userId);
+      this.logger.log(`연결 끊김으로 인한 매칭 취소: ${userId}`);
+    } catch (e: any) {
+      	this.logger.error(`disconnect 처리 중 에러 (userId=${userId})`, e);
+    }
   }
 
   // 대기열 입장 요청
