@@ -43,6 +43,7 @@ waguwagu-server/
 │       │   └── room.entity.ts
 │       │
 │       ├── engine/               # 게임 틱 엔진 및 물리 처리
+│       │   ├── ghost/               # 유령 로직
 │       │   ├── game-engine.service.ts
 │       │   ├── ghost.service.ts
 │       │   ├── physics.service.ts

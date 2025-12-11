@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
 import { GameGateway } from './game.gateway';
 import { RankingModule } from '../ranking/ranking.module';
-import { GameController } from './game.controller';
+import { GhostModule } from '../engine/ghost/ghost.module';
 
 @Module({
-  imports: [RankingModule],
-	controllers: [GameController],
+  imports: [RankingModule, GhostModule],
   providers: [GameGateway],
-  exports: [GameGateway], // 다른 모듈에서 사용할 경우
+  exports: [GameGateway],
 })
 export class GameModule {}

@@ -1,7 +1,6 @@
 // 화면 그리기 담당
-
 const CONSTANTS = {
-  GHOST_SIZE: 22,
+  GHOST_SIZE: 20,
   PLAYER_SIZE: 18,
 };
 
@@ -10,66 +9,36 @@ export class Renderer {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext("2d");
 
-    // 서버에서 받은 데이터
     this.map = mapData.map;
     this.tileSize = mapData.tileSize;
     this.mapRows = mapData.rows;
     this.mapCols = mapData.cols;
 
-    // 캔버스 크기 동적 설정
     this.canvas.width = this.mapCols * this.tileSize;
     this.canvas.height = this.mapRows * this.tileSize;
+
     console.log(
       `[Renderer Init] Canvas Size: ${this.canvas.width}x${this.canvas.height} (Rows: ${this.mapRows}, Cols: ${this.mapCols})`
     );
+
+    this.previousScores = {}; // 플레이어 점수 변화 체크용
   }
 
   // -------------------------------
-  // 메인 그리기 루프
+  // 메인 그리기 루프 
   // -------------------------------
   draw(gameState) {
-    const ctx = this.ctx;
-
-    // 1. 배경 클리어
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-    // 2. 맵(벽) 그리기
+    this.clearCanvas();
     this.drawMap();
-
-    // 3. DOT 그리기
-    if (Array.isArray(gameState.dots)) {
-      this.drawDots(gameState.dots);
-    }
-
-    // 4. 플레이어 그리기
-    if (gameState.players) {
-      this.drawPlayers(gameState.players);
-    }
-
-    // 5. 유령 그리기 (옵션)
-    if (gameState.ghosts) {
-      Object.values(gameState.ghosts).forEach((ghost) => {
-        ctx.fillStyle = ghost.color || "white";
-        ctx.beginPath();
-        ctx.arc(ghost.x, ghost.y, CONSTANTS.GHOST_SIZE / 2, 0, Math.PI * 2);
-        ctx.fill();
-      });
-    }
-
-    // 6. 게임 종료 텍스트
-    // if (gameState.gameOver) {
-    //   ctx.fillStyle = "red";
-    //   ctx.font = "40px sans-serif";
-    //   ctx.fillText(
-    //     "게임 종료!",
-    //     this.canvas.width / 2 - 100,
-    //     this.canvas.height / 2
-    //   );
-    // }
-
-    // 7. 점수판 업데이트 (화면 그린 뒤 호출)
+    this.drawDots(gameState.dots || []);
+    this.drawPlayers(gameState.players || {});
+    this.drawGhosts(gameState.ghosts || {});
     this.updateScoreboard(gameState);
+  }
+
+  clearCanvas() {
+    this.ctx.fillStyle = "black";
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
   drawMap() {
@@ -88,16 +57,10 @@ export class Renderer {
     }
   }
 
-  // -------------------------------
-  // DOT 그리기
-  // -------------------------------
   drawDots(dots = []) {
-    const ctx = this.ctx;
-    ctx.fillStyle = "#FFD700"; // 노란 점
-
+    this.ctx.fillStyle = "#FFD700"; // 노란 점
     dots.forEach((dot) => {
       if (!dot.eaten) {
-        // 도트는 타일 중앙에 작게 그림
         const cx = dot.x * this.tileSize + this.tileSize / 2;
         const cy = dot.y * this.tileSize + this.tileSize / 2;
         this.ctx.beginPath();
@@ -107,19 +70,51 @@ export class Renderer {
     });
   }
 
-  // -------------------------------
-  // 플레이어 그리기
-  // -------------------------------
   drawPlayers(players) {
+    const ctx = this.ctx;
+
     Object.values(players).forEach((player) => {
-      this.ctx.fillStyle = player.color;
-      this.ctx.fillRect(player.x, player.y, 18, 18); // 사이즈는 조정 필요
+      ctx.save();
+
+      ctx.globalAlpha = player.alpha !== undefined ? player.alpha : 1;
+
+      // 팩맨 애니메이션
+      const time = Date.now() / 150;
+      const mouthOpen = (Math.sin(time) + 1) / 2;
+      const maxAngle = Math.PI / 3.5;
+      const mouthAngle = mouthOpen * maxAngle;
+
+      const cx = player.x + CONSTANTS.PLAYER_SIZE / 2;
+      const cy = player.y + CONSTANTS.PLAYER_SIZE / 2;
+      const radius = CONSTANTS.PLAYER_SIZE / 2;
+
+      let directionAngle = 0;
+      if (player.dir.dx === 1) directionAngle = 0;
+      else if (player.dir.dx === -1) directionAngle = Math.PI;
+      else if (player.dir.dy === -1) directionAngle = -Math.PI / 2;
+      else if (player.dir.dy === 1) directionAngle = Math.PI / 2;
+
+      ctx.fillStyle = player.color;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius, directionAngle + mouthAngle, directionAngle - mouthAngle);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
     });
   }
 
-  // -------------------------------
-  // 점수판 업데이트
-  // -------------------------------
+  drawGhosts(ghosts) {
+    const ctx = this.ctx;
+    Object.values(ghosts).forEach((ghost) => {
+      ctx.fillStyle = ghost.color || "white";
+      ctx.beginPath();
+      ctx.arc(ghost.x, ghost.y, CONSTANTS.GHOST_SIZE / 2, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
   updateScoreboard(gameState) {
     const container = document.getElementById("score-entries");
     const gameScreen = document.getElementById("game-screen");
@@ -128,30 +123,36 @@ export class Renderer {
     gameScreen.classList.add("show-scoreboard");
     container.innerHTML = "";
 
-    const playersEntries = Object.entries(gameState.players || {}).map(
-      ([id, p]) => ({
-        id,
-        nickname: p.nickname || id, // 닉네임 없으면 id 사용
-        score: typeof p.score === "number" ? p.score : 0,
-        color: p.color || "#ffffff",
-      })
-    );
+    const playersEntries = Object.entries(gameState.players || {}).map(([id, p]) => ({
+      id,
+      nickname: p.nickname || id,
+      score: typeof p.score === "number" ? p.score : 0,
+      color: p.color || "#ffffff",
+    }));
 
-    // 점수 순 정렬
     playersEntries.sort((a, b) => b.score - a.score);
 
     playersEntries.forEach((p) => {
       const entry = document.createElement("div");
-      entry.innerHTML = `
-        <span style="color:${p.color}; font-weight:bold;">${p.nickname}</span>
-        : <span class="score-value">${p.score}</span>
-      `;
-      container.appendChild(entry);
+      const oldScore = this.previousScores[p.id] ?? p.score;
 
-      // 점수 애니메이션
-      const scoreValue = entry.querySelector(".score-value");
-      scoreValue.classList.add("score-animate");
-      setTimeout(() => scoreValue.classList.remove("score-animate"), 300);
+      entry.innerHTML = `
+        <span class="player-name" style="color:${p.color};">${p.nickname}</span>
+        <span class="player-score score-value">${p.score}</span>
+      `;
+
+      const scoreValue = entry.querySelector(".player-score");
+
+      if (p.score > oldScore) {
+        scoreValue.classList.add("score-increase");
+        setTimeout(() => scoreValue.classList.remove("score-increase"), 500);
+      } else if (p.score < oldScore) {
+        scoreValue.classList.add("score-decrease");
+        setTimeout(() => scoreValue.classList.remove("score-decrease"), 500);
+      }
+
+      this.previousScores[p.id] = p.score;
+      container.appendChild(entry);
     });
   }
 }

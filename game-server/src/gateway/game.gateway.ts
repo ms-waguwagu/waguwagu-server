@@ -10,6 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { GameEngineService } from '../engine/game-engine.service';
 import { RankingService } from '../ranking/ranking.service';
+import { GhostService } from 'src/engine/ghost/ghost.service';
 
 @WebSocketGateway({
   namespace: '/game',
@@ -23,7 +24,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private rooms: Record<string, GameEngineService> = {};
 
   // 👇 RankingService 주입
-  constructor(private rankingService: RankingService) {}
+  constructor(
+    private rankingService: RankingService,
+    private ghostService: GhostService, // 👈 추가
+  ) {}
 
   handleConnection(client: Socket) {
     console.log('Client connected:', client.id);
@@ -109,7 +113,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // 방 객체 없으면 생성
     if (!this.rooms[roomId]) {
-      const engine = new GameEngineService();
+      const engine = new GameEngineService(this.ghostService);
 
       // 👇 중요! roomId와 roomManager 설정
       engine.roomId = roomId;

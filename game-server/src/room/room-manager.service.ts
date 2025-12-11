@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { GameEngineService } from '../engine/game-engine.service';
+import { GhostService } from '../engine/ghost/ghost.service';
 
 export interface Room {
   id: string;
@@ -10,6 +11,8 @@ export interface Room {
 export class RoomManager {
   private rooms: Map<string, Room> = new Map(); // ⭐ 방 목록 저장
 
+  constructor(private readonly ghostService: GhostService) {}
+
   // 방 가져오기
   getRoom(roomId: string): Room | undefined {
     return this.rooms.get(roomId);
@@ -19,7 +22,7 @@ export class RoomManager {
   createRoom(roomId: string): Room {
     const room: Room = {
       id: roomId,
-      engine: new GameEngineService(),
+      engine: new GameEngineService(this.ghostService),
     };
 
     // ⭐ 엔진에 Room 정보 주입

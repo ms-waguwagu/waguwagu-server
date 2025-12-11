@@ -95,6 +95,13 @@ export class GameManager {
     this.socket.on("state", (serverState) => {
       if (!serverState) return;
 
+       // 타이머 갱신 코드 추가
+      const timerEl = document.getElementById("game-timer");
+      if (timerEl && typeof serverState.remainingTime === "number") {
+        const sec = Math.ceil(serverState.remainingTime / 1000);
+        timerEl.textContent = `남은 시간: ${sec}초`;
+      }
+
       const playerCount = serverState.players ? Object.keys(serverState.players).length : 0;
       const dotsCount = serverState.dots ? serverState.dots.length : 0;
 
@@ -110,6 +117,18 @@ export class GameManager {
       }
 
       this.latestGameState = serverState;
+    });
+
+    this.socket.on("game-over", (data) => {
+    console.log("🔥 GAME OVER EVENT RECEIVED", data);
+
+      if (this.gameOverHandled) return;
+
+      this.gameOverHandled = true;
+      this.showGameEndModal({
+        players: data.players,
+        gameOverReason: data.reason
+      });
     });
   }
 
