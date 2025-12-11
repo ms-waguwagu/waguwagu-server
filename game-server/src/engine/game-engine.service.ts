@@ -135,9 +135,20 @@ export class GameEngineService {
 
     // 게임오버 상태면:
     if (this.gameOver) {
-      for (const ghost of Object.values(this.ghosts)) {
-        GhostService.updateGhost(ghost, this.map);
-      }
+      const ghostArray = Object.values(this.ghosts);
+      ghostArray.forEach((ghost, index) => {
+        const isChaser = index === 0;
+      
+        if (isChaser) {
+          ghost.color = 'red'; //chaser 유령은 빨간색
+        } else {
+          // 일반 유령 색은 기존 유지
+          ghost.color = ghost.color ?? 'white';
+        }
+      
+        GhostService.updateGhost(ghost, this.map, Object.values(this.players), isChaser);
+      });
+      
       return; // 플레이어 업데이트는 하지 않음
     }
 
@@ -154,9 +165,20 @@ export class GameEngineService {
       this.updatePlayer(player);
     }
 
-    for (const ghost of Object.values(this.ghosts)) {
-      GhostService.updateGhost(ghost, this.map);
-    }
+    const ghostArray = Object.values(this.ghosts);
+    ghostArray.forEach((ghost, index) => {
+      const isChaser = index === 0;
+    
+      if (isChaser) {
+        ghost.color = 'red'; //chaser 유령은 빨간색
+      } else {
+        // 일반 유령 색은 기존 유지
+        ghost.color = ghost.color ?? 'white';
+      }
+    
+      GhostService.updateGhost(ghost, this.map, Object.values(this.players), isChaser);
+    });
+    
 
     this.checkPlayerGhostCollision();
 

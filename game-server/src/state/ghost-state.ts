@@ -10,4 +10,5 @@ export interface GhostState {
   targetX?: number;
   targetY?: number;
   path?: Array<{ x: number; y: number }>;
+  recentTiles?: { x: number; y: number }[];
 }
