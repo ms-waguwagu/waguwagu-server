@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { GameEngineService } from '../engine/game-engine.service';
 import { RankingService } from '../ranking/ranking.service';
 import { GhostService } from 'src/engine/ghost/ghost.service';
+import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({
   namespace: '/game',
@@ -19,6 +20,8 @@ import { GhostService } from 'src/engine/ghost/ghost.service';
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
+
+  private readonly logger = new Logger(GameGateway.name);
 
   // roomId → GameEngineService instance
   private rooms: Record<string, GameEngineService> = {};
@@ -48,7 +51,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // 플레이어가 아무도 없으면 방 삭제
     if (room.playerCount() === 0) {
-      console.log(`🧹 Room ${roomId} is now empty → deleting room`);
+      // console.log(`🧹 Room ${roomId} is now empty → deleting room`);
+      this.logger.log(`게임 룸(${roomId}) 이 비어있으므로 삭제`);
 
       room.stopInterval(); // interval 정지
       delete this.rooms[roomId]; // 완전 삭제
@@ -59,12 +63,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(roomId).emit('state', room.getState());
   }
 
-  // 👇 방 삭제 메서드 추가
+  // 방 삭제 메서드
   removeRoom(roomId: string) {
     const room = this.rooms[roomId];
     if (!room) return;
 
-    console.log(`🔥 방 삭제: ${roomId}`);
+    // console.log(`🔥 방 삭제: ${roomId}`);
+    this.logger.log(`게임 룸 삭제: ${roomId}`);
     // interval 정지
     room.stopInterval();
 
@@ -87,7 +92,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return false;
     }
 
-    const engine = new GameEngineService();
+    const engine = new GameEngineService(this.ghostService);
     engine.roomId = roomId;
     engine.roomManager = this;
     
