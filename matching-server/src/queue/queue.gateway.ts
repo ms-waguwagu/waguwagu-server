@@ -34,10 +34,13 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
       
       const decoded = this.jwtService.verify(token);
       const userId = decoded.uuid; 
+			const nickname = decoded.nickname;
+
       
       // 연결될 때 맵에 적어둠
       this.connectedUsers.set(userId, client.id);
       client.data.userId = userId; // disconnect 때 쓰려고 저장
+      client.data.nickname = nickname;
 
       this.logger.log(`클라이언트 연결 성공: ${decoded.nickname} (${client.id})`);
     } catch (error) {
@@ -55,6 +58,8 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.connectedUsers.delete(userId);
 			try {
       	const session = await this.queueService.getSessionInfo(userId);
+				// 디버깅 로그
+				this.logger.log('매칭된 유저 정보:', userId, session);
       	const status = session?.status;
 
       //이미 매칭되었거나 게임 중이면 큐 취소를 시도하지 않음

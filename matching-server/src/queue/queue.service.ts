@@ -154,6 +154,7 @@ export class QueueService implements OnModuleInit {
   // 세션 조회 (단일 명령이라 Lua로 감싸지 않아도 됨)
   async getSessionInfo(userId: string): Promise<any> {
     const sessionKey = `session:${userId}`;
+		
     return this.redis.hgetall(sessionKey);
   }
 
