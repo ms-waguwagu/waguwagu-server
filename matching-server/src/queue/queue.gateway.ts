@@ -9,7 +9,9 @@ import {
 import { Server, Socket } from 'socket.io';
 import { QueueService } from './queue.service';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
+import { PlayerStatus } from '../common/constants';
 
 
 @WebSocketGateway({ namespace: 'queue', cors: { origin: '*' } })
@@ -25,6 +27,7 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly queueService: QueueService,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -39,10 +42,10 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
       
       // 연결될 때 맵에 적어둠
       this.connectedUsers.set(userId, client.id);
-      client.data.userId = userId; // disconnect 때 쓰려고 저장
+      client.data.userId = userId; 
       client.data.nickname = nickname;
 
-      this.logger.log(`클라이언트 연결 성공: ${decoded.nickname} (${client.id})`);
+      this.logger.log(`클라이언트 연결 성공: ${decoded.nickname}, 소켓 연결 세션 ID: ${client.id}`);
     } catch (error) {
       this.logger.warn(`클라이언트 연결 실패: ${error.message}`);
       client.disconnect();
@@ -58,12 +61,10 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.connectedUsers.delete(userId);
 			try {
       	const session = await this.queueService.getSessionInfo(userId);
-				// 디버깅 로그
-				this.logger.log('매칭된 유저 정보:', userId, session);
-      	const status = session?.status;
+				const status = session?.status;
 
-      //이미 매칭되었거나 게임 중이면 큐 취소를 시도하지 않음
-      	if (status !== 'WAITING') {
+      	//이미 매칭되었거나 게임 중이면 큐 취소를 시도하지 않음
+      	if (status !== PlayerStatus.WAITING) {
         this.logger.log(
           `disconnect: userId=${userId}, status=${status}`,
         );
@@ -138,12 +139,11 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
 	// 헬퍼: 현재 큐 상태 데이터 생성
   private async getQueueStatusData() {
     const totalLength = await this.queueService.getQueueLength();
-		//‼️테스트 용‼️
-    const MAX_PLAYERS = 2;
-    let currentCount = totalLength % MAX_PLAYERS;
+    const MAX_PLAYERS_COUNT = this.configService.get<number>('MATCH_PLAYER_COUNT') ?? 5;
+    let currentCount = totalLength % MAX_PLAYERS_COUNT;
 
     if (currentCount === 0 && totalLength > 0) {
-      currentCount = MAX_PLAYERS;
+      currentCount = MAX_PLAYERS_COUNT;
     }
 
     return {

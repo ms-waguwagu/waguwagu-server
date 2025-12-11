@@ -9,6 +9,7 @@ import { InjectRedis } from '@nestjs-modules/ioredis';
 import { Redis } from 'ioredis';
 import fs from 'fs/promises'; // fs 모듈 임포트
 import path from 'path'; // path 모듈 임포트
+import { PlayerStatus } from '../common/constants';
 
 @Injectable()
 export class QueueService implements OnModuleInit {
@@ -58,18 +59,7 @@ export class QueueService implements OnModuleInit {
       userId, // ARGV[4]
     );
 
-    console.log(
-      sessionKey,
-      queueKey,
-      nickname,
-      now,
-      this.SESSION_TTL.toString(),
-      userId,
-    );
-
     const status = await this.redis.hget(sessionKey, 'status');
-
-    console.log(`상태 확인용 UserID: ${userId}, Redis Status: ${status}`);
 
     // 4. Lua 스크립트 결과에 따른 예외 처리
     if (result === 'DUPLICATE_ENTRY') {
@@ -84,8 +74,7 @@ export class QueueService implements OnModuleInit {
   }
 
   // 매칭 큐에서 5명 추출 (Lua 기반)
-	// ‼️테스트용 2명 추출로 변경‼️
-  async extractMatchParticipants(count: number = 2): Promise<string[] | null> {
+  async extractMatchParticipants(count: number): Promise<string[] | null> {
     const queueKey = 'match_queue';
 
     const result = await this.redis.eval(
@@ -161,7 +150,7 @@ export class QueueService implements OnModuleInit {
   // 상태 업데이트 (단일 명령)
   async updateStatus(
     userId: string,
-    newStatus: 'IN_GAME' | 'IDLE' | 'WAITING',
+    newStatus: PlayerStatus,
   ): Promise<void> {
     const sessionKey = `session:${userId}`;
     await this.redis.hset(sessionKey, 'status', newStatus);
@@ -176,7 +165,7 @@ export class QueueService implements OnModuleInit {
     
     // 상태도 다시 WAITING으로 변경
     for (const userId of participants) {
-        await this.updateStatus(userId, 'WAITING');
+        await this.updateStatus(userId, PlayerStatus.WAITING);
     }
   }
 }

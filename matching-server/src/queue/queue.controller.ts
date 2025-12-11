@@ -1,13 +1,16 @@
 import { Controller, Post, UseGuards, Req, Get } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { QueueService } from './queue.service';
 import { QueueGateway } from './queue.gateway';
 import { AuthGuard } from '@nestjs/passport';
+import { PlayerStatus } from '../common/constants';
 
 @Controller('queue')
 export class QueueController {
 	constructor(
 		private readonly queueService: QueueService,
 		private readonly queueGateway: QueueGateway,
+    private readonly configService: ConfigService,
 	) {}
 
 	// 닉네임으로 게임 시작 요청 및 매칭 큐 진입
@@ -37,23 +40,20 @@ export class QueueController {
 	@UseGuards(AuthGuard('jwt'))
 	async getQueueStatus() {
 		// 1. Redis에서 총 큐 길이 조회
+		
 		const totalLength = await this.queueService.getQueueLength();
+		const MAX_PLAYERS_COUNT = this.configService.get<number>('MATCH_PLAYER_COUNT');
+		const matchCount = this.configService.get<number>('MATCH_PLAYER_COUNT') ?? 5;
 
-		//‼️테스트 용‼️
-		const MAX_PLAYERS = 2;
-
-		// 2. 현재 매칭 그룹의 인원수 계산
-		let currentCount = totalLength % MAX_PLAYERS;
-
-		// 3. 5명으로 꽉 찼을 경우, 모듈러 결과는 0이 되므로 5로 처리 (예: 5/5)
-		if (currentCount === 0 && totalLength > 0) {
-			currentCount = MAX_PLAYERS;
-		}
+  let currentCount = totalLength % matchCount;
+  if (currentCount === 0 && totalLength > 0) {
+    currentCount = matchCount;
+  }
 
 		const message =
 			totalLength === 0
 				? '대기 중인 인원이 없습니다.'
-				: `현재 매칭 그룹 인원: ${currentCount}/${MAX_PLAYERS}`;
+				: `현재 매칭 그룹 인원: ${currentCount}/${MAX_PLAYERS_COUNT}`;
 
 		return {
 			message: message,
@@ -74,7 +74,7 @@ export class QueueController {
 
 		return {
 			message: '매칭이 취소되었습니다.',
-			currentStatus: 'IDLE',
+			currentStatus: PlayerStatus.IDLE,
 		};
 	}
 }

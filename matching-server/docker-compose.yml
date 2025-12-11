@@ -30,6 +30,8 @@ services:
       # JWT Secret은 실제로는 AWS Secrets Manager를 사용해야 함
       # 여기서는 로컬 테스트용 임시 키를 사용
       JWT_SECRET: "waguwagu-secret"
+      GAME_SERVER_URL: "http://host.docker.internal:3001"
+      MATCH_PLAYER_COUNT: 2
     restart: always
     command: npm run start
     
