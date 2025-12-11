@@ -1,15 +1,16 @@
 	<!DOCTYPE html>
 	<html>
 	<head>
-		<title>Login</title>
+		<title>Queue</title>
 		<link rel="stylesheet" href="../styles/queue.css">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 	</head>
 	<body>
 		<!-- 대기열 화면	 -->
 			 <div id="queue-screen" >
         <div class="queue-overlay">
           <div class="queue-top">
-            <div id="queue-timer">00:00</div>
+            <div id="queue-timer">0:00</div>
             <div class="queue-label">MATCHMAKING QUEUE</div>
           </div>
 
@@ -25,3 +26,4 @@
           <button id="cancel-queue-btn">대기 취소</button>
         </div>
       </div>
+			<script type="module" src="../js/queue.js"></script>

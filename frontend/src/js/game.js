@@ -29,6 +29,24 @@ export class GameManager {
     this.setupEventListeners();
   }
 
+	showQueueScreen() {
+    // 1. UI 표시 
+    document.getElementById("main-screen").style.display = "none";
+    document.getElementById("queue-screen").style.display = "block";
+
+    // 2. 대기열 로직 초기화 (소켓 전달)
+    this.cleanupQueue = initQueueScreen(this.socket, (matchData) => {
+        // 매칭 성공 시 실행될 콜백
+        console.log("매칭 잡힘! 게임 서버로 이동합니다:", matchData);
+        
+        // 대기열 화면 숨기기
+        document.getElementById("queue-screen").style.display = "none";
+        
+        // 3. 게임 서버로 접속 (Handoff)
+        this.connectToGameServer(matchData);
+    });
+}
+
   setupEventListeners() {
     window.addEventListener("keydown", this.handleKeyDown.bind(this));
     window.addEventListener("keyup", this.handleKeyUp.bind(this));
@@ -256,3 +274,4 @@ export class GameManager {
     this.gameOverHandled = false;
   }
 }
+

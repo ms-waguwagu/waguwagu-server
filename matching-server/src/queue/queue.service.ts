@@ -11,7 +11,7 @@ import fs from 'fs/promises'; // fs 모듈 임포트
 import path from 'path'; // path 모듈 임포트
 
 @Injectable()
-export class MatchingService implements OnModuleInit {
+export class QueueService implements OnModuleInit {
   constructor(@InjectRedis() private readonly redis: Redis) {}
 
   private readonly SESSION_TTL = 3600; // 1시간
@@ -84,7 +84,8 @@ export class MatchingService implements OnModuleInit {
   }
 
   // 매칭 큐에서 5명 추출 (Lua 기반)
-  async extractMatchParticipants(count: number = 5): Promise<string[] | null> {
+	// ‼️테스트용 2명 추출로 변경‼️
+  async extractMatchParticipants(count: number = 2): Promise<string[] | null> {
     const queueKey = 'match_queue';
 
     const result = await this.redis.eval(
@@ -107,12 +108,12 @@ export class MatchingService implements OnModuleInit {
     const sessionKey = `session:${userId}`;
     const queueKey = 'match_queue';
 
-    console.log(`\n🔍 [Cancel Debug Start] 요청 UserID: ${userId}`);
+    console.log(`\n매칭 취소 UserID: ${userId}`);
 
     // 1. 세션 상태 조회
     const currentStatus = await this.redis.hget(sessionKey, 'status');
     console.log(
-      `👉 Redis 세션 상태 (HGET ${sessionKey} status):`,
+      `Redis 세션 상태 (HGET ${sessionKey} status):`,
       currentStatus,
     );
 
@@ -163,5 +164,18 @@ export class MatchingService implements OnModuleInit {
   ): Promise<void> {
     const sessionKey = `session:${userId}`;
     await this.redis.hset(sessionKey, 'status', newStatus);
+  }
+
+	// 매칭 실패 시 유저들을 다시 큐 앞쪽에 복구
+  async rollbackParticipants(participants: string[]): Promise<void> {
+    const queueKey = 'match_queue';
+    if (!participants || participants.length === 0) return;
+
+    await this.redis.lpush(queueKey, ...participants);
+    
+    // 상태도 다시 WAITING으로 변경
+    for (const userId of participants) {
+        await this.updateStatus(userId, 'WAITING');
+    }
   }
 }

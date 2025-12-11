@@ -8,4 +8,4 @@ import { GhostModule } from '../engine/ghost/ghost.module';
   providers: [GameGateway],
   exports: [GameGateway],
 })
-export class GatewayModule {}
+export class GameModule {}

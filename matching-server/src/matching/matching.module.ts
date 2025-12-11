@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { MatchingController } from './matching.controller';
-import { MatchingService } from './matching.service';
-import { AuthModule } from '../auth/auth.module';
 import { MatchingWorker } from './matching-worker.service';
 
+import { QueueModule } from '../queue/queue.module';
+
 @Module({
-  imports: [AuthModule],
+  imports: [QueueModule],
   controllers: [MatchingController],
-  providers: [MatchingService, MatchingWorker],
+  providers: [MatchingWorker],
 })
 export class MatchingModule {}

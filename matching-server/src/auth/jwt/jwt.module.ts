@@ -15,6 +15,6 @@ import { ConfigService } from '@nestjs/config';
     }),
   ],
   providers: [JwtTokenService],
-  exports: [JwtTokenService],
+  exports: [JwtTokenService, JwtModule],
 })
 export class JwtTokenModule {}
