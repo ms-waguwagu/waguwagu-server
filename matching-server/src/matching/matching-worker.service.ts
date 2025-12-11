@@ -28,7 +28,8 @@ export class MatchingWorker {
     try {
       // 1. 대기열에서 5명 추출 시도 (Lua Script 호출)
       const participants =
-        await this.queueService.extractMatchParticipants(5);
+			//‼️테스트 용‼️
+        await this.queueService.extractMatchParticipants(2);
 
       if (!participants) {
         return;

@@ -39,7 +39,8 @@ export class QueueController {
 		// 1. Redis에서 총 큐 길이 조회
 		const totalLength = await this.queueService.getQueueLength();
 
-		const MAX_PLAYERS = 5;
+		//‼️테스트 용‼️
+		const MAX_PLAYERS = 2;
 
 		// 2. 현재 매칭 그룹의 인원수 계산
 		let currentCount = totalLength % MAX_PLAYERS;

@@ -133,7 +133,8 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
 	// 헬퍼: 현재 큐 상태 데이터 생성
   private async getQueueStatusData() {
     const totalLength = await this.queueService.getQueueLength();
-    const MAX_PLAYERS = 5;
+		//‼️테스트 용‼️
+    const MAX_PLAYERS = 2;
     let currentCount = totalLength % MAX_PLAYERS;
 
     if (currentCount === 0 && totalLength > 0) {

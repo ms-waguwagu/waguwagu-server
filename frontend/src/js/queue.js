@@ -61,7 +61,8 @@ export function initQueueScreen(socket, onMatchFound) {
       void currentQueueCountEl.offsetWidth; // trigger reflow
       currentQueueCountEl.classList.add("pop");
     }
-    console.log(`현재 인원: ${data.currentCount}/5`);
+			//‼️테스트 용‼️
+    console.log(`현재 인원: ${data.currentCount}/2`);
   };
 
 

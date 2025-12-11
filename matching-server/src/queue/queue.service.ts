@@ -84,7 +84,8 @@ export class QueueService implements OnModuleInit {
   }
 
   // 매칭 큐에서 5명 추출 (Lua 기반)
-  async extractMatchParticipants(count: number = 5): Promise<string[] | null> {
+	// ‼️테스트용 2명 추출로 변경‼️
+  async extractMatchParticipants(count: number = 2): Promise<string[] | null> {
     const queueKey = 'match_queue';
 
     const result = await this.redis.eval(
