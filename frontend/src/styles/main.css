@@ -1,13 +1,16 @@
-/*폰트 설정 */
 @font-face {
   font-family: "RoundedFixedsys";
+
   src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/DungGeunMo.woff")
     format("woff");
+
   font-weight: normal;
+
   font-display: swap;
 }
 
 /* 메인 화면 기본 폰트 적용 */
+
 html,
 body,
 button,
@@ -22,61 +25,131 @@ body {
 }
 
 /* 1) body 공통 설정 (배경 이미지는 빼고) */
+
 body {
   display: flex;
+
   justify-content: center;
+
   align-items: center;
+
   min-height: 100vh;
 
   margin: 0;
+
   color: white;
+
   background-color: #000; /* 기본은 검정 */
 }
 
 /* 2) 메인 화면일 때만 팩맨 배경 보이게 */
+
 body.mode-main {
   background-image: url("../images/pacman_background.png");
+
   background-repeat: no-repeat;
+
   background-position: center center;
+
   background-size: 80% auto;
+
   background-color: #000016; /* 이미지 빈 부분 */
 }
 
 /* 3) 게임 화면일 때는 배경 이미지 제거 + 검정색 */
+
 body.mode-game {
   background-image: none;
+
   background-color: #000;
 }
 
+/* 🆕 로그인 메인 레이아웃 */
+
+#main-screen {
+  width: 100%;
+
+  display: flex;
+
+  justify-content: center;
+
+  align-items: center;
+}
+
+/* 🆕 가운데 영역: 제목 + 카드 세트 */
+
+#center-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  justify-content: flex-start;
+  /* padding-top: 0vh; */
+
+  gap: clamp(16px, 4vh, 32px);
+  transform: translateY(-3vh);
+}
+
+/* 제목 */
+#game-title {
+  align-items: flex-start;
+  font-size: clamp(28px, 7vw, 100px); /* 폭에 따라 크기 변화 */
+  letter-spacing: clamp(2px, 0.5vw, 6px);
+
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255, 216, 77, 0.9),
+    0 0 22px rgba(255, 216, 77, 0.8);
+
+  margin-bottom: clamp(12px, 3vh, 24px);
+
+  margin: 0 0 16px 0;
+}
+
 /* 나머지 기존 스타일 */
+
 #app {
+  /* 1. 배경 설정 (기존 유지) */
   background: radial-gradient(
     circle at 0 0,
     rgba(255, 255, 255, 0.05),
     rgba(10, 10, 20, 0.98)
   );
-  padding: 28px 32px 24px;
   border-radius: 24px;
   border: 1px solid rgba(255, 216, 77, 0.25);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(0, 0, 0, 0.8);
   text-align: center;
-  min-width: 360px;
+  box-sizing: border-box;
+
+  width: 25vw; /* 브라우저 폭의 32%로 항상 반응 */
+  min-width: 80px;
+  padding: 20px 24px 12px; /* 위 20, 좌우 24, 아래 12 */
+  margin-top: 0vh;
 }
 
 /* 입력창 */
+
 #app input {
   width: 100%;
-  padding: 12px 14px;
+
+  font-size: clamp(12px, 1.6vw, 16px); /* 화면 크기에 따라 글자 살짝 조정 */
+  padding: clamp(6px, 3vw, 10px) 10px;
+
   margin: 0 0 12px 0;
+
   box-sizing: border-box;
 
   background: rgba(0, 0, 0, 0.55);
+
   border-radius: 10px;
+
   border: 1px solid rgba(255, 255, 255, 0.18);
 
   color: #fff;
-  font-size: 16px;
+
   outline: none;
+
   transition: all 0.2s ease;
 }
 
@@ -86,27 +159,37 @@ body.mode-game {
 
 #app input:focus {
   border-color: rgba(255, 216, 77, 0.9);
+
   box-shadow: 0 0 0 2px rgba(255, 216, 77, 0.3);
 }
 
 /* 버튼 */
+
 #app button {
   width: 100%;
-  padding: 14px 0;
+  font-size: clamp(13px, 1.8vw, 18px); /* 버튼 글자도 반응형 */
+  padding: clamp(8px, 1.2vw, 12px) 0;
+
   margin-top: 4px;
+
   box-sizing: border-box;
 
   border-radius: 10px;
+
   border: none;
+
   background: linear-gradient(135deg, #ffdd39, #ffb800);
+
   color: #201a2e;
 
   font-weight: 800;
-  font-size: 18px;
+
   letter-spacing: 2px;
 
   cursor: pointer;
+
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8), 0 0 14px rgba(255, 216, 77, 0.7);
 
   transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
@@ -114,42 +197,24 @@ body.mode-game {
 
 #app button:hover {
   transform: translateY(-1px);
+
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.9), 0 0 20px rgba(255, 216, 77, 0.95);
+
   filter: brightness(1.05);
 }
 
 #app button:active {
   transform: translateY(1px);
+
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.9), 0 0 8px rgba(255, 216, 77, 0.7);
 }
 
 /* 상태 메시지 (에러/안내 텍스트) */
+
 #status-message {
   margin-top: 10px;
+
   font-size: 13px;
+
   color: rgba(255, 255, 255, 0.8);
-}
-
-/* 달 근처에 제목을 위치시키기 */
-#game-title {
-  position: fixed;
-  top: 250px; /* 달 바로 아래 느낌, 필요하면 숫자만 조절 */
-  left: 50%;
-  transform: translateX(-50%); /* 가로 정중앙 정렬 */
-
-  font-size: 100px; /* 제목 크기 */
-  letter-spacing: 6px;
-  text-transform: uppercase;
-
-  color: #ffffff;
-  text-shadow: 0 0 10px rgba(255, 216, 77, 0.9),
-    0 0 22px rgba(255, 216, 77, 0.8);
-
-  padding: 0; /* 안쪽 여백 제거 */
-  border-radius: 0; /* 둥근 모서리 제거 */
-  border: none; /* 테두리 제거 */
-  background: none; /* 배경 제거 */
-
-  z-index: 5; /* 배경 위, 카드/랭킹보다 너무 위로 안 올라가게 적당히 */
-  pointer-events: none; /* 클릭 막지 않게 (카드, 버튼 클릭 잘 되게) */
 }
