@@ -60,7 +60,7 @@ export function initQueueScreen(socket, onMatchFound) {
       currentQueueCountEl.classList.add("pop");
     }
     //‼️테스트 용‼️
-    console.log(`현재 인원: ${data.currentCount}/2`);
+    console.log(`현재 인원: ${data.currentCount}/5`);
   };
 
   // B. 대기열 취소 성공 응답

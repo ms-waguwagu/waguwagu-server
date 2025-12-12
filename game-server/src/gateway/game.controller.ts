@@ -1,13 +1,16 @@
-import { Controller, Post, Body, BadRequestException, ConflictException, InternalServerErrorException } from '@nestjs/common';
-import { GameGateway } from './game.gateway';
+import { Controller, Post, Body, BadRequestException } from '@nestjs/common';
+import { GameService } from './game.service';
 
-@Controller('internal') // 
+@Controller('internal') 
 export class GameController {
-  constructor(private readonly gameGateway: GameGateway) {}
+  constructor(
+		private readonly gameService: GameService
+	) {}
+
 
   @Post('room') 
-  createRoom(@Body() body: { roomId: string; users: string[] }) {
-    const { roomId, users } = body;
+  createRoom(@Body() body: { roomId: string; users: string[], maxPlayers?: number; }) {
+    const { roomId, users, maxPlayers } = body;
 
     if (!roomId || !users) {
       throw new BadRequestException('roomId와 users는 필수입니다.');
@@ -15,26 +18,14 @@ export class GameController {
 
     console.log(`방 생성 요청 수신: ${roomId}, 유저: ${users}`);
 
-    try {
-      // 게이트웨이의 메서드를 호출하여 방을 미리 생성 
-      const isCreated = this.gameGateway.createRoomByApi(roomId); 
-      
-      if (!isCreated) {
-        throw new ConflictException('이미 존재하는 방 ID입니다.');
-      }
+		const result = this.gameService.createRoomWithBots(roomId, users, maxPlayers);
 
-      return {
+    return {
         message: '게임룸이 생성되었습니다.',
-        roomId,
+        roomId: result.roomId,
+    		botsAdded: result.botsToAdd,	
         ip: 'localhost', 
         port: 3001
       };
-    } catch (error) {
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      console.error('방 생성 중 오류 발생:', error);
-      throw new InternalServerErrorException('방 생성에 실패했습니다.');
-    }
   }
 }

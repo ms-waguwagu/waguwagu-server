@@ -20,6 +20,7 @@ export class QueueService implements OnModuleInit {
   private ENTER_QUEUE_LUA: string;
   private EXTRACT_MATCH_LUA: string;
   private CANCEL_MATCH_LUA: string;
+  private EXTRACT_PARTIAL_MATCH_LUA: string;
 
   async onModuleInit() {
     // 프로젝트 루트 경로를 기준으로 파일 경로 지정
@@ -37,6 +38,11 @@ export class QueueService implements OnModuleInit {
 
     this.CANCEL_MATCH_LUA = await fs.readFile(
       path.join(luaDirPath, 'cancel-match.lua'),
+      'utf8',
+    );
+
+		this.EXTRACT_PARTIAL_MATCH_LUA = await fs.readFile(
+      path.join(luaDirPath, 'extract-partial-match.lua'),
       'utf8',
     );
   }
@@ -91,6 +97,31 @@ export class QueueService implements OnModuleInit {
 
     return result as string[];
   }
+
+	// 마지막 입장 시각 가져오기
+	async getLastJoinedAt(): Promise<number | null> {
+    const queueKey = 'match_queue';
+    const value = await this.redis.get(`${queueKey}:lastJoinedAt`);
+    if (!value) return null;
+    return Number(value);
+	}
+
+	// 최대 5명까지 꺼냄
+	async extractMatchUpTo(count: number): Promise<string[] | null> {
+    const queueKey = 'match_queue';
+
+    const result = await this.redis.eval(
+    this.EXTRACT_PARTIAL_MATCH_LUA, 
+    1, 
+    queueKey,
+    count.toString(),
+  );
+
+  if (!result) return null;
+  return result as string[];
+}
+
+
 
   // 매칭 취소 메서드
   async cancelQueue(userId: string): Promise<void> {

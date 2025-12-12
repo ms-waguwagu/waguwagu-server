@@ -51,7 +51,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // 플레이어가 아무도 없으면 방 삭제
     if (room.playerCount() === 0) {
-      // console.log(`🧹 Room ${roomId} is now empty → deleting room`);
       this.logger.log(`게임 룸(${roomId}) 이 비어있으므로 삭제`);
 
       room.stopInterval(); // interval 정지
@@ -63,12 +62,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(roomId).emit('state', room.getState());
   }
 
+	// 방 조회 메서드
+	getRoom(roomId: string): GameEngineService | undefined {
+    return this.rooms[roomId];
+  }
+
   // 방 삭제 메서드
   removeRoom(roomId: string) {
     const room = this.rooms[roomId];
     if (!room) return;
 
-    // console.log(`🔥 방 삭제: ${roomId}`);
     this.logger.log(`게임 룸 삭제: ${roomId}`);
     // interval 정지
     room.stopInterval();
@@ -123,11 +126,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       engine.roomId = roomId;
       engine.roomManager = this; // GameGateway를 roomManager로 설정
 
-      // 기본으로 유령 3마리 추가
-      engine.addGhost('g1');
-      engine.addGhost('g2');
-      engine.addGhost('g3');
-
       this.rooms[roomId] = engine;
     }
 
@@ -137,6 +135,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.data.roomId = roomId;
     client.data.nickname = nickname;
 
+		// 유저만 추가
     room.addPlayer(client.id, nickname);
 
     const MIN_PLAYERS = 5;
