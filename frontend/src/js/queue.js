@@ -149,8 +149,6 @@ if (document.getElementById("queue-screen")) {
       });
 
       initQueueScreen(socket, (matchData) => {
-        // matchData = { roomId, players ... }
-        console.log("매칭 완료 데이터:", matchData);
         // 서버에서 만든 room_id를 localStorage에 저장
         localStorage.setItem("waguwagu_room_id", matchData.roomId);
         window.location.href = "game.html";
