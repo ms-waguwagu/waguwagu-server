@@ -10,7 +10,12 @@ import {
 import { Server, Socket } from 'socket.io';
 import { GameEngineService } from '../engine/game-engine.service';
 import { RankingService } from '../ranking/ranking.service';
-import { GhostService } from 'src/engine/ghost/ghost.service';
+import { PlayerService } from 'src/engine/player/player.service';
+import { GhostManagerService } from 'src/engine/ghost/ghost-manager.service';
+import { BotManagerService } from 'src/engine/bot/bot-manager.service';
+import { CollisionService } from 'src/engine/core/collision.service';
+import { LifecycleService } from 'src/engine/core/lifecycle.service';
+import { GameLoopService } from 'src/engine/core/game-loop.service';
 import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({
@@ -26,10 +31,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // roomId → GameEngineService instance
   private rooms: Record<string, GameEngineService> = {};
 
-  // 👇 RankingService 주입
   constructor(
     private rankingService: RankingService,
-    private ghostService: GhostService, // 👈 추가
+    private ghostManagerService: GhostManagerService,
+    private playerService: PlayerService,
+    private botManagerService: BotManagerService,
+    private collisionService: CollisionService,
+    private lifecycleService: LifecycleService,
+    private gameLoopService: GameLoopService,
   ) {}
 
   handleConnection(client: Socket) {
@@ -94,7 +103,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return false;
     }
 
-    const engine = new GameEngineService(this.ghostService);
+    const engine = new GameEngineService(
+      this.ghostManagerService,
+      this.playerService,
+      this.botManagerService,
+      this.collisionService,
+      this.lifecycleService,
+      this.gameLoopService
+    );
+
     engine.roomId = roomId;
     engine.roomManager = this;
 
@@ -120,7 +137,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // 방 객체 없으면 생성
     if (!this.rooms[roomId]) {
-      const engine = new GameEngineService(this.ghostService);
+      const engine = new GameEngineService(
+        this.ghostManagerService,
+        this.playerService,
+        this.botManagerService,
+        this.collisionService,
+        this.lifecycleService,
+        this.gameLoopService
+      );
 
       // 👇 중요! roomId와 roomManager 설정
       engine.roomId = roomId;
