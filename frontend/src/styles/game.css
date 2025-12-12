@@ -317,3 +317,57 @@ input {
   color: #ccc;
   margin-top: 5px;
 }
+
+
+/* =========================================
+   카운트다운 표시 스타일 (Retro Glow 스타일)
+   ========================================= */
+#countdown-display {
+  position: fixed;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  font-size: 140px;
+  font-weight: 900;
+
+  color: #ffed4e; /* 레트로 옐로우 */
+  text-shadow:
+    0 0 10px rgba(255, 235, 100, 0.9),
+    0 0 20px rgba(255, 235, 100, 0.7),
+    0 0 40px rgba(255, 200, 50, 0.6),
+    0 0 60px rgba(255, 180, 30, 0.5);
+
+  display: none;
+
+  z-index: 100000; /* 항상 최상단 */
+
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* START! 표시될 때 부드러운 등장 효과 */
+#countdown-display.start {
+  transform: translate(-50%, -50%) scale(1.3);
+  opacity: 1;
+}
+
+/* 숫자가 줄어들 때 팡! 하고 커지는 효과 */
+@keyframes countdownPop {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0;
+  }
+  40% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+#countdown-display.pop {
+  animation: countdownPop 0.35s ease-out;
+}
+

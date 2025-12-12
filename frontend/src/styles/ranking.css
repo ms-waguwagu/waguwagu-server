@@ -258,3 +258,54 @@ input {
 .ranking-item.rank-10 .nick {
   color: #dddddd;
 }
+/* 날짜 / 시간 */
+.ranking-item .played-at {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* 점수 + 날짜 묶음 */
+.ranking-item .score-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.ranking-item:nth-child(1) .score {
+  color: #ffd700;
+}
+
+.ranking-item:nth-child(2) .score {
+  color: #c0c0c0;
+}
+
+.ranking-item:nth-child(3) .score {
+  color: #cd7f32;
+}
+
+/* 랭킹 아이템 정렬 안정화 */
+.ranking-item {
+  display: flex;
+  align-items: center;
+}
+
+/* 순위 */
+.ranking-item .rank {
+  flex-shrink: 0;
+}
+
+/* 닉네임 영역 고정 */
+.ranking-item .nick {
+  width: 110px;        /* ← 여기 핵심 */
+  margin: 0 10px;
+}
+
+/* 점수 + 날짜 영역 */
+.ranking-item .score-wrapper {
+  width: 110px;        /* ← 여기 핵심 */
+  flex-shrink: 0;
+  align-items: flex-end;
+}
