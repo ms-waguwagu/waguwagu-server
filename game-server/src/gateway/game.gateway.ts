@@ -134,6 +134,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     room.addPlayer(client.id, nickname);
 
+    const MIN_PLAYERS = 5;
+
+    const humanPlayers = room.playerCount();
+    const botPlayers = room.getBotCount();
+    const totalPlayers = humanPlayers + botPlayers;
+
+    const botsToAdd = MIN_PLAYERS - totalPlayers - 1;
+
+    for (let i = 0; i < botsToAdd; i++) { // 5명 - 플레이어 수 계산해서 봇 투입
+      const botNumber = room.getNextBotNumber();
+      const botName = `bot-${botNumber}`;
+      room.addBotPlayer(botName);
+      console.log(`🤖 CPU BOT 추가됨: ${botName}`);
+    }
+
     // 내 ID 전달
     // 맵 데이터를 포함한 초기 정보를 전송
     client.emit('init-game', {

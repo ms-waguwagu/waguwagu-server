@@ -3,7 +3,16 @@ import { io } from "https://cdn.socket.io/4.5.4/socket.io.esm.min.js";
 import { CONFIG } from "../../config.js";
 
 export class GameManager {
-  constructor({ nickname, roomId, token, socketUrl, gameScreen, gameEndModal, homeButton, finalScoreList }) {
+  constructor({
+    nickname,
+    roomId,
+    token,
+    socketUrl,
+    gameScreen,
+    gameEndModal,
+    homeButton,
+    finalScoreList,
+  }) {
     this.nickname = nickname;
     this.roomId = roomId;
     this.token = token;
@@ -22,30 +31,30 @@ export class GameManager {
     this.animationFrameId = null;
     this.inputLoopInterval = null;
     this.keys = {};
-    
+
     // Flags
     this.gameOverHandled = false;
 
     this.setupEventListeners();
   }
 
-	showQueueScreen() {
-    // 1. UI 표시 
+  showQueueScreen() {
+    // 1. UI 표시
     document.getElementById("main-screen").style.display = "none";
     document.getElementById("queue-screen").style.display = "block";
 
     // 2. 대기열 로직 초기화 (소켓 전달)
     this.cleanupQueue = initQueueScreen(this.socket, (matchData) => {
-        // 매칭 성공 시 실행될 콜백
-        console.log("매칭 잡힘! 게임 서버로 이동합니다:", matchData);
-        
-        // 대기열 화면 숨기기
-        document.getElementById("queue-screen").style.display = "none";
-        
-        // 3. 게임 서버로 접속 (Handoff)
-        this.connectToGameServer(matchData);
+      // 매칭 성공 시 실행될 콜백
+      console.log("매칭 잡힘! 게임 서버로 이동합니다:", matchData);
+
+      // 대기열 화면 숨기기
+      document.getElementById("queue-screen").style.display = "none";
+
+      // 3. 게임 서버로 접속 (Handoff)
+      this.connectToGameServer(matchData);
     });
-}
+  }
 
   setupEventListeners() {
     window.addEventListener("keydown", this.handleKeyDown.bind(this));
@@ -80,7 +89,10 @@ export class GameManager {
 
     this.socket.on("connect", () => {
       console.log("🟢 Connected:", this.socket.id);
-      this.socket.emit("join-room", { roomId: this.roomId, nickname: this.nickname });
+      this.socket.emit("join-room", {
+        roomId: this.roomId,
+        nickname: this.nickname,
+      });
     });
 
     this.socket.on("init-game", (data) => {
@@ -95,14 +107,16 @@ export class GameManager {
     this.socket.on("state", (serverState) => {
       if (!serverState) return;
 
-       // 타이머 갱신 코드 추가
+      // 타이머 갱신 코드 추가
       const timerEl = document.getElementById("game-timer");
       if (timerEl && typeof serverState.remainingTime === "number") {
         const sec = Math.ceil(serverState.remainingTime / 1000);
         timerEl.textContent = `남은 시간: ${sec}초`;
       }
 
-      const playerCount = serverState.players ? Object.keys(serverState.players).length : 0;
+      const playerCount = serverState.players
+        ? Object.keys(serverState.players).length
+        : 0;
       const dotsCount = serverState.dots ? serverState.dots.length : 0;
 
       if (playerCount === 0 || dotsCount === 0) {
@@ -120,14 +134,15 @@ export class GameManager {
     });
 
     this.socket.on("game-over", (data) => {
-    console.log("🔥 GAME OVER EVENT RECEIVED", data);
+      console.log("🔥 GAME OVER EVENT RECEIVED", data);
 
       if (this.gameOverHandled) return;
 
       this.gameOverHandled = true;
       this.showGameEndModal({
         players: data.players,
-        gameOverReason: data.reason
+        botPlayers: data.botPlayers,
+        gameOverReason: data.reason,
       });
     });
   }
@@ -136,39 +151,51 @@ export class GameManager {
     // 1. 점수판 업데이트
     const scoreEntries = document.getElementById("score-entries");
     if (scoreEntries && state.players) {
-        const players = Object.values(state.players).sort((a, b) => b.score - a.score);
-        scoreEntries.innerHTML = "";
-        players.forEach((player, i) => {
-            scoreEntries.innerHTML += `
+      const allPlayers = [
+        ...Object.values(state.players || {}), // 일반 플레이어
+        ...(state.botPlayers || []), // 봇 플레이어는 배열이므로 그대로 펼치기
+      ];
+      console.log("🏆 GAME OVER - 최종 점수 확인:", allPlayers);
+
+      const players = allPlayers.sort((a, b) => b.score - a.score);
+
+      scoreEntries.innerHTML = "";
+      players.forEach((player, i) => {
+        scoreEntries.innerHTML += `
               <div>
                 ${i + 1}위 - ${player.nickname} : ${player.score}
               </div>
             `;
-        });
+      });
     }
 
     // 2. 점수판 중앙 이동 애니메이션
     const scoreboard = document.getElementById("scoreboard");
     if (scoreboard) {
-        scoreboard.classList.add("game-over");
+      scoreboard.classList.add("game-over");
     }
 
     // 3. 종료 텍스트 (옵션)
     const gameEndText = document.getElementById("game-end-text");
     if (gameEndText) {
-        gameEndText.classList.add("show");
+      gameEndText.classList.add("show");
     }
 
     // 4. 모달 표시 (기존 로직 유지)
     if (this.gameEndModal) {
       this.gameEndModal.classList.remove("hidden");
-      
+
       let html = "<ul>";
-      if (state.players) {
-        const players = Object.values(state.players).sort((a, b) => b.score - a.score);
-        for (const p of players) {
-          html += `<li>${p.nickname} : ${p.score}점</li>`;
-        }
+      const allPlayers = [
+        ...Object.values(state.players || {}),
+        ...(state.botPlayers || []),
+      ];
+      const players = allPlayers
+        .filter((p) => p.score !== undefined) // 혹시 score 없는 항목 필터
+        .sort((a, b) => b.score - a.score);
+
+      for (const p of players) {
+        html += `<li>${p.nickname} : ${p.score}점</li>`;
       }
       html += "</ul>";
 
@@ -180,33 +207,42 @@ export class GameManager {
         this.finalScoreList.innerHTML = html;
       }
     }
-    
+
     // 5초 후 메인으로 자동 이동
-    setTimeout(() => { this.stop(); window.location.href = "login.html"; }, 5000);
+    setTimeout(() => {
+      this.stop();
+      window.location.href = "login.html";
+    }, 5000);
   }
 
   async loadRanking() {
     try {
       const response = await fetch(CONFIG.API_URL + "/ranking/top");
       if (!response.ok) throw new Error("Failed to fetch");
-  
+
       const data = await response.json();
       const list = document.getElementById("ranking-list");
-      
+
       if (!list) return; // 요소가 없으면 중단
-  
+
       if (!data || data.length === 0) {
-        list.innerHTML = '<div class="empty-ranking">랭킹 데이터가 없습니다</div>';
+        list.innerHTML =
+          '<div class="empty-ranking">랭킹 데이터가 없습니다</div>';
         return;
       }
-  
+
       list.innerHTML = data
         .map((item, index) => {
           const date = new Date(item.playedAt);
           const formatted =
-            `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")} ` +
-            `${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`;
-  
+            `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+              2,
+              "0"
+            )}-${String(date.getDate()).padStart(2, "0")} ` +
+            `${String(date.getHours()).padStart(2, "0")}:${String(
+              date.getMinutes()
+            ).padStart(2, "0")}`;
+
           return `
           <div class="ranking-item rank-${item.rank}">
             <div class="rank">${item.rank}</div>
@@ -223,7 +259,8 @@ export class GameManager {
       console.error("랭킹 로드 실패:", error);
       const list = document.getElementById("ranking-list");
       if (list) {
-        list.innerHTML = '<div class="empty-ranking">랭킹을 불러올 수 없습니다</div>';
+        list.innerHTML =
+          '<div class="empty-ranking">랭킹을 불러올 수 없습니다</div>';
       }
     }
   }
@@ -261,17 +298,16 @@ export class GameManager {
     if (this.socket) this.socket.disconnect();
     if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
     if (this.inputLoopInterval) clearInterval(this.inputLoopInterval);
-    
+
     // UI Cleanup
     const scoreboard = document.getElementById("scoreboard");
     if (scoreboard) scoreboard.classList.remove("game-over");
-    
+
     const gameEndText = document.getElementById("game-end-text");
     if (gameEndText) gameEndText.classList.remove("show");
-    
+
     if (this.gameEndModal) this.gameEndModal.classList.add("hidden");
-    
+
     this.gameOverHandled = false;
   }
 }
-

@@ -12,4 +12,9 @@ export interface PlayerState {
     stunned: boolean;           // 현재 스턴 상태인지 여부
     stunEndTime: number;        // 스턴 해제 시간 (timestamp)
     alpha: number;              // 렌더링 투명도 (1.0 또는 0.4)
+
+    //봇 전용
+    path?: { x: number; y: number }[];
+    targetX?: number;
+    targetY?: number;
 }

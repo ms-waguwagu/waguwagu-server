@@ -14,6 +14,7 @@ import {
 } from '../map/map.data';
 import { parseMap } from '../map/map.service';
 import { GhostService } from './ghost/ghost.service';
+import { PlayerBotService } from './player-bot.service';
 
 interface Dot {
   x: number;
@@ -36,6 +37,7 @@ export class GameEngineService {
   private map: number[][] = [];
   private dots: Dot[] = [];
   private ghostSpawns: { x: number; y: number }[] = [];
+  private botPlayers: PlayerState[] = [];
 
   readonly rows: number;
   readonly cols: number;
@@ -129,6 +131,40 @@ export class GameEngineService {
     };
   }
 
+  private botCount = 0;
+
+  getNextBotNumber(): number {
+    this.botCount += 1;
+    return this.botCount;
+  }
+
+  addBotPlayer(nickname?: string) {
+    const spawnCol = 1;
+    const spawnRow = 1;
+    const offset = (TILE_SIZE - PLAYER_SIZE) / 2;
+
+    const botName = nickname ?? `bot-${this.botCount}`;
+
+    this.botPlayers.push({
+      id: botName,
+      nickname: botName,
+      x: spawnCol * TILE_SIZE + offset,
+      y: spawnRow * TILE_SIZE + offset,
+      dir: { dx: 0, dy: 0 },
+      color: 'gray',
+      score: 0,
+      stunned: false,
+      stunEndTime: 0,
+      alpha: 1,
+      path: [],
+      targetX: undefined,
+      targetY: undefined,
+    });
+  }
+  public getBotCount(): number {
+    return this.botPlayers.length;
+  }
+
   // ========================= 게임 업데이트 =========================
   update() {
     const now = Date.now();
@@ -138,17 +174,22 @@ export class GameEngineService {
       const ghostArray = Object.values(this.ghosts);
       ghostArray.forEach((ghost, index) => {
         const isChaser = index === 0;
-      
+
         if (isChaser) {
           ghost.color = 'red'; //chaser 유령은 빨간색
         } else {
           // 일반 유령 색은 기존 유지
           ghost.color = ghost.color ?? 'white';
         }
-      
-        GhostService.updateGhost(ghost, this.map, Object.values(this.players), isChaser);
+
+        GhostService.updateGhost(
+          ghost,
+          this.map,
+          Object.values(this.players),
+          isChaser,
+        );
       });
-      
+
       return; // 플레이어 업데이트는 하지 않음
     }
 
@@ -168,19 +209,43 @@ export class GameEngineService {
     const ghostArray = Object.values(this.ghosts);
     ghostArray.forEach((ghost, index) => {
       const isChaser = index === 0;
-    
+
       if (isChaser) {
         ghost.color = 'red'; //chaser 유령은 빨간색
       } else {
         // 일반 유령 색은 기존 유지
         ghost.color = ghost.color ?? 'white';
       }
-    
-      GhostService.updateGhost(ghost, this.map, Object.values(this.players), isChaser);
-    });
-    
 
+      GhostService.updateGhost(
+        ghost,
+        this.map,
+        Object.values(this.players),
+        isChaser,
+      );
+    });
+
+    for (const bot of this.botPlayers) {
+      if (bot.stunned && Date.now() >= bot.stunEndTime) {
+        //스턴 해제
+        bot.stunned = false;
+        bot.alpha = 1;
+      }
+
+      PlayerBotService.updateBotPlayer(
+        bot,
+        this.map,
+        Object.values(this.players),
+        this.checkDotCollision.bind(this),
+      );
+    }
+
+    this.checkBotGhostCollision();
     this.checkPlayerGhostCollision();
+
+    // for (const bot of this.botPlayers) {
+    //   console.log(`🤖 봇 ${bot.nickname} 점수: ${bot.score}`);
+    // }
 
     // 모든 점을 먹으면 게임 종료
     if (this.allDotsEaten()) {
@@ -307,21 +372,21 @@ export class GameEngineService {
       console.trace(); // 누가 이 함수를 불렀는지 추적 (Call Stack 출력)
     }
 
-    // 3. 직렬화 (JSON 변환) 수행
-    const serializedPlayers = JSON.parse(JSON.stringify(this.players));
-    const serializedDots = JSON.parse(JSON.stringify(this.dots));
-    const serializedGhosts = JSON.parse(JSON.stringify(this.ghosts));
+    const serializedPlayers = Object.values(this.players).map((p) => ({
+      ...p,
+    }));
+    const serializedBotPlayers = this.botPlayers.map((b) => ({ ...b }));
+    const serializedDots = this.dots.map((d) => ({ ...d }));
+    const serializedGhosts = Object.values(this.ghosts).map((g) => ({ ...g }));
 
-    // 4. 최종 반환
     return {
       players: serializedPlayers,
+      botPlayers: serializedBotPlayers,
       dots: serializedDots,
       ghosts: serializedGhosts,
       gameOver: this.gameOver,
       gameOverPlayerId: this.gameOverPlayerId,
       gameOverReason: this.gameOverReason,
-
-      // ⭐ 프론트에 실시간 타이머 전달
       remainingTime,
     };
   }
@@ -360,17 +425,25 @@ export class GameEngineService {
     this.gameOverReason = null;
   }
 
-  // 모든 플레이어 점수 가져오기
+  // 모든 플레이어 점수 가져오기 (봇 포함)
   getAllPlayerScores(): Array<{
     playerId: string;
     nickname: string;
     score: number;
   }> {
-    return Object.values(this.players).map((p) => ({
+    const humanScores = Object.values(this.players).map((p) => ({
       playerId: p.id,
       nickname: p.nickname,
       score: p.score,
     }));
+
+    const botScores = this.botPlayers.map((b) => ({
+      playerId: b.id,
+      nickname: b.nickname,
+      score: b.score,
+    }));
+
+    return [...humanScores, ...botScores];
   }
 
   onGameOver() {
@@ -378,12 +451,12 @@ export class GameEngineService {
 
     // 👇 게임 종료 시 점수 저장
     const finalScores = this.getAllPlayerScores();
-    console.log('🏆 최종 점수:', finalScores);
+    // console.log('🏆 최종 점수:', finalScores);
 
-    // ⭐⭐ 클라이언트로 GAME OVER 이벤트 전송 ⭐⭐
     if (this.roomManager?.server) {
       this.roomManager.server.to(this.roomId).emit('game-over', {
-        players: finalScores,
+        players: this.players,
+        botPlayers: this.botPlayers,
         reason: this.gameOverReason ?? 'unknown',
       });
       console.log('📢 game-over 이벤트 전송 완료!');
@@ -417,6 +490,39 @@ export class GameEngineService {
       this.interval = null;
       this.intervalRunning = false;
       console.log(`Room ${this.roomId} interval stopped`);
+    }
+  }
+
+  private checkBotGhostCollision() {
+    for (const bot of this.botPlayers) {
+      // 스턴 상태면 충돌 스킵
+      if (bot.stunned) continue;
+
+      for (const ghost of Object.values(this.ghosts)) {
+        const botCenterX = bot.x + PLAYER_SIZE / 2;
+        const botCenterY = bot.y + PLAYER_SIZE / 2;
+        const ghostCenterX = ghost.x + PLAYER_SIZE / 2;
+        const ghostCenterY = ghost.y + PLAYER_SIZE / 2;
+
+        const dist = Math.hypot(
+          botCenterX - ghostCenterX,
+          botCenterY - ghostCenterY,
+        );
+        const threshold = (PLAYER_SIZE + PLAYER_SIZE) / 2;
+
+        if (dist < threshold) {
+          // 스턴 적용
+          bot.stunned = true;
+          bot.stunEndTime = Date.now() + 10000; // 10초
+          bot.alpha = 0.4;
+          bot.score = Math.max(0, bot.score - 30);
+
+          console.log(
+            `⚡ 봇 ${bot.nickname} 스턴! 10초간 이동 불가 + 30점 차감`,
+          );
+          break; // 한 번만 적용
+        }
+      }
     }
   }
 }
