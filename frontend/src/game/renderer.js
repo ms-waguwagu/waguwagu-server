@@ -33,6 +33,7 @@ export class Renderer {
     this.drawDots(gameState.dots || []);
     this.drawPlayers(gameState.players || {});
     this.drawGhosts(gameState.ghosts || {});
+    this.drawBotPlayers(gameState.botPlayers || {});
     this.updateScoreboard(gameState);
   }
 
@@ -105,6 +106,27 @@ export class Renderer {
     });
   }
 
+  drawBotPlayers(botPlayers) {
+    const ctx = this.ctx;
+  
+    Object.values(botPlayers).forEach((bot) => {
+      ctx.save();
+  
+      ctx.globalAlpha = bot.alpha !== undefined ? bot.alpha : 1;
+      ctx.fillStyle = bot.color ?? "yellow";
+  
+      ctx.fillRect(
+        bot.x,
+        bot.y,
+        CONSTANTS.PLAYER_SIZE,
+        CONSTANTS.PLAYER_SIZE
+      );
+  
+      ctx.restore();
+    });
+  }
+
+  
   drawGhosts(ghosts) {
     const ctx = this.ctx;
     Object.values(ghosts).forEach((ghost) => {
@@ -119,30 +141,44 @@ export class Renderer {
     const container = document.getElementById("score-entries");
     const gameScreen = document.getElementById("game-screen");
     if (!container || !gameScreen) return;
-
+  
     gameScreen.classList.add("show-scoreboard");
     container.innerHTML = "";
-
-    const playersEntries = Object.entries(gameState.players || {}).map(([id, p]) => ({
-      id,
-      nickname: p.nickname || id,
-      score: typeof p.score === "number" ? p.score : 0,
-      color: p.color || "#ffffff",
+  
+    // 사람 + 봇 모두 합치기
+    const humanPlayers = Object.entries(gameState.players || {}).map(
+      ([id, p]) => ({
+        id,
+        nickname: p.nickname || id,
+        score: typeof p.score === "number" ? p.score : 0,
+        color: p.color || "#ffffff",
+      })
+    );
+  
+    const botPlayers = Object.values(gameState.botPlayers || []).map((b) => ({
+      id: b.id,
+      nickname: b.nickname,
+      score: typeof b.score === "number" ? b.score : 0,
+      color: b.color || "yellow",
     }));
-
-    playersEntries.sort((a, b) => b.score - a.score);
-
-    playersEntries.forEach((p) => {
+  
+    const allPlayers = [...humanPlayers, ...botPlayers];
+  
+    // 점수 순 정렬
+    allPlayers.sort((a, b) => b.score - a.score);
+  
+    // 점수판 렌더링
+    allPlayers.forEach((p) => {
       const entry = document.createElement("div");
       const oldScore = this.previousScores[p.id] ?? p.score;
-
+  
       entry.innerHTML = `
         <span class="player-name" style="color:${p.color};">${p.nickname}</span>
         <span class="player-score score-value">${p.score}</span>
       `;
-
+  
       const scoreValue = entry.querySelector(".player-score");
-
+  
       if (p.score > oldScore) {
         scoreValue.classList.add("score-increase");
         setTimeout(() => scoreValue.classList.remove("score-increase"), 500);
@@ -150,7 +186,7 @@ export class Renderer {
         scoreValue.classList.add("score-decrease");
         setTimeout(() => scoreValue.classList.remove("score-decrease"), 500);
       }
-
+  
       this.previousScores[p.id] = p.score;
       container.appendChild(entry);
     });
