@@ -25,79 +25,99 @@ waguwagu-server/
 │   └── src/
 │       ├── js/
 │       │   └── game/
+│       │       ├── engine.js
+│       │       ├── player.js
+│       │       ├── ghost.js
+│       │       └── bot.js
 │       ├── pages/
+│       │   ├── lobby.html
+│       │   └── game.html
 │       ├── styles/
+│       │   ├── main.css
+│       │   └── game.css
 │       └── index.html
-│
 │
 ├── game-server/                  # 실시간 게임 서버 (WebSocket, Server-Authoritative)
 │   └── src/
-│       ├── main.ts
+│       ├── app.controller.spec.ts
+│       ├── app.controller.ts
 │       ├── app.module.ts
-│       │
-│       ├── gateway/
-│       │   └── game.gateway.ts   # 클라이언트 WS 이벤트 수신 및 상태 브로드캐스트
-│       │
-│       ├── room/                 # 여러 게임룸 관리 (멀티 인스턴스 가능)
-│       │   ├── room-manager.service.ts
-│       │   └── room.entity.ts
-│       │
-│       ├── engine/               # 게임 틱 엔진 및 물리 처리
-│       │   ├── ghost/               # 유령 로직
+│       ├── app.service.ts
+│       ├── config
+│       │   └── app.config.ts
+│       ├── engine
+│       │   ├── bot
+│       │   │   ├── bot-manager.service.ts
+│       │   │   ├── bot-move.service.ts
+│       │   │   └── bot.module.ts
+│       │   ├── core
+│       │   │   ├── collision.service.ts
+│       │   │   ├── core.module.ts
+│       │   │   ├── game-loop.service.ts
+│       │   │   ├── lifecycle.service.ts
+│       │   │   └── loop/
+│       │   │       └── game-loop.worker.ts
 │       │   ├── game-engine.service.ts
-│       │   ├── ghost.service.ts
+│       │   ├── ghost
+│       │   │   ├── ghost-manager.service.ts
+│       │   │   ├── ghost-move.service.ts
+│       │   │   └── ghost.module.ts
 │       │   ├── physics.service.ts
-│       │   └── score.service.ts
-│       │
-│       ├── state/                # 게임 상태 (read/write)
-│       │   ├── game-state.ts
-│       │   ├── player-state.ts
-│       │   └── ghost-state.ts
-│       │
-│       ├── pathfinding/
+│       │   ├── player
+│       │   │   ├── player.module.ts
+│       │   │   └── player.service.ts
+│       │   └── utils.service.ts
+│       ├── gateway
+│       │   ├── game.controller.ts
+│       │   ├── game.gateway.ts
+│       │   ├── game.module.ts
+│       │   └── game.service.ts
+│       ├── main.ts
+│       ├── map
+│       │   ├── map.data.ts
+│       │   └── map.service.ts
+│       ├── pathfinding
 │       │   └── pathfinding.ts
-│       │
-│       ├── types/
-│       │   ├── direction.type.ts
-│       │   ├── player.type.ts
-│       │   ├── room.type.ts
-│       │   └── game-state.type.ts
-│       │
-│       └── map/
-│           ├── map.data.ts
-│           └── map.service.ts
-│
+│       ├── ranking
+│       │   ├── dynamo-ranking.repository.ts
+│       │   ├── memory-ranking.repository.ts
+│       │   ├── ranking.controller.ts
+│       │   ├── ranking.module.ts
+│       │   ├── ranking.repository.ts
+│       │   └── ranking.service.ts
+│       ├── state
+│       │   ├── bot-state.ts
+│       │   ├── ghost-state.ts
+│       │   └── player-state.ts
+│       └── types
+│           └── direction.type.ts
 │
 ├── matching-server/              # 매칭 + 인증 서버
 │   └── src/
 │       ├── main.ts
 │       ├── app.module.ts
-│       │
 │       ├── auth/
 │       │   ├── auth.controller.ts
 │       │   ├── auth.service.ts
 │       │   └── jwt/
-│       │
+│       │       ├── jwt.strategy.ts
+│       │       └── jwt.guard.ts
 │       ├── queue/                # 매칭 큐 관리
 │       │   ├── queue.service.ts
 │       │   └── queue.entity.ts
-│       │
-│       ├── matching/          # 매칭 알고리즘, 워커
+│       ├── matching/             # 매칭 알고리즘, 워커
 │       │   ├── matching.service.ts
 │       │   ├── matching.controller.ts
 │       │   └── matching.worker.ts
-│       │
 │       ├── gateway/              # 매칭용 WebSocket (선택)
 │       │   └── match.gateway.ts
-│       │
 │       ├── game-connector/       # game-server 통신 모듈
 │       │   └── game-server.client.ts  # REST or gRPC or Socket
-│       │
 │       └── record/
 │           └── record.service.ts
 │
-│
 └── README.md
+
 ```
 ---
 # 🖥 실행 방법
