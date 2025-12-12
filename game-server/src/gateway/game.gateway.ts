@@ -10,6 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { GameEngineService } from '../engine/game-engine.service';
 import { RankingService } from '../ranking/ranking.service';
+import { PlayerService } from 'src/engine/player/player.service';
 import { GhostService } from 'src/engine/ghost/ghost.service';
 import { Logger } from '@nestjs/common';
 
@@ -26,10 +27,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // roomId → GameEngineService instance
   private rooms: Record<string, GameEngineService> = {};
 
-  // 👇 RankingService 주입
   constructor(
     private rankingService: RankingService,
-    private ghostService: GhostService, // 👈 추가
+    private ghostService: GhostService,
+    private playerService: PlayerService,
   ) {}
 
   handleConnection(client: Socket) {
@@ -91,7 +92,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return false;
     }
 
-    const engine = new GameEngineService(this.ghostService);
+    const engine = new GameEngineService(this.ghostService, this.playerService);
     engine.roomId = roomId;
     engine.roomManager = this;
 
@@ -117,7 +118,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // 방 객체 없으면 생성
     if (!this.rooms[roomId]) {
-      const engine = new GameEngineService(this.ghostService);
+      const engine = new GameEngineService(
+        this.ghostService,
+        this.playerService,
+      );
 
       // 👇 중요! roomId와 roomManager 설정
       engine.roomId = roomId;
@@ -147,7 +151,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const botsToAdd = MIN_PLAYERS - totalPlayers - 1;
 
-    for (let i = 0; i < botsToAdd; i++) { // 5명 - 플레이어 수 계산해서 봇 투입
+    for (let i = 0; i < botsToAdd; i++) {
+      // 5명 - 플레이어 수 계산해서 봇 투입
       const botNumber = room.getNextBotNumber();
       const botName = `bot-${botNumber}`;
       room.addBotPlayer(botName);
