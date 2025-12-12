@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { TILE_SIZE, PLAYER_SIZE, MAP_DESIGN } from '../../map/map.data';
 import { parseMap } from '../../map/map.service';
 import { GhostManagerService } from '../ghost/ghost-manager.service';
-import { PlayerService, Dot } from '../player/player.service';
-import { BotManagerService } from '../bot/bot-manager.service';
+import { PlayerService, Player, Dot } from '../player/player.service';
+import { BotManagerService, Bot } from '../bot/bot-manager.service';
 
 @Injectable()
 export class LifecycleService {
@@ -96,5 +96,21 @@ export class LifecycleService {
     this.gameStartTime = Date.now();
     this.gameOver = false;
     this.gameOverReason = null;
+  }
+  
+  getState(players: Player[], bots: Bot[], ghosts: any[]) {
+    const now = Date.now();
+    const remainingTime = Math.max(0, this.maxGameDuration - (now - this.gameStartTime));
+  
+    return {
+      players: players.map(p => ({ ...p })),
+      botPlayers: bots.map(b => ({ ...b })),
+      dots: this.dots.map(d => ({ ...d })),
+      ghosts: ghosts.map(g => ({ ...g })),
+      gameOver: this.gameOver,
+      gameOverPlayerId: this.gameOverPlayerId,
+      gameOverReason: this.gameOverReason,
+      remainingTime,
+    };
   }
 }

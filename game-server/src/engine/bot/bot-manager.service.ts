@@ -1,16 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { PlayerState } from '../../state/player-state';
 import { TILE_SIZE, PLAYER_SIZE } from '../../map/map.data';
 import { BotMoveService } from './bot-move.service';
-import { PlayerState as HumanPlayer } from '../../state/player-state';
-import { Dot } from '../player/player.service';
+import { BotState } from '../../state/bot-state';
+import { PlayerState } from '../../state/player-state';
+
+export type Bot = BotState;
 
 @Injectable()
 export class BotManagerService {
-  private botPlayers: PlayerState[] = [];
+  private botPlayers: BotState[] = [];
   private botCount = 0;
 
-  getBots() {
+  getBots(): BotState[] {
     return this.botPlayers;
   }
 
@@ -27,7 +28,6 @@ export class BotManagerService {
     const spawnCol = 1;
     const spawnRow = 1;
     const offset = (TILE_SIZE - PLAYER_SIZE) / 2;
-
     const botName = nickname ?? `bot-${this.botCount}`;
 
     this.botPlayers.push({
@@ -42,15 +42,15 @@ export class BotManagerService {
       stunEndTime: 0,
       alpha: 1,
       path: [],
-      targetX: undefined,
-      targetY: undefined,
+      targetX: spawnCol * TILE_SIZE + offset,
+      targetY: spawnRow * TILE_SIZE + offset,
     });
   }
 
   updateBots(
     map: number[][],
-    humans: HumanPlayer[],
-    checkDotCollision: (p: PlayerState) => void,
+    humans: PlayerState[],
+    checkDotCollision: (bot: BotState) => void,
   ) {
     const now = Date.now();
 
@@ -60,21 +60,11 @@ export class BotManagerService {
         bot.alpha = 1;
       }
 
-      BotMoveService.updateBotPlayer(
-        bot,
-        map,
-        humans,
-        checkDotCollision,
-      );
+      BotMoveService.updateBotPlayer(bot, map, humans, checkDotCollision);
     }
   }
 
-  applyGhostCollision(ghostHitCallback: (bot: PlayerState) => void) {
-    // 외부에서 충돌 여부 체크 후, true면 이 함수 호출하도록 설계
-    ghostHitCallback;
-  }
-
-  stunBot(bot: PlayerState) {
+  stunBot(bot: BotState) {
     bot.stunned = true;
     bot.stunEndTime = Date.now() + 10000;
     bot.alpha = 0.4;

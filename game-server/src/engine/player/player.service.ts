@@ -1,4 +1,3 @@
-// engine/player/player.service.ts
 import { Injectable } from '@nestjs/common';
 import { PlayerState } from '../../state/player-state';
 import { Direction } from '../../types/direction.type';
@@ -8,6 +7,8 @@ import {
   PLAYER_SPEED,
   PLAYER_COLORS,
 } from '../../map/map.data';
+
+export type Player = PlayerState;
 
 export interface Dot {
   x: number;

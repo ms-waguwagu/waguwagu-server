@@ -1,19 +1,17 @@
-// player-bot.service.ts
 import { TILE_SIZE } from '../../map/map.data';
 import { getPathBFS, findRandomTarget } from '../../pathfinding/pathfinding';
+import { BotState } from '../../state/bot-state';
 import { PlayerState } from '../../state/player-state';
 
 export class BotMoveService {
   static updateBotPlayer(
-    bot: PlayerState,
+    bot: BotState,
     map: number[][],
     targetPlayers: PlayerState[],
-    checkDotCollision?: (player: PlayerState) => void,
+    checkDotCollision?: (bot: BotState) => void,
   ) {
-    // ⭐ 스턴 상태면 이동 스킵
     if (bot.stunned) return;
 
-    // 기존 로직 계속...
     if (!bot.targetX || !bot.targetY || BotMoveService.reachedTarget(bot)) {
       if (bot.targetX != null) bot.x = bot.targetX;
       if (bot.targetY != null) bot.y = bot.targetY;
@@ -60,7 +58,7 @@ export class BotMoveService {
     if (checkDotCollision) checkDotCollision(bot);
   }
 
-  static reachedTarget(bot: PlayerState) {
+  static reachedTarget(bot: BotState) {
     if (bot.targetX == null || bot.targetY == null) return true;
     const threshold = 0.5;
     return (

@@ -15,6 +15,7 @@ import { GhostManagerService } from 'src/engine/ghost/ghost-manager.service';
 import { BotManagerService } from 'src/engine/bot/bot-manager.service';
 import { CollisionService } from 'src/engine/core/collision.service';
 import { LifecycleService } from 'src/engine/core/lifecycle.service';
+import { GameLoopService } from 'src/engine/core/game-loop.service';
 import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({
@@ -37,6 +38,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private botManagerService: BotManagerService,
     private collisionService: CollisionService,
     private lifecycleService: LifecycleService,
+    private gameLoopService: GameLoopService,
   ) {}
 
   handleConnection(client: Socket) {
@@ -104,6 +106,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.botManagerService,
       this.collisionService,
       this.lifecycleService,
+      this.gameLoopService
     );
 
     engine.roomId = roomId;
@@ -137,6 +140,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.botManagerService,
         this.collisionService,
         this.lifecycleService,
+        this.gameLoopService
       );
 
       // 👇 중요! roomId와 roomManager 설정
