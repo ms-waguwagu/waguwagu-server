@@ -14,9 +14,9 @@ import {
 import { parseMap } from '../map/map.service';
 
 import { GhostManagerService } from './ghost/ghost-manager.service';
-import { BotMoveService } from './bot/bot-move.service';
 import { PlayerService, Dot } from './player/player.service';
 import { BotManagerService } from './bot/bot-manager.service';
+import { CollisionService } from './collision.service';
 
 @Injectable()
 export class GameEngineService {
@@ -43,7 +43,8 @@ export class GameEngineService {
   constructor(
     private readonly ghostManager: GhostManagerService,
     private readonly playerService: PlayerService,
-    private readonly botManager: BotManagerService,   // ⭐ 추가됨
+    private readonly botManager: BotManagerService,
+    private readonly collisionService: CollisionService,
   ) {
     const { map, dots, ghostSpawns } = parseMap(MAP_DESIGN);
 
@@ -76,7 +77,7 @@ export class GameEngineService {
     return this.playerService.playerCount();
   }
 
-  // ========== 유령 관리 ==========
+  // ========== 유령 ==========
   addGhost(id: string, opts?: Partial<{ color: string; speed: number }>) {
     this.ghostManager.addGhost(id, opts);
   }
@@ -89,6 +90,7 @@ export class GameEngineService {
   getBotCount() {
     return this.botManager.getBotCount();
   }
+
   getNextBotNumber() {
     return this.botManager.getNextBotNumber();
   }
@@ -128,11 +130,21 @@ export class GameEngineService {
       (p) => this.playerService['checkDotCollision'](p, this.dots),
     );
 
-    // 충돌
-    this.checkBotGhostCollision();
-    this.checkPlayerGhostCollision();
+    // ★ 충돌 — CollisionService 로 분리됨 ★
+    const collidedPlayer =
+      this.collisionService.checkPlayerGhostCollision(
+        this.playerService.getPlayers(),
+      );
+    if (collidedPlayer) {
+      this.playerService.applyStun(collidedPlayer);
+    }
 
-    // 점 다 먹었으면 게임오버
+    const collidedBot = this.collisionService.checkBotGhostCollision();
+    if (collidedBot) {
+      this.botManager.stunBot(collidedBot);
+    }
+
+    // 점 다 먹으면 게임오버
     if (this.allDotsEaten()) {
       this.gameOver = true;
       this.gameOverReason = 'all_dots_eaten';
@@ -146,34 +158,6 @@ export class GameEngineService {
       this.gameOverReason = 'time_over';
       this.onGameOver();
       return;
-    }
-  }
-
-  // ========== 충돌 처리 ==========
-  private checkPlayerGhostCollision() {
-    for (const player of this.playerService.getPlayers()) {
-      if (player.stunned) continue;
-
-      const px = player.x + PLAYER_SIZE / 2;
-      const py = player.y + PLAYER_SIZE / 2;
-
-      if (this.ghostManager.checkCollision(px, py)) {
-        this.playerService.applyStun(player);
-        return;
-      }
-    }
-  }
-
-  private checkBotGhostCollision() {
-    for (const bot of this.botManager.getBots()) {
-      if (bot.stunned) continue;
-
-      const bx = bot.x + PLAYER_SIZE / 2;
-      const by = bot.y + PLAYER_SIZE / 2;
-
-      if (this.ghostManager.checkCollision(bx, by)) {
-        this.botManager.stunBot(bot);
-      }
     }
   }
 
@@ -198,9 +182,11 @@ export class GameEngineService {
 
     return {
       players: this.playerService.getPlayers().map((p) => ({ ...p })),
-      botPlayers: this.botManager.getBots().map((b) => ({ ...b })),  // ⭐ 변경됨
+      botPlayers: this.botManager.getBots().map((b) => ({ ...b })),
       dots: this.dots.map((d) => ({ ...d })),
-      ghosts: Object.values(this.ghostManager.getGhosts()).map((g) => ({ ...g })),
+      ghosts: Object.values(this.ghostManager.getGhosts()).map((g) => ({
+        ...g,
+      })),
       gameOver: this.gameOver,
       gameOverPlayerId: this.gameOverPlayerId,
       gameOverReason: this.gameOverReason,
@@ -228,8 +214,7 @@ export class GameEngineService {
     }
 
     this.ghostManager.initialize(ghostSpawns);
-
-    this.botManager.resetBots();  // ⭐ 추가됨
+    this.botManager.resetBots();
 
     this.gameOver = false;
     this.gameOverPlayerId = null;
@@ -258,7 +243,7 @@ export class GameEngineService {
     if (this.roomManager?.server) {
       this.roomManager.server.to(this.roomId).emit('game-over', {
         players: this.playerService.getPlayers(),
-        botPlayers: this.botManager.getBots(),   // ⭐ 변경됨
+        botPlayers: this.botManager.getBots(),
         reason: this.gameOverReason ?? 'unknown',
       });
       console.log('📢 game-over 이벤트 전송 완료!');
