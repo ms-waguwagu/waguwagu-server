@@ -1,22 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Injectable } from '@nestjs/common';
-import { PlayerState } from '../state/player-state';
-import { GhostState } from '../state/ghost-state';
 import { Direction } from '../types/direction.type';
-import {
-  TILE_SIZE,
-  PLAYER_SIZE,
-  PLAYER_SPEED,
-  GHOST_SIZE,
-  MAP_DESIGN,
-} from '../map/map.data';
+import { TILE_SIZE, PLAYER_SIZE, MAP_DESIGN } from '../map/map.data';
 import { parseMap } from '../map/map.service';
 
 import { GhostManagerService } from './ghost/ghost-manager.service';
 import { PlayerService, Dot } from './player/player.service';
 import { BotManagerService } from './bot/bot-manager.service';
-import { CollisionService } from './collision.service';
+import { CollisionService } from './core/collision.service';
+import { LifecycleService } from './core/lifecycle.service';
 
 @Injectable()
 export class GameEngineService {
@@ -26,37 +19,33 @@ export class GameEngineService {
   intervalRunning = false;
   interval: NodeJS.Timeout | null = null;
 
-  private map: number[][] = [];
-  private dots: Dot[] = [];
-
   readonly rows: number;
   readonly cols: number;
   readonly tileSize = TILE_SIZE;
-
-  gameOver = false;
-  gameOverPlayerId: string | null = null;
-  gameOverReason: string | null = null;
-
-  gameStartTime: number = Date.now();
-  maxGameDuration = 60000;
 
   constructor(
     private readonly ghostManager: GhostManagerService,
     private readonly playerService: PlayerService,
     private readonly botManager: BotManagerService,
     private readonly collisionService: CollisionService,
+    private readonly lifecycle: LifecycleService,
   ) {
-    const { map, dots, ghostSpawns } = parseMap(MAP_DESIGN);
+    const { map } = parseMap(MAP_DESIGN);
 
-    this.map = map;
-    this.dots = dots as Dot[];
-    this.ghostManager.initialize(ghostSpawns);
+    this.lifecycle.initialize();
 
     this.rows = map.length;
     this.cols = map[0].length;
   }
 
-  // ========== 플레이어 포워딩 ==========
+  get map() {
+    return this.lifecycle.map;
+  }
+
+  get dots() {
+    return this.lifecycle.dots;
+  }
+
   getPlayer(id: string) {
     return this.playerService.getPlayer(id);
   }
@@ -77,12 +66,10 @@ export class GameEngineService {
     return this.playerService.playerCount();
   }
 
-  // ========== 유령 ==========
   addGhost(id: string, opts?: Partial<{ color: string; speed: number }>) {
     this.ghostManager.addGhost(id, opts);
   }
 
-  // ========== 봇 ==========
   addBotPlayer(nickname?: string) {
     this.botManager.addBotPlayer(nickname);
   }
@@ -95,19 +82,14 @@ export class GameEngineService {
     return this.botManager.getNextBotNumber();
   }
 
-  // ========== 메인 업데이트 ==========
   update() {
-    const now = Date.now();
-
-    if (this.gameOver) {
-      this.ghostManager.updateGhosts(
-        this.map,
-        this.playerService.getPlayers(),
-      );
+    if (this.lifecycle.gameOver) {
+      this.ghostManager.updateGhosts(this.map, this.playerService.getPlayers());
       return;
     }
 
-    // 플레이어 이동
+    const now = Date.now();
+
     for (const player of this.playerService.getPlayers()) {
       if (player.stunned) {
         if (now >= player.stunEndTime) {
@@ -116,25 +98,18 @@ export class GameEngineService {
         }
         continue;
       }
-
       this.playerService.updatePlayer(player, this.map, this.dots);
     }
 
-    // 유령 이동
     this.ghostManager.updateGhosts(this.map, this.playerService.getPlayers());
 
-    // 봇 이동
-    this.botManager.updateBots(
-      this.map,
-      this.playerService.getPlayers(),
-      (p) => this.playerService['checkDotCollision'](p, this.dots),
+    this.botManager.updateBots(this.map, this.playerService.getPlayers(), (p) =>
+      this.playerService['checkDotCollision'](p, this.dots),
     );
 
-    // ★ 충돌 — CollisionService 로 분리됨 ★
-    const collidedPlayer =
-      this.collisionService.checkPlayerGhostCollision(
-        this.playerService.getPlayers(),
-      );
+    const collidedPlayer = this.collisionService.checkPlayerGhostCollision(
+      this.playerService.getPlayers(),
+    );
     if (collidedPlayer) {
       this.playerService.applyStun(collidedPlayer);
     }
@@ -144,24 +119,32 @@ export class GameEngineService {
       this.botManager.stunBot(collidedBot);
     }
 
-    // 점 다 먹으면 게임오버
-    if (this.allDotsEaten()) {
-      this.gameOver = true;
-      this.gameOverReason = 'all_dots_eaten';
-      this.onGameOver();
+    if (this.lifecycle.allDotsEaten()) {
+      this.lifecycle.triggerGameOver('all_dots_eaten');
       return;
     }
 
-    // 시간 종료
-    if (now - this.gameStartTime >= this.maxGameDuration) {
-      this.gameOver = true;
-      this.gameOverReason = 'time_over';
-      this.onGameOver();
+    if (this.lifecycle.isTimeOver()) {
+      this.lifecycle.triggerGameOver('time_over');
       return;
     }
   }
+  get gameOver() {
+    return this.lifecycle.gameOver;
+  }
 
-  // ========== 상태 반환 ==========
+  resetGame() {
+    return this.lifecycle.resetGame();
+  }
+
+  getAllPlayerScores() {
+    return this.playerService.getPlayers().map((p) => ({
+      playerId: p.id,
+      nickname: p.nickname,
+      score: p.score,
+    }));
+  }
+
   getMapData() {
     return {
       map: this.map,
@@ -174,10 +157,9 @@ export class GameEngineService {
 
   getState() {
     const now = Date.now();
-
     const remainingTime = Math.max(
       0,
-      this.maxGameDuration - (now - this.gameStartTime),
+      this.lifecycle.maxGameDuration - (now - this.lifecycle.gameStartTime),
     );
 
     return {
@@ -187,82 +169,11 @@ export class GameEngineService {
       ghosts: Object.values(this.ghostManager.getGhosts()).map((g) => ({
         ...g,
       })),
-      gameOver: this.gameOver,
-      gameOverPlayerId: this.gameOverPlayerId,
-      gameOverReason: this.gameOverReason,
+      gameOver: this.lifecycle.gameOver,
+      gameOverPlayerId: this.lifecycle.gameOverPlayerId,
+      gameOverReason: this.lifecycle.gameOverReason,
       remainingTime,
     };
-  }
-
-  // ========== 게임 리셋 ==========
-  allDotsEaten(): boolean {
-    return this.dots.every((d) => d.eaten);
-  }
-
-  resetGame() {
-    const { map, dots, ghostSpawns } = parseMap(MAP_DESIGN);
-    this.map = map;
-    this.dots = dots as Dot[];
-
-    const spawnOffset = (TILE_SIZE - PLAYER_SIZE) / 2;
-
-    for (const p of this.playerService.getPlayers()) {
-      p.x = 1 * TILE_SIZE + spawnOffset;
-      p.y = 1 * TILE_SIZE + spawnOffset;
-      p.dir = { dx: 0, dy: 0 };
-      p.score = 0;
-    }
-
-    this.ghostManager.initialize(ghostSpawns);
-    this.botManager.resetBots();
-
-    this.gameOver = false;
-    this.gameOverPlayerId = null;
-    this.gameOverReason = null;
-  }
-
-  getAllPlayerScores() {
-    const humanScores = this.playerService.getPlayers().map((p) => ({
-      playerId: p.id,
-      nickname: p.nickname,
-      score: p.score,
-    }));
-
-    const botScores = this.botManager.getBots().map((b) => ({
-      playerId: b.id,
-      nickname: b.nickname,
-      score: b.score,
-    }));
-
-    return [...humanScores, ...botScores];
-  }
-
-  onGameOver() {
-    console.log('💀 게임오버 발생! MODE =', process.env.MODE);
-
-    if (this.roomManager?.server) {
-      this.roomManager.server.to(this.roomId).emit('game-over', {
-        players: this.playerService.getPlayers(),
-        botPlayers: this.botManager.getBots(),
-        reason: this.gameOverReason ?? 'unknown',
-      });
-      console.log('📢 game-over 이벤트 전송 완료!');
-    }
-
-    if (process.env.MODE === 'DEV') {
-      setTimeout(() => {
-        console.log('🔄 DEV 모드 → 게임 자동 리셋 실행');
-        this.resetGame();
-      }, 5000);
-    } else {
-      setTimeout(() => {
-        console.log('🔥 PROD 모드 → 방 삭제 실행:', this.roomId);
-
-        if (this.roomManager && this.roomId) {
-          this.roomManager.removeRoom(this.roomId);
-        }
-      }, 5000);
-    }
   }
 
   stopInterval() {

@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { PlayerState } from '../state/player-state';
-import { GhostManagerService } from './ghost/ghost-manager.service';
-import { BotManagerService } from './bot/bot-manager.service';
-import { PLAYER_SIZE } from '../map/map.data';
+import { PlayerState } from '../../state/player-state';
+import { GhostManagerService } from '../ghost/ghost-manager.service';
+import { BotManagerService } from '../bot/bot-manager.service';
+import { PLAYER_SIZE } from '../../map/map.data';
 
 @Injectable()
 export class CollisionService {

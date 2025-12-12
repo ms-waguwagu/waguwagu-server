@@ -13,7 +13,8 @@ import { RankingService } from '../ranking/ranking.service';
 import { PlayerService } from 'src/engine/player/player.service';
 import { GhostManagerService } from 'src/engine/ghost/ghost-manager.service';
 import { BotManagerService } from 'src/engine/bot/bot-manager.service';
-import { CollisionService } from 'src/engine/collision.service';
+import { CollisionService } from 'src/engine/core/collision.service';
+import { LifecycleService } from 'src/engine/core/lifecycle.service';
 import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({
@@ -35,6 +36,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private playerService: PlayerService,
     private botManagerService: BotManagerService,
     private collisionService: CollisionService,
+    private lifecycleService: LifecycleService,
   ) {}
 
   handleConnection(client: Socket) {
@@ -100,9 +102,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.ghostManagerService,
       this.playerService,
       this.botManagerService,
-      this.collisionService,  // ← 요놈 추가!
+      this.collisionService,
+      this.lifecycleService,
     );
-    
+
     engine.roomId = roomId;
     engine.roomManager = this;
 
@@ -132,10 +135,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.ghostManagerService,
         this.playerService,
         this.botManagerService,
-        this.collisionService,  
+        this.collisionService,
+        this.lifecycleService,
       );
-      
-      
+
       // 👇 중요! roomId와 roomManager 설정
       engine.roomId = roomId;
       engine.roomManager = this; // GameGateway를 roomManager로 설정
