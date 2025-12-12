@@ -12,7 +12,8 @@ import {
   MAP_DESIGN,
 } from '../map/map.data';
 import { parseMap } from '../map/map.service';
-import { GhostService } from './ghost/ghost.service';
+
+import { GhostManagerService } from './ghost/ghost-manager.service';
 import { PlayerBotService } from './player-bot.service';
 import { PlayerService, Dot } from './player/player.service';
 
@@ -24,10 +25,8 @@ export class GameEngineService {
   intervalRunning = false;
   interval: NodeJS.Timeout | null = null;
 
-  private ghosts: Record<string, GhostState> = {};
   private map: number[][] = [];
   private dots: Dot[] = [];
-  private ghostSpawns: { x: number; y: number }[] = [];
   private botPlayers: PlayerState[] = [];
 
   readonly rows: number;
@@ -44,13 +43,14 @@ export class GameEngineService {
   private botCount = 0;
 
   constructor(
-    private readonly ghostService: GhostService,
+    private readonly ghostManager: GhostManagerService,
     private readonly playerService: PlayerService,
   ) {
     const { map, dots, ghostSpawns } = parseMap(MAP_DESIGN);
+
     this.map = map;
     this.dots = dots as Dot[];
-    this.ghostSpawns = ghostSpawns;
+    this.ghostManager.initialize(ghostSpawns);
 
     this.rows = map.length;
     this.cols = map[0].length;
@@ -77,28 +77,12 @@ export class GameEngineService {
     return this.playerService.playerCount();
   }
 
-  // ========== Ghost 관리 ==========
+  // ========== 유령 관리 ==========
   addGhost(id: string, opts?: Partial<{ color: string; speed: number }>) {
-    if (!this.ghostSpawns.length) return;
-    const spawn =
-      this.ghostSpawns[Math.floor(Math.random() * this.ghostSpawns.length)];
-    const offset = TILE_SIZE / 2;
-
-    this.ghosts[id] = {
-      id,
-      x: spawn.x * TILE_SIZE + offset,
-      y: spawn.y * TILE_SIZE + offset,
-      dir: { dx: 0, dy: 0 },
-      speed: opts?.speed ?? 5,
-      color: opts?.color ?? 'white',
-      path: [],
-      targetX: undefined,
-      targetY: undefined,
-    };
+    this.ghostManager.addGhost(id, opts);
   }
 
   // ========== 봇 ==========
-
   getNextBotNumber(): number {
     this.botCount += 1;
     return this.botCount;
@@ -137,18 +121,11 @@ export class GameEngineService {
     const now = Date.now();
 
     if (this.gameOver) {
-      const ghostArray = Object.values(this.ghosts);
-      ghostArray.forEach((ghost, index) => {
-        const isChaser = index === 0;
-        ghost.color = isChaser ? 'red' : 'white';
-
-        GhostService.updateGhost(
-          ghost,
-          this.map,
-          this.playerService.getPlayers(),
-          isChaser,
-        );
-      });
+      // 게임오버 상태에서도 고스트만 업데이트됨
+      this.ghostManager.updateGhosts(
+        this.map,
+        this.playerService.getPlayers(),
+      );
       return;
     }
 
@@ -165,19 +142,8 @@ export class GameEngineService {
       this.playerService.updatePlayer(player, this.map, this.dots);
     }
 
-    // 유령 로직
-    const ghostArray = Object.values(this.ghosts);
-    ghostArray.forEach((ghost, index) => {
-      const isChaser = index === 0;
-      ghost.color = isChaser ? 'red' : 'white';
-
-      GhostService.updateGhost(
-        ghost,
-        this.map,
-        this.playerService.getPlayers(),
-        isChaser,
-      );
-    });
+    // 유령 이동 (관리자)
+    this.ghostManager.updateGhosts(this.map, this.playerService.getPlayers());
 
     // 봇 이동
     for (const bot of this.botPlayers) {
@@ -194,7 +160,7 @@ export class GameEngineService {
       );
     }
 
-    // 충돌
+    // 충돌 체크
     this.checkBotGhostCollision();
     this.checkPlayerGhostCollision();
 
@@ -220,19 +186,12 @@ export class GameEngineService {
     for (const player of this.playerService.getPlayers()) {
       if (player.stunned) continue;
 
-      for (const ghost of Object.values(this.ghosts)) {
-        const px = player.x + PLAYER_SIZE / 2;
-        const py = player.y + PLAYER_SIZE / 2;
-        const gx = ghost.x + PLAYER_SIZE / 2;
-        const gy = ghost.y + PLAYER_SIZE / 2;
+      const px = player.x + PLAYER_SIZE / 2;
+      const py = player.y + PLAYER_SIZE / 2;
 
-        const dist = Math.hypot(px - gx, py - gy);
-        const threshold = PLAYER_SIZE;
-
-        if (dist < threshold) {
-          this.playerService.applyStun(player);
-          return;
-        }
+      if (this.ghostManager.checkCollision(px, py)) {
+        this.playerService.applyStun(player);
+        return;
       }
     }
   }
@@ -241,22 +200,14 @@ export class GameEngineService {
     for (const bot of this.botPlayers) {
       if (bot.stunned) continue;
 
-      for (const ghost of Object.values(this.ghosts)) {
-        const bx = bot.x + PLAYER_SIZE / 2;
-        const by = bot.y + PLAYER_SIZE / 2;
-        const gx = ghost.x + PLAYER_SIZE / 2;
-        const gy = ghost.y + PLAYER_SIZE / 2;
+      const bx = bot.x + PLAYER_SIZE / 2;
+      const by = bot.y + PLAYER_SIZE / 2;
 
-        const dist = Math.hypot(bx - gx, by - gy);
-        const threshold = PLAYER_SIZE;
-
-        if (dist < threshold) {
-          bot.stunned = true;
-          bot.stunEndTime = Date.now() + 10000;
-          bot.alpha = 0.4;
-          bot.score = Math.max(0, bot.score - 30);
-          break;
-        }
+      if (this.ghostManager.checkCollision(bx, by)) {
+        bot.stunned = true;
+        bot.stunEndTime = Date.now() + 10000;
+        bot.alpha = 0.4;
+        bot.score = Math.max(0, bot.score - 30);
       }
     }
   }
@@ -280,18 +231,11 @@ export class GameEngineService {
       this.maxGameDuration - (now - this.gameStartTime),
     );
 
-    const serializedPlayers = this.playerService
-      .getPlayers()
-      .map((p) => ({ ...p }));
-    const serializedBotPlayers = this.botPlayers.map((b) => ({ ...b }));
-    const serializedDots = this.dots.map((d) => ({ ...d }));
-    const serializedGhosts = Object.values(this.ghosts).map((g) => ({ ...g }));
-
     return {
-      players: serializedPlayers,
-      botPlayers: serializedBotPlayers,
-      dots: serializedDots,
-      ghosts: serializedGhosts,
+      players: this.playerService.getPlayers().map((p) => ({ ...p })),
+      botPlayers: this.botPlayers.map((b) => ({ ...b })),
+      dots: this.dots.map((d) => ({ ...d })),
+      ghosts: Object.values(this.ghostManager.getGhosts()).map((g) => ({ ...g })),
       gameOver: this.gameOver,
       gameOverPlayerId: this.gameOverPlayerId,
       gameOverReason: this.gameOverReason,
@@ -305,7 +249,7 @@ export class GameEngineService {
   }
 
   resetGame() {
-    const { map, dots } = parseMap(MAP_DESIGN);
+    const { map, dots, ghostSpawns } = parseMap(MAP_DESIGN);
     this.map = map;
     this.dots = dots as Dot[];
 
@@ -318,16 +262,8 @@ export class GameEngineService {
       p.score = 0;
     }
 
-    const ghostOffset = TILE_SIZE / 2;
-
-    for (const g of Object.values(this.ghosts)) {
-      g.x = 14 * TILE_SIZE + ghostOffset;
-      g.y = 13 * TILE_SIZE + ghostOffset;
-      g.dir = { dx: 0, dy: 0 };
-      g.path = [];
-      g.targetX = undefined;
-      g.targetY = undefined;
-    }
+    // 유령 위치도 초기화
+    this.ghostManager.initialize(ghostSpawns);
 
     this.gameOver = false;
     this.gameOverPlayerId = null;
@@ -352,8 +288,6 @@ export class GameEngineService {
 
   onGameOver() {
     console.log('💀 게임오버 발생! MODE =', process.env.MODE);
-
-    const finalScores = this.getAllPlayerScores();
 
     if (this.roomManager?.server) {
       this.roomManager.server.to(this.roomId).emit('game-over', {

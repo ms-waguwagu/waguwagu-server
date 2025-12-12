@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
-import { GhostService } from './ghost.service';
+import { GhostMoveService } from './ghost-move.service';
+import { GhostManagerService } from './ghost-manager.service';
 
 @Module({
-  providers: [GhostService],
-  exports: [GhostService],
+  providers: [GhostMoveService, GhostManagerService],
+  exports: [GhostMoveService, GhostManagerService],
 })
 export class GhostModule {}

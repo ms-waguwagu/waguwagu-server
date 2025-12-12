@@ -11,7 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { GameEngineService } from '../engine/game-engine.service';
 import { RankingService } from '../ranking/ranking.service';
 import { PlayerService } from 'src/engine/player/player.service';
-import { GhostService } from 'src/engine/ghost/ghost.service';
+import { GhostManagerService } from 'src/engine/ghost/ghost-manager.service';
 import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({
@@ -29,7 +29,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   constructor(
     private rankingService: RankingService,
-    private ghostService: GhostService,
+    private ghostManagerService: GhostManagerService,
     private playerService: PlayerService,
   ) {}
 
@@ -92,7 +92,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return false;
     }
 
-    const engine = new GameEngineService(this.ghostService, this.playerService);
+    const engine = new GameEngineService(
+      this.ghostManagerService,
+      this.playerService,
+    );
     engine.roomId = roomId;
     engine.roomManager = this;
 
@@ -119,7 +122,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // 방 객체 없으면 생성
     if (!this.rooms[roomId]) {
       const engine = new GameEngineService(
-        this.ghostService,
+        this.ghostManagerService,
         this.playerService,
       );
 
