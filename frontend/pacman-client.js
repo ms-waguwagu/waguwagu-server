@@ -20,7 +20,7 @@ const finalScoreList = document.getElementById("final-score-list");
 
 // UI 초기화
 myNicknameLabel.textContent = nickname;
-const roomId = "DEV-ROOM"; // 일단 하드코딩
+const roomId = localStorage.getItem("waguwagu_room_id");
 roomIdLabel.textContent = roomId;
 
 // ====== 게임 매니저 시작 ======
@@ -32,7 +32,7 @@ const gameManager = new GameManager({
   gameScreen,
   gameEndModal,
   homeButton,
-  finalScoreList
+  finalScoreList,
 });
 
 gameManager.start();

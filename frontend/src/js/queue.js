@@ -1,4 +1,3 @@
-
 // DOM 요소 가져오기
 const timerEl = document.getElementById("queue-timer");
 const cancelBtn = document.getElementById("cancel-queue-btn");
@@ -20,7 +19,7 @@ function startTimer() {
   timerInterval = setInterval(() => {
     seconds++;
     timerEl.textContent = formatTime(seconds);
-		 // 30초 도달 시 봇 투입 로직은 매칭 워커가 처리해야 함
+    // 30초 도달 시 봇 투입 로직은 매칭 워커가 처리해야 함
     if (seconds >= LIMIT_SECONDS) {
       stopTimer();
     }
@@ -35,7 +34,6 @@ function stopTimer() {
   }
 }
 
-
 export function initQueueScreen(socket, onMatchFound) {
   if (!socket) {
     console.error("소켓이 연결되지 않았습니다.");
@@ -46,7 +44,7 @@ export function initQueueScreen(socket, onMatchFound) {
   startTimer();
 
   // 2. 초기 대기열 상태 요청 (화면 켜지자마자 1회 조회)
-  socket.emit('request_queue_status');
+  socket.emit("request_queue_status");
 
   // ========== 소켓 이벤트 핸들러 함수 정의 ==========
 
@@ -61,10 +59,9 @@ export function initQueueScreen(socket, onMatchFound) {
       void currentQueueCountEl.offsetWidth; // trigger reflow
       currentQueueCountEl.classList.add("pop");
     }
-			//‼️테스트 용‼️
+    //‼️테스트 용‼️
     console.log(`현재 인원: ${data.currentCount}/2`);
   };
-
 
   // B. 대기열 취소 성공 응답
   const onQueueCancelled = (data) => {
@@ -145,16 +142,17 @@ if (document.getElementById("queue-screen")) {
         // transports: ["websocket"],
       });
 
-			  // 소켓 연결되면 대기열 진입
+      // 소켓 연결되면 대기열 진입
       socket.on("connect", () => {
         console.log("queue socket connected:", socket.id);
         socket.emit("join_queue"); // 여기서 서버로 대기열 입장 요청
       });
 
-
       initQueueScreen(socket, (matchData) => {
-        // 매칭 성공 시 게임 페이지로 이동
-        localStorage.setItem("match_data", JSON.stringify(matchData));
+        // matchData = { roomId, players ... }
+        console.log("매칭 완료 데이터:", matchData);
+        // 서버에서 만든 room_id를 localStorage에 저장
+        localStorage.setItem("waguwagu_room_id", matchData.roomId);
         window.location.href = "game.html";
       });
     } else {
@@ -164,6 +162,4 @@ if (document.getElementById("queue-screen")) {
     alert("닉네임 입력이 필요합니다.");
     window.location.href = "login.html";
   }
-
-
 }

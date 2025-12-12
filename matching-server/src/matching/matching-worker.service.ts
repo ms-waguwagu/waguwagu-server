@@ -1,9 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import { QueueService } from '../queue/queue.service';
 import { QueueGateway } from '../queue/queue.gateway';
 import { v4 as uuidv4 } from 'uuid'; //방 ID 생성용 
 import axios from 'axios';
+import { PlayerStatus } from '../common/constants';
 
 @Injectable()
 export class MatchingWorker {
@@ -12,7 +14,9 @@ export class MatchingWorker {
 
   constructor(
 		private readonly queueService: QueueService, 
-		private readonly queueGateway: QueueGateway,) {}
+		private readonly queueGateway: QueueGateway,
+    private readonly configService: ConfigService,
+  ) {}
 
   // 1초마다 실행
   @Interval(1000)
@@ -26,31 +30,25 @@ export class MatchingWorker {
     let participants: string[] = [];
 
     try {
-      // 1. 대기열에서 5명 추출 시도 (Lua Script 호출)
-      const participants =
-			//‼️테스트 용‼️
-        await this.queueService.extractMatchParticipants(2);
+      const participants = await this.queueService.extractMatchParticipants(this.configService.get<number>('MATCH_PLAYER_COUNT') ?? 5);
 
       if (!participants) {
         return;
       }
 
-      this.logger.log(`🎉 매칭 성사! 참여자: ${participants.join(', ')}`);
+      this.logger.log(`매칭 성사! 참여자: ${participants.join(', ')}`);
 
 			// 2. 고유 Room ID 생성
       const newRoomId = uuidv4();
 
 			 // 매칭된 유저들을 IN_GAME 으로 설정 
       for (const userId of participants) {
-        await this.queueService.updateStatus(userId, 'IN_GAME');
-        // this.logger.log(
-        //   `[MatchingWorker] 유저 상태 변경 -> IN_GAME (userId=${userId})`,
-        // );
+        await this.queueService.updateStatus(userId, PlayerStatus.IN_GAME);
       }
 
 
       // 3. 게임 룸 생성 요청
-			const gameServerUrl = 'http://host.docker.internal:3001'; 
+			const gameServerUrl = this.configService.get<string>('GAME_SERVER_URL'); 
       const response = await axios.post(`${gameServerUrl}/internal/room`, {
         roomId: newRoomId,
         users: participants
