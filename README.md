@@ -21,24 +21,34 @@
 waguwagu-server/
 │
 ├── frontend/
-│   ├── pacman-client.js                     
+│   ├── pacman-client.js
+│   └── config.js            
 │   └── src/
+│       ├── api/
+│       │   └── login-api.js/
 │       ├── js/
-│       │   └── game/
-│       │       ├── engine.js
-│       │       ├── player.js
-│       │       ├── ghost.js
-│       │       └── bot.js
+│       │   ├── engine.js
+│       │   ├── player.js
+│       │   ├── ghost.js
+│       │   └── bot.js
 │       ├── pages/
-│       │   ├── lobby.html
-│       │   └── game.html
+│       │   ├── game.html
+│       │   ├── login.html
+│       │   └── queue.html
+│       ├── game/
+│       │   ├── render.js
 │       ├── styles/
 │       │   ├── main.css
-│       │   └── game.css
+│       │   ├── game.css
+│       │   ├── queue.css
+│       │   └── ranking.css
+│       ├── utils/
+│       │   └── storage.js
 │       └── index.html
 │
 ├── game-server/                  # 실시간 게임 서버 (WebSocket, Server-Authoritative)
 │   └── src/
+│       ├── main.ts
 │       ├── app.controller.spec.ts
 │       ├── app.controller.ts
 │       ├── app.module.ts
@@ -72,7 +82,6 @@ waguwagu-server/
 │       │   ├── game.gateway.ts
 │       │   ├── game.module.ts
 │       │   └── game.service.ts
-│       ├── main.ts
 │       ├── map
 │       │   ├── map.data.ts
 │       │   └── map.service.ts
@@ -96,25 +105,39 @@ waguwagu-server/
 │   └── src/
 │       ├── main.ts
 │       ├── app.module.ts
+│       ├── app.controller.ts
+│       ├── app.module.ts
+│       ├── app.service.ts
 │       ├── auth/
+│       │   ├── dto/
+│       │   │    └── nickname.dto.ts
+│       │   ├── auth.module.ts
 │       │   ├── auth.controller.ts
 │       │   ├── auth.service.ts
 │       │   └── jwt/
+│       │       ├── jwt.module.ts
+│       │       ├── jwt-payload.interface.ts
 │       │       ├── jwt.strategy.ts
 │       │       └── jwt.guard.ts
-│       ├── queue/                # 매칭 큐 관리
+│       ├── common/
+│       │   └── constants.ts 
+│       ├── queue/               
 │       │   ├── queue.service.ts
 │       │   └── queue.entity.ts
-│       ├── matching/             # 매칭 알고리즘, 워커
-│       │   ├── matching.service.ts
-│       │   ├── matching.controller.ts
-│       │   └── matching.worker.ts
-│       ├── gateway/              # 매칭용 WebSocket (선택)
-│       │   └── match.gateway.ts
-│       ├── game-connector/       # game-server 통신 모듈
-│       │   └── game-server.client.ts  # REST or gRPC or Socket
-│       └── record/
-│           └── record.service.ts
+│       ├── matching/             
+│       │   ├── matching.module.ts
+│       │   └── matching-worker.service.ts
+│       └──  queue/
+│           ├── lua/
+│           │   ├── enter-match.lua
+│           │   ├── extract-match.lua
+│           │   ├── extract-partial-match.lua
+│           │   └── cancel-match.lua
+│           ├── queue.module.ts
+│           ├── queue.controller.ts
+│           ├── queue.gateway.ts
+│           └── queue.service.ts
+│
 │
 └── README.md
 
