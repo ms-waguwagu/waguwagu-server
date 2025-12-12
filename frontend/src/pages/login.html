@@ -7,28 +7,33 @@
     <link rel="stylesheet" href="../styles/main.css" />
     <link rel="stylesheet" href="../styles/ranking.css" />
   </head>
+
   <body class="mode-main">
-    <!-- 메인 화면, mode-main으로 로그인 화면에는 팩맨배경이 보이도록 한다 -->
-    <div id="main-screen" style="display: flex">
-      <!-- 왼쪽 랭킹 패널 -->
-      <div id="ranking-panel">
+    <!-- 좌(랭킹) + 우(히어로) 레이아웃 -->
+    <div id="layout">
+      <aside id="ranking-panel">
         <h2>WEEKLY TOP 10</h2>
         <div id="ranking-list">
           <div class="empty-ranking">로딩 중...</div>
+          <!-- JS로 .ranking-item 10개를 넣는 구조 -->
         </div>
-      </div>
+      </aside>
 
-      <!-- 중앙 영역 제목 표시하기-->
-      <div id="center-area">
-        <div id="game-title">WAGUWAGU</div>
+      <main id="main-screen">
+        <!-- 배경 + 중앙정렬 기준이 되는 히어로(배경이미지는 여기서만!) -->
+        <section id="hero">
+          <!-- 배경 중앙 기준으로 로고/입력/버튼이 정렬됨 -->
+          <div id="center-area">
+            <div id="game-title">WAGUWAGU</div>
 
-        <!-- 닉네임 + 버튼 카드 -->
-        <div id="app">
-          <input type="text" id="nickname-input" placeholder="닉네임 입력" />
-          <button id="start-button">게임 시작</button>
-          <p id="status-message"></p>
-        </div>
-      </div>
+            <div id="app">
+              <input type="text" id="nickname-input" placeholder="닉네임 입력" />
+              <button id="start-button">게임 시작</button>
+              <p id="status-message"></p>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
 
     <script type="module" src="../js/login.js"></script>
