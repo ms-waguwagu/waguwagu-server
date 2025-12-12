@@ -38,4 +38,7 @@
 		-- 5. 매칭 대기열에 유저 추가
     redis.call('LPUSH', queueKey, userId)
 
+		-- 6. 마지막으로 입장한 유저 시간 저장 (전역)
+    redis.call('SET', queueKey .. ':lastJoinedAt', entryTime)
+		
     return userId

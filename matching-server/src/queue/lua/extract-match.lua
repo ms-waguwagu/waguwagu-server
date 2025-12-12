@@ -14,3 +14,5 @@ end
 
 -- 2. 5명 이상이면 정확히 count만큼 뒤에서(오래된 순) 꺼냄
 return redis.call('RPOP', queueKey, count)
+
+
