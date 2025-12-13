@@ -55,7 +55,7 @@ body {
   background-image: url("../images/pacman_background.png");
   background-repeat: no-repeat;
   background-position: center center;
-  background-size: 80% auto;
+  background-size: 100% auto;
 
   display: flex;
   justify-content: center;
@@ -64,11 +64,8 @@ body {
   border-radius: 18px;
 }
 
-/* ✅ “배경+로고+닉네임 세트”를 오른쪽으로 살짝 밀기
-   -> 위클리 탑10 때문에 그룹 전체를 이동시키는 값 */
 :root {
-  --hero-shift-x: 120px; /* 여기만 조절하면 전체가 같이 움직임 */
-  --hero-shift-y: -3vh;
+  --hero-shift-y: -4vh;
 }
 
 #center-area {
@@ -77,7 +74,7 @@ body {
   align-items: center;
   gap: clamp(16px, 4vh, 32px);
 
-  transform: translateX(var(--hero-shift-x)) translateY(var(--hero-shift-y));
+  transform: translateY(var(--hero-shift-y));
 }
 
 /* 로고 */
@@ -105,7 +102,7 @@ body {
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(0, 0, 0, 0.8);
   box-sizing: border-box;
 
-  width: min(420px, 34vw);
+  width: min(420px, 30vw);
   padding: 20px 24px 12px;
   text-align: center;
 }
@@ -119,21 +116,18 @@ body {
   box-sizing: border-box;
   background: rgba(0, 0, 0, 0.55);
 
-  border-radius: 10px;
+  border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   color: #fff;
   outline: none;
+
+  box-shadow: 0 0 8px rgba(255, 216, 77, 0.6), 0 0 18px rgba(255, 216, 77, 0.5);
 
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 #app input::placeholder {
   color: rgba(255, 255, 255, 0.55);
-}
-
-#app input:focus {
-  border-color: rgba(255, 216, 77, 0.9);
-  box-shadow: 0 0 0 2px rgba(255, 216, 77, 0.3);
 }
 
 #app button {
@@ -175,16 +169,16 @@ body {
   color: rgba(255, 255, 255, 0.8);
 }
 
-/* ✅ 창이 작아질수록, 오른쪽 밀림을 자동으로 줄여서 “항상 자연스럽게” */
+/* ✅ 창이 작아질수록, 오른쪽 밀림을 자동으로 줄여서 “항상 자연스럽게”  임시로 주석3 */
 @media (max-width: 1200px) {
   :root {
-    --hero-shift-x: 70px;
+    /* --hero-shift-y: 1vh; */
   }
 }
 
 @media (max-width: 980px) {
   :root {
-    --hero-shift-x: 0px;
+    --hero-shift-y: -2vh;
   }
   #main-screen {
     min-width: 0;

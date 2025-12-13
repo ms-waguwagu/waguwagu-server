@@ -1,6 +1,10 @@
 #ranking-panel {
-  width: 340px;
-  min-width: 340px;
+  /* flex에게: '폭은 내가 width로 정할게, 넌 그냥 그대로 써' */
+  flex: 0 0 auto;
+
+  /* 🔸큰 화면에서는 320px, 작아질수록 20vw까지 같이 줄어듦
+     (최소 200px 밑으로는 안 내려가게) */
+  width: 20vw;
   box-sizing: border-box;
 
   background: linear-gradient(
@@ -17,10 +21,8 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 
-  flex-shrink: 0;
-
-  /* ⭐ 패널 자체가 화면에 딱 맞게 */
-  height: calc(100vh - 48px); /* layout padding 24px*2 반영 */
+  /* 세로 규칙은 그대로 유지 (1~10등 한 번에 보이게) */
+  height: calc(100vh - 48px);
 }
 
 #ranking-panel h2 {
