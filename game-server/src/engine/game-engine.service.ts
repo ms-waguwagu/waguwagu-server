@@ -9,6 +9,10 @@ import { BotManagerService } from './bot/bot-manager.service';
 import { CollisionService } from './core/collision.service';
 import { LifecycleService } from './core/lifecycle.service';
 import { GameLoopService } from './core/game-loop.service';
+import { BossManagerService } from '../boss/boss-manager.service';
+
+
+type GameMode = 'NORMAL' | 'BOSS';
 
 @Injectable()
 export class GameEngineService {
@@ -18,12 +22,12 @@ export class GameEngineService {
   intervalRunning = false;
   interval: NodeJS.Timeout | null = null;
 
+	gameMode: GameMode = 'NORMAL';
+
   readonly rows: number;
   readonly cols: number;
   readonly tileSize = TILE_SIZE;
 
-	  // ‼️보스 테스트‼️이 방의 보스 상태는 여기서만 관리
-  private boss: { x: number; y: number } | null = null;
 
   constructor(
     private readonly ghostManager: GhostManagerService,
@@ -32,6 +36,7 @@ export class GameEngineService {
     private readonly collisionService: CollisionService,
     private readonly lifecycle: LifecycleService,
     private readonly gameLoop: GameLoopService,
+		private readonly bossManager: BossManagerService,
   ) {
     const { map } = parseMap(MAP_DESIGN);
 
@@ -44,9 +49,13 @@ export class GameEngineService {
   this.lifecycle.initialize(this.roomId);
 }
 
-	// ‼️보스 테스트‼️
-  setBoss(boss: { x: number; y: number } | null) {
-    this.boss = boss;
+
+  setMode(mode: GameMode) {
+    this.gameMode = mode;
+  }
+
+	isBossMode(): boolean {
+    return this.gameMode === 'BOSS';
   }
 
   get map() {
@@ -160,9 +169,8 @@ export class GameEngineService {
   }
 
 	// ‼️보스 테스트‼️
-	// ‼️이 방의 boss만 상태에 포함‼️
   getState() {
-    return this.gameLoop.getState(this.roomId, this.boss);
+    return this.gameLoop.getState(this.roomId);
   }
   
   stopInterval() {

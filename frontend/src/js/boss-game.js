@@ -47,6 +47,7 @@ const manager = new GameManager({
   gameEndModal: modal,
   homeButton,
   finalScoreList,
+  mode: 'BOSS',
 });
 
 // ---------------------------------------------

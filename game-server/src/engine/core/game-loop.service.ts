@@ -71,13 +71,17 @@ export class GameLoopService {
 
 	// ‼️보스 테스트‼️
 	// ‼️ boss ?? null 과 boss?: { x: number; y: number } | null) 이 부분 추가 ‼️
-  getState(roomId: string, boss?: { x: number; y: number } | null) {
-    return this.lifecycle.getState(
-			roomId,
-      this.playerService.getPlayers(roomId),
-      this.botManager.getBots(roomId),
-      Object.values(this.ghostManager.getGhosts(roomId)),
-      boss ?? null,
-    );
+  // getState(roomId: string) {
+  //   return this.lifecycle.getState(
+	// 		roomId,
+  //     this.playerService.getPlayers(roomId),
+  //     this.botManager.getBots(roomId),
+  //     Object.values(this.ghostManager.getGhosts(roomId)),
+  //     boss ?? null,
+  //   );
+  // }
+	 // ‼️roomId만 넘기면 모든 상태를 lifecycle이 조합‼️
+  getState(roomId: string) {
+    return this.lifecycle.getState(roomId);
   }
 }

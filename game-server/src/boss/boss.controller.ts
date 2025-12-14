@@ -7,7 +7,7 @@ export class BossController {
 
   @Post('debug-room')
   async createDebugRoom(@Body('nickname') nickname: string) {
-    const roomId = await this.bossRoomService.createDebugRoom(nickname);
-    return { roomId };
+    const result = await this.bossRoomService.createDebugRoom({ nickname });
+    return result;
   }
 }

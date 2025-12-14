@@ -12,11 +12,13 @@ export class GameManager {
     gameEndModal,
     homeButton,
     finalScoreList,
+    mode = 'NORMAL', // 기본값 NORMAL
   }) {
     this.nickname = nickname;
     this.roomId = roomId;
     this.token = token;
     this.socketUrl = socketUrl;
+    this.mode = mode;
 
     // DOM Elements
     this.gameScreen = gameScreen;
@@ -92,6 +94,7 @@ export class GameManager {
       this.socket.emit("join-room", {
         roomId: this.roomId,
         nickname: this.nickname,
+        mode: this.mode,
       });
     });
 
@@ -133,7 +136,7 @@ this.socket.on("countdown", ({ count }) => {
 
     this.socket.on("state", (serverState) => {
       if (!serverState) return;
-			
+
 			// ‼️보스 테스트‼️
 			console.log("🔥 state.boss:", serverState.boss);
 

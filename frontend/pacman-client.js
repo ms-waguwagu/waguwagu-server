@@ -33,6 +33,7 @@ const gameManager = new GameManager({
   gameEndModal,
   homeButton,
   finalScoreList,
+  mode: 'NORMAL',
 });
 
 gameManager.start();

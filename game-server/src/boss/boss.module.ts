@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { BossController } from './boss.controller';
-import { GameModule } from '../gateway/game.module';
 import { BossRoomService } from './boss.service';
+import { BossManagerService } from './boss-manager.service';
 
 @Module({
-	imports: [GameModule],
   controllers: [BossController],
-	providers: [BossRoomService],
+	providers: [BossRoomService, BossManagerService],
+	exports: [BossManagerService],
 })
 export class BossModule {}

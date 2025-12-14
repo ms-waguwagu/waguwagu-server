@@ -1,57 +1,51 @@
 import { Injectable } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
-// 기존 GameRoomService / RoomManager 같은 거 있으면 주입해서 사용
-import { GameGateway } from '../gateway/game.gateway';
+import { BossManagerService } from './boss-manager.service';
 
-type GameMode = 'NORMAL' | 'BOSS';
-
-interface BossInfo {
-  x: number;
-  y: number;
-}
-
-interface RoomState {
-  id: string;
-  mode: GameMode;
-  players: Array<{
-    id: string;
-    nickname: string;
-    x: number;
-    y: number;
-    dead: boolean;
-  }>;
-  boss: BossInfo;
-  // TODO: 기존 필드(dots, timer 등)도 여기에 같이 포함
+interface DebugRoomConfig {
+  nickname: string;
 }
 
 @Injectable()
 export class BossRoomService {
-  constructor(private readonly gameGateway: GameGateway) {}
+  constructor(
+    private readonly bossManager: BossManagerService,
+  ) {}
 
-  async createDebugRoom(nickname: string): Promise<string> {
+  
+   // 보스 디버그 모드 시작 요청
+   // 실제 방 생성은 RoomManager(GameEngineService 쪽)가 처리함
+  async createDebugRoom(config: DebugRoomConfig): Promise<{
+    roomId: string;
+    initialBossState: any;
+  }> {
+
     const roomId = uuidv4();
 
-    const roomState: RoomState = {
-      id: roomId,
-      mode: 'BOSS',
-      players: [
-        {
-          id: `debug-${Date.now()}`, // 임시 유저 ID
-          nickname,
-          x: 5,
-          y: 5,
-          dead: false,
-        },
-      ],
-      boss: {
-        x: 10,
-        y: 10,
-      },
+    // BossManager에서 보스 생성
+    const boss = this.bossManager.spawnBoss(roomId, {
+      x: 10,
+      y: 10,
+    });
+
+    return {
+      roomId,
+      initialBossState: boss,
     };
+  }
 
-    // 이 부분은 너희 실제 구조에 맞게:
-    this.gameGateway.createBossDebugRoom(roomState);
+  // 보스 상태 조회
+  getBoss(roomId: string) {
+    return this.bossManager.getBoss(roomId);
+  }
 
-    return roomId;
+  // AI 서버 응답 이동 적용
+  moveBoss(roomId: string, dx: number, dy: number) {
+    this.bossManager.moveBoss(roomId, dx, dy);
+  }
+
+  // 방 삭제 시 보스 제거
+  removeBoss(roomId: string) {
+    this.bossManager.removeBoss(roomId);
   }
 }
