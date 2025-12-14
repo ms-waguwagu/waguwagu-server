@@ -22,6 +22,9 @@ export class GameEngineService {
   readonly cols: number;
   readonly tileSize = TILE_SIZE;
 
+	  // ‼️보스 테스트‼️이 방의 보스 상태는 여기서만 관리
+  private boss: { x: number; y: number } | null = null;
+
   constructor(
     private readonly ghostManager: GhostManagerService,
     private readonly playerService: PlayerService,
@@ -32,70 +35,114 @@ export class GameEngineService {
   ) {
     const { map } = parseMap(MAP_DESIGN);
 
-    this.lifecycle.initialize();
 
     this.rows = map.length;
     this.cols = map[0].length;
   }
 
+	initialize() {
+  this.lifecycle.initialize(this.roomId);
+}
+
+	// ‼️보스 테스트‼️
+  setBoss(boss: { x: number; y: number } | null) {
+    this.boss = boss;
+  }
+
   get map() {
-    return this.lifecycle.map;
+    return this.lifecycle.getMap(this.roomId);
   }
 
   get dots() {
-    return this.lifecycle.dots;
+    return this.lifecycle.getDots(this.roomId);
   }
 
+	// ‼️보스 테스트‼️ 전용 루프. 랭킹은 빠져있음
+  startBossMode() {
+    if (this.intervalRunning) {
+      console.log(`[BossMode] Room ${this.roomId} 이미 루프 실행 중`);
+      return;
+    }
+
+    console.log(`[BossMode] Room ${this.roomId} 보스 모드 루프 시작`);
+    this.intervalRunning = true;
+
+    this.interval = setInterval(() => {
+      // 1) 기존 게임 루프 한 틱 실행
+      this.update();
+
+
+      // 2) 상태를 해당 room 에 브로드캐스트
+      if (this.roomManager && this.roomManager.server) {
+        this.roomManager.server
+          .to(this.roomId)
+          .emit('state', this.getState());
+      }
+
+			 // 게임 종료 처리 
+    	if (this.gameOver) {
+      	console.log(`[BossMode] 게임 종료 → 루프 정리 시작`);
+
+      	if (this.interval) {
+        	clearInterval(this.interval);
+        	this.interval = null;
+      	}
+      	this.intervalRunning = false;
+    	}
+    }, 1000 / 30); // 30 FPS
+  }
+
+
   getPlayer(id: string) {
-    return this.playerService.getPlayer(id);
+    return this.playerService.getPlayer(this.roomId, id);
   }
 
   addPlayer(id: string, nickname: string) {
-    this.playerService.addPlayer(id, nickname);
+    this.playerService.addPlayer(this.roomId, id, nickname);
   }
 
   removePlayer(id: string) {
-    this.playerService.removePlayer(id);
+    this.playerService.removePlayer(this.roomId, id);
   }
 
   handleInput(id: string, dir: Direction) {
-    this.playerService.handleInput(id, dir);
+    this.playerService.handleInput(this.roomId, id, dir);
   }
 
   playerCount() {
-    return this.playerService.playerCount();
+    return this.playerService.playerCount(this.roomId);
   }
 
   addGhost(id: string, opts?: Partial<{ color: string; speed: number }>) {
-    this.ghostManager.addGhost(id, opts);
+    this.ghostManager.addGhost(this.roomId, id, opts);
   }
 
   addBotPlayer(nickname?: string) {
-    this.botManager.addBotPlayer(nickname);
+    this.botManager.addBotPlayer(this.roomId, nickname);
   }
 
   getBotCount() {
-    return this.botManager.getBotCount();
+    return this.botManager.getBotCount(this.roomId);
   }
 
   getNextBotNumber() {
-    return this.botManager.getNextBotNumber();
+    return this.botManager.getNextBotNumber(this.roomId);
   }
 
   update() {
-    this.gameLoop.run();
+    this.gameLoop.run(this.roomId);
   }
 
   get gameOver() {
-    return this.lifecycle.gameOver;
+    return this.lifecycle.isGameOver(this.roomId);
   }
 
   resetGame() {
-    return this.lifecycle.resetGame();
+    return this.lifecycle.resetGame(this.roomId);
   }
 
   getAllPlayerScores() {
-    return this.playerService.getPlayers().map((p) => ({
+    return this.playerService.getPlayers(this.roomId).map((p) => ({
       playerId: p.id,
       nickname: p.nickname,
       score: p.score,
@@ -112,8 +159,10 @@ export class GameEngineService {
     };
   }
 
+	// ‼️보스 테스트‼️
+	// ‼️이 방의 boss만 상태에 포함‼️
   getState() {
-    return this.gameLoop.getState();
+    return this.gameLoop.getState(this.roomId, this.boss);
   }
   
   stopInterval() {

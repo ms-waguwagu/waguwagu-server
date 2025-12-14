@@ -2,6 +2,8 @@
 const CONSTANTS = {
   GHOST_SIZE: 20,
   PLAYER_SIZE: 18,
+	BOSS_SIZE: 26, // ‼️보스테스트‼️
+
 };
 
 export class Renderer {
@@ -35,7 +37,37 @@ export class Renderer {
     this.drawGhosts(gameState.ghosts || {});
     this.drawBotPlayers(gameState.botPlayers || {});
     this.updateScoreboard(gameState);
+
+    // ‼️보스테스트‼️ 보스가 있을 때만 그림
+    if (gameState.boss) {
+      this.drawBoss(gameState.boss);
+    }
   }
+  // ‼️보스테스트‼️
+	drawBoss(boss) {
+  const ctx = this.ctx;
+  ctx.save();
+
+  ctx.fillStyle = "orange"; // 보스 주황색
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 2;
+
+  const size = CONSTANTS.BOSS_SIZE;
+
+  ctx.beginPath();
+  ctx.arc(
+    boss.x + size / 2,
+    boss.y + size / 2,
+    size / 2,
+    0,
+    Math.PI * 2
+  );
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.restore();
+}
+
 
   clearCanvas() {
     this.ctx.fillStyle = "black";

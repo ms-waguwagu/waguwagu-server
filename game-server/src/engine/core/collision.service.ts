@@ -11,28 +11,29 @@ export class CollisionService {
     private readonly botManager: BotManagerService,
   ) {}
 
-  checkPlayerGhostCollision(players: PlayerState[]) {
+	// 플레이어 - 유령 충돌 체크
+  checkPlayerGhostCollision(roomId: string, players: PlayerState[]) {
     for (const player of players) {
       if (player.stunned) continue;
 
       const px = player.x + PLAYER_SIZE / 2;
       const py = player.y + PLAYER_SIZE / 2;
 
-      if (this.ghostManager.checkCollision(px, py)) {
+      if (this.ghostManager.checkCollision(roomId, px, py)) {
         return player;
       }
     }
     return null;
   }
 
-  checkBotGhostCollision() {
-    for (const bot of this.botManager.getBots()) {
+  checkBotGhostCollision(roomId: string) {
+    for (const bot of this.botManager.getBots(roomId)) {
       if (bot.stunned) continue;
 
       const bx = bot.x + PLAYER_SIZE / 2;
       const by = bot.y + PLAYER_SIZE / 2;
 
-      if (this.ghostManager.checkCollision(bx, by)) {
+      if (this.ghostManager.checkCollision(roomId, bx, by)) {
         return bot;
       }
     }

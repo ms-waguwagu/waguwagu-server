@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package ai;
+
+service BossAIService {
+  // 단일 요청 → 단일 응답
+  rpc PredictAction (GameState) returns (AIAction);
+  // 나중에 추가 예정:
+  // rpc StreamPredict (stream GameState) returns (stream AIAction);
+}
+
+// 플레이어/보스/맵 전체 상태
+message GameState {
+  string room_id = 1;
+
+  // 프레임 번호 또는 tick
+  int32 tick = 2;
+
+  // 맵 크기
+  int32 map_width = 3;
+  int32 map_height = 4;
+
+  // 보스 위치
+  float boss_x = 5;
+  float boss_y = 6;
+
+  // 플레이어들 정보
+  repeated PlayerState players = 7;
+
+  // dot 정보 (간단히 alive count만 먼저)
+  int32 remaining_dots = 8;
+
+  // 추가 상태 (예: phase, 체력 등)
+  int32 boss_hp = 9;
+  int32 boss_phase = 10;
+}
+
+message PlayerState {
+  string id = 1;
+  float x = 2;
+  float y = 3;
+  bool is_alive = 4;
+}
+
+// 보스 행동
+message AIAction {
+  // 이동 방향: -1, 0, 1 같은 delta
+  float move_x = 1;
+  float move_y = 2;
+
+  // 스킬 사용 여부
+  bool use_skill = 3;
+
+  // 사용한다면 어떤 스킬인지
+  string skill_name = 4;
+}

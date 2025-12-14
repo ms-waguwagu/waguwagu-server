@@ -1,0 +1,41 @@
+# === Python Environment ===
+/venv
+/env
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+
+# gRPC Generated Files
+# protoc으로 자동 생성되는 파일 (빌드 시 다시 생성되므로 커밋 불필요)
+*_pb2.py
+*_pb2_grpc.py
+
+# Dependency Management
+# Poetry / Pipenv lock files
+# poetry.lock
+# Pipfile.lock
+
+# Model Artifacts 
+# 강화학습 / 머신러닝 모델 파일
+*.zip
+*.pt
+*.h5
+/models/
+
+# === Test & Logs ===
+.coverage
+/htmlcov/
+/logs/
+/pytest_cache/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Build & Deployment
+!Dockerfile
+!requirements.txt
+
+# OS & Editor 
+.DS_Store
+.vscode/

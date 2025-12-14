@@ -7,6 +7,7 @@ import { TILE_SIZE } from '../../map/map.data';
 export class GhostMoveService {
   static updateGhost(
     ghost: GhostState,
+    roomId: string,
     map: number[][],
     players: PlayerState[],
     isChaser: boolean,

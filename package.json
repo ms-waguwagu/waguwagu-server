@@ -1,6 +1,9 @@
 {
   "dependencies": {
+    "@grpc/grpc-js": "^1.14.3",
+    "@grpc/proto-loader": "^0.8.0",
     "@nestjs/config": "^4.0.2",
+    "@nestjs/microservices": "^11.1.9",
     "socket.io": "^4.8.1",
     "uuid": "^8.3.2"
   }

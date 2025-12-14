@@ -133,6 +133,9 @@ this.socket.on("countdown", ({ count }) => {
 
     this.socket.on("state", (serverState) => {
       if (!serverState) return;
+			
+			// ‼️보스 테스트‼️
+			console.log("🔥 state.boss:", serverState.boss);
 
       // 타이머 갱신 코드 추가
       const timerEl = document.getElementById("game-timer");
