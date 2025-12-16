@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: WAGUWAGU DynamoDB table for weekly ranking
+
+Resources:
+  ############################################################
+  # DynamoDB Table
+  ############################################################
+  WaguRankingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: waguwaguRanking
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: weekId
+          AttributeType: S
+        - AttributeName: score
+          AttributeType: N
+
+      KeySchema:
+        - AttributeName: weekId
+          KeyType: HASH
+        - AttributeName: score
+          KeyType: RANGE
+
+      # TTL for weekly reset
+      TimeToLiveSpecification:
+        AttributeName: expireAt
+        Enabled: true
+
+      # Backup / recovery (plus point)
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+      Tags:
+        - Key: Name
+          Value: waguwaguRanking
+        - Key: Project
+          Value: WAGUWAGU
+        - Key: Team
+          Value: T3-Wagu
+
+Outputs:
+  ############################################################
+  # Exports
+  ############################################################
+  RankingTableName:
+    Value: waguwaguRanking
+    Export:
+      Name: WAGUWAGU-Ranking-TableName
+
+  RankingTableArn:
+    Value: !GetAtt WaguRankingTable.Arn
+    Export:
+      Name: WAGUWAGU-Ranking-TableArn
