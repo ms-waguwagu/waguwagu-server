@@ -1,0 +1,195 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: WAGUWAGU VPCs (Matching/Game) + Peering + Subnets + Routing
+
+Parameters:
+  ProjectPrefix:
+    Type: String
+    Default: T3-Wagu
+  AzA:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: ap-northeast-2a
+  AzC:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: ap-northeast-2c
+
+Resources:
+  ############################################################
+  # 1) Matching VPC
+  ############################################################
+  MatchingVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-VPC"
+
+  MatchingIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-IGW"
+
+  MatchingIGWAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MatchingVPC
+      InternetGatewayId: !Ref MatchingIGW
+
+  # Public Subnets
+  MatchingPublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.10.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Public-Subnet-A"
+
+  MatchingPublicSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.11.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Public-Subnet-C"
+
+  # Private App Subnets
+  MatchingPrivateAppSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.20.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-App-Subnet-A"
+
+  MatchingPrivateAppSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.21.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-App-Subnet-C"
+
+  # Private DB Subnets (ElastiCache)
+  MatchingPrivateDbSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.30.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-DB-Subnet-A"
+
+  MatchingPrivateDbSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.31.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-DB-Subnet-C"
+
+  # Route Tables (Matching)
+  MatchingPublicRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MatchingVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Public-RT"
+
+  MatchingPublicRouteToIGW:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingIGWAttach
+    Properties:
+      RouteTableId: !Ref MatchingPublicRT
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MatchingIGW
+
+  MatchingPublicAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPublicSubnetA
+      RouteTableId: !Ref MatchingPublicRT
+
+  MatchingPublicAssocC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPublicSubnetC
+      RouteTableId: !Ref MatchingPublicRT
+
+  # NAT (Matching) - 비용 절약형 1개
+  MatchingNatEip:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-NAT-EIP"
+
+  MatchingNatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt MatchingNatEip.AllocationId
+      SubnetId: !Ref MatchingPublicSubnetA
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-NAT"
+
+  MatchingPrivateRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MatchingVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-RT"
+
+  MatchingPrivateRouteToNat:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref MatchingPrivateRT
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref MatchingNatGateway
+
+  MatchingPrivateAssocAppA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateAppSubnetA
+      RouteTableId: !Ref MatchingPrivateRT
+
+  MatchingPrivateAssocAppC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateAppSubnetC
+      RouteTableId: !Ref MatchingPrivateRT
+
+  MatchingPrivateAssocDbA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateDbSubnetA
+      RouteTableId: !Ref MatchingPrivateRT
+
+  MatchingPrivateAssocDbC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateDbSubnetC
+      RouteTableId: !Ref MatchingPrivateRT
