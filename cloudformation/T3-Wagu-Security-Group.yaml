@@ -62,7 +62,7 @@ Resources:
       GroupDescription: Matching EKS Node SG
       VpcId: !Ref MatchingVpcId
       SecurityGroupIngress:
-        # ALB → Matching Server
+        # ALB -> Matching Server
         - IpProtocol: tcp
           FromPort: 3000
           ToPort: 3000
@@ -82,17 +82,17 @@ Resources:
       GroupDescription: Game EKS Node SG
       VpcId: !Ref GameVpcId
       SecurityGroupIngress:
-        # ALB → Game Server
+        # ALB -> Game Server
         - IpProtocol: tcp
           FromPort: 3001
           ToPort: 3001
           SourceSecurityGroupId: !Ref GameAlbSG
 
-        # Matching → Game (VPC Peering)
+        # Matching -> Game (VPC Peering)
         - IpProtocol: tcp
           FromPort: 3001
           ToPort: 3001
-          CidrIp: 10.0.0.0/16   # Matching VPC CIDR
+          CidrIp: 10.0.0.0/16 # Matching VPC CIDR
       Tags:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Game-EKS-Node-SG"

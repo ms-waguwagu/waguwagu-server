@@ -67,6 +67,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Matching-Public-Subnet-A"
+        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Matching-EKS"
+          Value: shared
+        - Key: kubernetes.io/role/elb
+          Value: 1
 
   MatchingPublicSubnetB:
     Type: AWS::EC2::Subnet
@@ -78,6 +82,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Matching-Public-Subnet-B"
+        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Matching-EKS"
+          Value: shared
+        - Key: kubernetes.io/role/elb
+          Value: 1
 
   ############################################################
   # Matching Private Subnets
@@ -161,7 +169,7 @@ Resources:
       RouteTableId: !Ref MatchingPublicRT
 
   ############################################################
-  # Matching NAT Gateway (Single – Cost Optimized)
+  # Matching NAT Gateway (Single - Cost Optimized)
   ############################################################
   MatchingNatEip:
     Type: AWS::EC2::EIP
@@ -425,7 +433,7 @@ Resources:
       VpcPeeringConnectionId: !Ref GameToMatchingPeering
 
   ############################################################
-  # Routes: Matching -> Game  (<<< 추가된 양방향 통신 핵심!!!)
+  # Routes: Matching -> Game
   ############################################################
   MatchingPublicRouteToGame:
     Type: AWS::EC2::Route
@@ -453,7 +461,8 @@ Outputs:
       Name: !Sub "${ProjectPrefix}-Matching-Public-Subnet-Ids"
 
   MatchingPrivateSubnetIds:
-    Value: !Join [",", [!Ref MatchingPrivateSubnetA, !Ref MatchingPrivateSubnetB]]
+    Value:
+      !Join [",", [!Ref MatchingPrivateSubnetA, !Ref MatchingPrivateSubnetB]]
     Export:
       Name: !Sub "${ProjectPrefix}-Matching-Private-Subnet-Ids"
 
