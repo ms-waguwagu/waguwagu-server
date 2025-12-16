@@ -1,50 +1,33 @@
-/* 1) 폰트 설정 */
-@font-face {
-  font-family: "RoundedFixedsys";
-  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/DungGeunMo.woff")
-    format("woff");
-  font-weight: normal;
-  font-display: swap;
-}
-
-/* 2) 랭킹 화면 기본 폰트 적용 */
-html,
-body,
-button,
-input {
-  font-family: "RoundedFixedsys", system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
-}
-
 #ranking-panel {
-  position: fixed;
-  top: 30px;
-  left: 180px; /*ranking-panel이 안쪽으로 들어올 수 있게 40px-->120px로 수정하였다 */
-  width: 280px;
+  /* flex에게: '폭은 내가 width로 정할게, 넌 그냥 그대로 써' */
+  flex: 0 0 auto;
+
+  /* 🔸큰 화면에서는 320px, 작아질수록 20vw까지 같이 줄어듦
+     (최소 200px 밑으로는 안 내려가게) */
+  width: 20vw;
+  box-sizing: border-box;
 
   background: linear-gradient(
     135deg,
     rgba(30, 30, 50, 0.95),
     rgba(20, 20, 35, 0.95)
   );
-  padding: 24px;
+
+  padding: 22px;
   border-radius: 16px;
   border: 1px solid rgba(255, 215, 77, 0.2);
   backdrop-filter: blur(12px);
+
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  z-index: 9999;
 
-  transition: transform 0.3s ease;
-}
-
-#ranking-panel:hover {
-  transform: translateY(-4px);
+  /* 세로 규칙은 그대로 유지 (1~10등 한 번에 보이게) */
+  height: calc(100vh - 48px);
 }
 
 #ranking-panel h2 {
   text-align: center;
-  margin: 0 0 20px 0;
+  margin: 0 0 14px 0;
   font-size: 22px;
   font-weight: 800;
   letter-spacing: 2px;
@@ -55,48 +38,50 @@ input {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 
-  text-shadow: 0 2px 10px rgba(255, 216, 77, 0.3);
-  padding-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 2px solid rgba(255, 216, 77, 0.3);
 }
 
+/* ✅ “전체화면에서는 1~10을 한 번에”
+   - 리스트 높이를 패널 내부 남은 높이로 맞춤
+   - 필요하면(창 작아지면) 여기만 스크롤 */
 #ranking-list {
-  max-height: 500px;
+  height: calc(100% - 56px); /* h2 영역 만큼 제외(대략) */
   overflow-y: auto;
   padding-right: 8px;
 }
 
-/* 스크롤바 스타일 */
+/* 스크롤바 */
 #ranking-list::-webkit-scrollbar {
   width: 6px;
 }
-
 #ranking-list::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 10px;
 }
-
 #ranking-list::-webkit-scrollbar-thumb {
   background: rgba(255, 216, 77, 0.3);
   border-radius: 10px;
 }
-
 #ranking-list::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 216, 77, 0.5);
 }
 
+/* 랭킹 아이템(10개 한 화면 최적화를 위해 height/padding을 과하지 않게) */
 .ranking-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 10px;
+
+  padding: 10px 10px;
   margin-bottom: 8px;
 
   background: rgba(255, 255, 255, 0.03);
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.05);
 
-  transition: all 0.3s ease;
+  overflow: hidden;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
 .ranking-item:hover {
@@ -109,7 +94,6 @@ input {
   margin-bottom: 0;
 }
 
-/* 순위 뱃지 */
 .ranking-item .rank {
   display: flex;
   align-items: center;
@@ -126,29 +110,23 @@ input {
 
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(255, 216, 77, 0.4);
+
+  flex-shrink: 0;
 }
 
-/* 상위 3명 특별 스타일 */
 .ranking-item:nth-child(1) .rank {
   background: linear-gradient(135deg, #ffd700, #ffa500);
-  box-shadow: 0 2px 12px rgba(255, 215, 0, 0.6);
-  font-size: 16px;
 }
-
 .ranking-item:nth-child(2) .rank {
   background: linear-gradient(135deg, #c0c0c0, #a8a8a8);
-  box-shadow: 0 2px 10px rgba(192, 192, 192, 0.5);
 }
-
 .ranking-item:nth-child(3) .rank {
   background: linear-gradient(135deg, #cd7f32, #a0522d);
-  box-shadow: 0 2px 10px rgba(205, 127, 50, 0.5);
 }
 
-/* 닉네임 */
 .ranking-item .nick {
-  flex: 1;
-  margin: 0 12px;
+  width: 120px;
+  margin: 0 10px;
 
   font-weight: 600;
   font-size: 15px;
@@ -157,155 +135,36 @@ input {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+
+  flex: 1;
 }
 
-.ranking-item:nth-child(1) .nick {
-  color: #ffd700;
-  font-weight: 700;
-}
-
-.ranking-item:nth-child(2) .nick {
-  color: #c0c0c0;
-  font-weight: 700;
-}
-
-.ranking-item:nth-child(3) .nick {
-  color: #cd7f32;
-  font-weight: 700;
-}
-
-/* 점수 */
-.ranking-item .score {
-  font-weight: 700;
-  font-size: 16px;
-  color: #4ecca3;
-  text-shadow: 0 0 10px rgba(78, 204, 163, 0.4);
-  min-width: 60px;
-  text-align: right;
-}
-
-/* 빈 상태 메시지 */
-.empty-ranking {
-  text-align: center;
-  padding: 40px 20px;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 14px;
-  font-style: italic;
-}
-
-/* 로딩 애니메이션 */
-.loading-ranking {
-  text-align: center;
-  padding: 40px 20px;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 14px;
-}
-
-.loading-ranking::after {
-  content: "...";
-  animation: dots 1.5s steps(4, end) infinite;
-}
-
-@keyframes dots {
-  0%,
-  20% {
-    content: ".";
-  }
-  40% {
-    content: "..";
-  }
-  60%,
-  100% {
-    content: "...";
-  }
-}
-
-/* 새로운 기록 애니메이션 */
-@keyframes newRecord {
-  0% {
-    background: rgba(255, 216, 77, 0.2);
-    transform: scale(1.05);
-  }
-  100% {
-    background: rgba(255, 255, 255, 0.03);
-    transform: scale(1);
-  }
-}
-
-.ranking-item.new-record {
-  animation: newRecord 1s ease-out;
-}
-
-/* 하위 등수 (4~10등) */
-.ranking-item.rank-4 .rank,
-.ranking-item.rank-5 .rank,
-.ranking-item.rank-6 .rank,
-.ranking-item.rank-7 .rank,
-.ranking-item.rank-8 .rank,
-.ranking-item.rank-9 .rank,
-.ranking-item.rank-10 .rank {
-  background: linear-gradient(135deg, #555555, #777777);
-  color: white;
-  box-shadow: 0 2px 8px rgba(80, 80, 80, 0.4);
-}
-
-.ranking-item.rank-4 .nick,
-.ranking-item.rank-5 .nick,
-.ranking-item.rank-6 .nick,
-.ranking-item.rank-7 .nick,
-.ranking-item.rank-8 .nick,
-.ranking-item.rank-9 .nick,
-.ranking-item.rank-10 .nick {
-  color: #dddddd;
-}
-/* 날짜 / 시간 */
-.ranking-item .played-at {
-  display: block;
-  margin-top: 4px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.55);
-  text-align: right;
-  white-space: nowrap;
-}
-
-/* 점수 + 날짜 묶음 */
 .ranking-item .score-wrapper {
+  width: 120px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-}
-.ranking-item:nth-child(1) .score {
-  color: #ffd700;
-}
-
-.ranking-item:nth-child(2) .score {
-  color: #c0c0c0;
-}
-
-.ranking-item:nth-child(3) .score {
-  color: #cd7f32;
-}
-
-/* 랭킹 아이템 정렬 안정화 */
-.ranking-item {
-  display: flex;
-  align-items: center;
-}
-
-/* 순위 */
-.ranking-item .rank {
   flex-shrink: 0;
 }
 
-/* 닉네임 영역 고정 */
-.ranking-item .nick {
-  width: 110px;        /* ← 여기 핵심 */
-  margin: 0 10px;
+.ranking-item .score {
+  font-weight: 800;
+  font-size: 16px;
+  color: #4ecca3;
+  text-shadow: 0 0 10px rgba(78, 204, 163, 0.4);
+  line-height: 1.1;
 }
 
-/* 점수 + 날짜 영역 */
-.ranking-item .score-wrapper {
-  width: 110px;        /* ← 여기 핵심 */
-  flex-shrink: 0;
-  align-items: flex-end;
+.ranking-item .played-at {
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+}
+
+.empty-ranking {
+  text-align: center;
+  padding: 28px 12px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
 }

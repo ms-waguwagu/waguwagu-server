@@ -1,15 +1,10 @@
 @font-face {
   font-family: "RoundedFixedsys";
-
   src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/DungGeunMo.woff")
     format("woff");
-
   font-weight: normal;
-
   font-display: swap;
 }
-
-/* 메인 화면 기본 폰트 적용 */
 
 html,
 body,
@@ -22,95 +17,81 @@ input {
 html,
 body {
   height: 100%;
-}
-
-/* 1) body 공통 설정 (배경 이미지는 빼고) */
-
-body {
-  display: flex;
-
-  justify-content: center;
-
-  align-items: center;
-
-  min-height: 100vh;
-
   margin: 0;
-
-  color: white;
-
-  background-color: #000; /* 기본은 검정 */
 }
 
-/* 2) 메인 화면일 때만 팩맨 배경 보이게 */
-
-body.mode-main {
-  background-image: url("../images/pacman_background.png");
-
-  background-repeat: no-repeat;
-
-  background-position: center center;
-
-  background-size: 80% auto;
-
-  background-color: #000016; /* 이미지 빈 부분 */
+/* ✅ 전체 화면 스크롤 정책:
+   - 전체 화면에서는 대개 스크롤 없음
+   - 창모드(작아짐)에서는 필요한 경우에만 자동으로 생김 */
+body {
+  background: #000016;
+  color: #fff;
 }
 
-/* 3) 게임 화면일 때는 배경 이미지 제거 + 검정색 */
-
-body.mode-game {
-  background-image: none;
-
-  background-color: #000;
-}
-
-/* 🆕 로그인 메인 레이아웃 */
-
-#main-screen {
+/* 좌(랭킹) + 우(메인) */
+#layout {
+  display: flex;
+  height: 100vh;
   width: 100%;
+  padding: 24px;
+  box-sizing: border-box;
+  gap: 20px;
+
+  overflow: auto; /* ⭐ “창모드일 때만” 스크롤이 생기는 핵심 */
+}
+
+/* 우측 메인 영역 */
+#main-screen {
+  flex: 1;
+  min-width: 520px; /* 너무 좁아지는 거 방지(원하면 줄여도 됨) */
+}
+
+/* ⭐ 배경 이미지는 body가 아니라 hero에만 깐다!
+   -> "배경 중앙"이 곧 로고/입력의 기준 중앙 */
+#hero {
+  width: 100%;
+  height: 100%;
+
+  background-image: url("../images/pacman_background.png");
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: 100% auto;
 
   display: flex;
-
   justify-content: center;
-
   align-items: center;
+
+  border-radius: 18px;
 }
 
-/* 🆕 가운데 영역: 제목 + 카드 세트 */
+:root {
+  --hero-shift-y: -4vh;
+}
 
 #center-area {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-
-  justify-content: flex-start;
-  /* padding-top: 0vh; */
-
   gap: clamp(16px, 4vh, 32px);
-  transform: translateY(-3vh);
+
+  transform: translateY(var(--hero-shift-y));
 }
 
-/* 제목 */
+/* 로고 */
 #game-title {
-  align-items: flex-start;
-  font-size: clamp(28px, 7vw, 100px); /* 폭에 따라 크기 변화 */
+  font-size: clamp(34px, 6vw, 100px);
   letter-spacing: clamp(2px, 0.5vw, 6px);
-
   text-transform: uppercase;
+
   color: #fff;
   text-shadow: 0 0 10px rgba(255, 216, 77, 0.9),
     0 0 22px rgba(255, 216, 77, 0.8);
 
-  margin-bottom: clamp(12px, 3vh, 24px);
-
-  margin: 0 0 16px 0;
+  margin: 0;
 }
 
-/* 나머지 기존 스타일 */
-
+/* 카드(닉네임 입력/버튼) */
 #app {
-  /* 1. 배경 설정 (기존 유지) */
   background: radial-gradient(
     circle at 0 0,
     rgba(255, 255, 255, 0.05),
@@ -119,77 +100,53 @@ body.mode-game {
   border-radius: 24px;
   border: 1px solid rgba(255, 216, 77, 0.25);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(0, 0, 0, 0.8);
-  text-align: center;
   box-sizing: border-box;
 
-  width: 25vw; /* 브라우저 폭의 32%로 항상 반응 */
-  min-width: 80px;
-  padding: 20px 24px 12px; /* 위 20, 좌우 24, 아래 12 */
-  margin-top: 0vh;
+  width: min(420px, 30vw);
+  padding: 20px 24px 12px;
+  text-align: center;
 }
-
-/* 입력창 */
 
 #app input {
   width: 100%;
-
-  font-size: clamp(12px, 1.6vw, 16px); /* 화면 크기에 따라 글자 살짝 조정 */
-  padding: clamp(6px, 3vw, 10px) 10px;
-
+  font-size: clamp(12px, 1.2vw, 16px);
+  padding: 10px 12px;
   margin: 0 0 12px 0;
 
   box-sizing: border-box;
-
   background: rgba(0, 0, 0, 0.55);
 
-  border-radius: 10px;
-
+  border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.18);
-
   color: #fff;
-
   outline: none;
 
-  transition: all 0.2s ease;
+  box-shadow: 0 0 8px rgba(255, 216, 77, 0.6), 0 0 18px rgba(255, 216, 77, 0.5);
+
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 #app input::placeholder {
   color: rgba(255, 255, 255, 0.55);
 }
 
-#app input:focus {
-  border-color: rgba(255, 216, 77, 0.9);
-
-  box-shadow: 0 0 0 2px rgba(255, 216, 77, 0.3);
-}
-
-/* 버튼 */
-
 #app button {
   width: 100%;
-  font-size: clamp(13px, 1.8vw, 18px); /* 버튼 글자도 반응형 */
-  padding: clamp(8px, 1.2vw, 12px) 0;
-
+  font-size: clamp(13px, 1.3vw, 18px);
+  padding: 12px 0;
   margin-top: 4px;
 
-  box-sizing: border-box;
-
   border-radius: 10px;
-
   border: none;
 
   background: linear-gradient(135deg, #ffdd39, #ffb800);
-
   color: #201a2e;
-
   font-weight: 800;
-
   letter-spacing: 2px;
 
   cursor: pointer;
 
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
-
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8), 0 0 14px rgba(255, 216, 77, 0.7);
 
   transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
@@ -197,24 +154,33 @@ body.mode-game {
 
 #app button:hover {
   transform: translateY(-1px);
-
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.9), 0 0 20px rgba(255, 216, 77, 0.95);
-
   filter: brightness(1.05);
 }
 
 #app button:active {
   transform: translateY(1px);
-
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.9), 0 0 8px rgba(255, 216, 77, 0.7);
 }
 
-/* 상태 메시지 (에러/안내 텍스트) */
-
 #status-message {
-  margin-top: 10px;
-
+  margin: 10px 0 0 0;
   font-size: 13px;
-
   color: rgba(255, 255, 255, 0.8);
+}
+
+/* ✅ 창이 작아질수록, 오른쪽 밀림을 자동으로 줄여서 “항상 자연스럽게”  임시로 주석3 */
+@media (max-width: 1200px) {
+  :root {
+    /* --hero-shift-y: 1vh; */
+  }
+}
+
+@media (max-width: 980px) {
+  :root {
+    --hero-shift-y: -2vh;
+  }
+  #main-screen {
+    min-width: 0;
+  }
 }
