@@ -14,7 +14,7 @@ Parameters:
 
 Resources:
   ############################################################
-  # 1) Matching VPC
+  # Matching VPC
   ############################################################
   MatchingVPC:
     Type: AWS::EC2::VPC
@@ -192,4 +192,75 @@ Resources:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref MatchingPrivateDbSubnetC
+
       RouteTableId: !Ref MatchingPrivateRT
+
+
+############################################################
+  # VPC Peering + Routes
+  ############################################################
+  MatchingGamePeering:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties:
+      VpcId: !Ref MatchingVPC
+      PeerVpcId: !Ref GameVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Game-Peering"
+
+  # Matching Private RT -> Game CIDR
+  MatchingPrivateRouteToGame:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref MatchingPrivateRT
+      DestinationCidrBlock: 10.1.0.0/16
+      VpcPeeringConnectionId: !Ref MatchingGamePeering
+
+  # Game Private RT -> Matching CIDR
+  GamePrivateRouteToMatching:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref GamePrivateRT
+      DestinationCidrBlock: 10.0.0.0/16
+      VpcPeeringConnectionId: !Ref MatchingGamePeering
+
+Outputs:
+  MatchingVpcId:
+    Value: !Ref MatchingVPC
+    Export:
+      Name: !Sub "${ProjectPrefix}-MatchingVpcId"
+
+  GameVpcId:
+    Value: !Ref GameVPC
+    Export:
+      Name: !Sub "${ProjectPrefix}-GameVpcId"
+
+  MatchingPrivateAppSubnetIds:
+    Value: !Join [",", [!Ref MatchingPrivateAppSubnetA, !Ref MatchingPrivateAppSubnetC]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-MatchingPrivateAppSubnetIds"
+
+  MatchingPrivateDbSubnetIds:
+    Value: !Join [",", [!Ref MatchingPrivateDbSubnetA, !Ref MatchingPrivateDbSubnetC]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-MatchingPrivateDbSubnetIds"
+
+  MatchingPublicSubnetIds:
+    Value: !Join [",", [!Ref MatchingPublicSubnetA, !Ref MatchingPublicSubnetC]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-MatchingPublicSubnetIds"
+
+  GamePrivateAppSubnetIds:
+    Value: !Join [",", [!Ref GamePrivateAppSubnetA, !Ref GamePrivateAppSubnetC]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-GamePrivateAppSubnetIds"
+
+  GamePublicSubnetIds:
+    Value: !Join [",", [!Ref GamePublicSubnetA, !Ref GamePublicSubnetC]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-GamePublicSubnetIds"
+
+  PeeringConnectionId:
+    Value: !Ref MatchingGamePeering
+    Export:
+      Name: !Sub "${ProjectPrefix}-MatchingGamePeeringId"
