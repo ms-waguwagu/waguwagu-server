@@ -1,0 +1,478 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: T3-Wagu Matching + Game VPC with VPC Peering (Bi-directional)
+
+Parameters:
+  ProjectPrefix:
+    Type: String
+    Default: T3-Wagu
+
+  AzA:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: ap-northeast-2a
+
+  AzC:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: ap-northeast-2c
+
+  MatchingVPCCidr:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: CIDR block of T3-Wagu-Matching-VPC
+
+  GameVPCCidr:
+    Type: String
+    Default: 10.1.0.0/16
+    Description: CIDR block of T3-Wagu-Game-VPC
+
+Resources:
+  ############################################################
+  # Matching VPC
+  ############################################################
+  MatchingVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref MatchingVPCCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-VPC"
+
+  ############################################################
+  # Matching Internet Gateway
+  ############################################################
+  MatchingIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-IGW"
+
+  MatchingIGWAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MatchingVPC
+      InternetGatewayId: !Ref MatchingIGW
+
+  ############################################################
+  # Matching Public Subnets
+  ############################################################
+  MatchingPublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.10.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Public-Subnet-A"
+
+  MatchingPublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.11.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Public-Subnet-B"
+
+  ############################################################
+  # Matching Private Subnets
+  ############################################################
+  MatchingPrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.20.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-Subnet-A"
+
+  MatchingPrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.21.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-Subnet-B"
+
+  ############################################################
+  # Matching Private DB Subnets
+  ############################################################
+  MatchingPrivateDbSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.30.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-DB-Subnet-A"
+
+  MatchingPrivateDbSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.31.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-DB-Subnet-B"
+
+  ############################################################
+  # Matching Route Tables
+  ############################################################
+  MatchingPublicRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MatchingVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Public-RT"
+
+  MatchingPublicRouteToInternet:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingIGWAttach
+    Properties:
+      RouteTableId: !Ref MatchingPublicRT
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MatchingIGW
+
+  MatchingPublicAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPublicSubnetA
+      RouteTableId: !Ref MatchingPublicRT
+
+  MatchingPublicAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPublicSubnetB
+      RouteTableId: !Ref MatchingPublicRT
+
+  ############################################################
+  # Matching NAT Gateway (Single – Cost Optimized)
+  ############################################################
+  MatchingNatEip:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-NAT-EIP"
+
+  MatchingNatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt MatchingNatEip.AllocationId
+      SubnetId: !Ref MatchingPublicSubnetA
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-NAT-GW"
+
+  MatchingPrivateRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MatchingVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-RT"
+
+  MatchingPrivateRouteToInternet:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref MatchingPrivateRT
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref MatchingNatGateway
+
+  MatchingPrivateSubnetAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateSubnetA
+      RouteTableId: !Ref MatchingPrivateRT
+
+  MatchingPrivateSubnetAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateSubnetB
+      RouteTableId: !Ref MatchingPrivateRT
+
+  MatchingPrivateDbSubnetAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateDbSubnetA
+      RouteTableId: !Ref MatchingPrivateRT
+
+  MatchingPrivateDbSubnetAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateDbSubnetB
+      RouteTableId: !Ref MatchingPrivateRT
+
+  ############################################################
+  # Game VPC
+  ############################################################
+  GameVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref GameVPCCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-VPC"
+
+  ############################################################
+  # Game Internet Gateway
+  ############################################################
+  GameInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-IGW"
+
+  GameIGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref GameVPC
+      InternetGatewayId: !Ref GameInternetGateway
+
+  ############################################################
+  # Game Public Subnets
+  ############################################################
+  GamePublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref GameVPC
+      CidrBlock: 10.1.10.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Public-Subnet-A"
+        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Game"
+          Value: shared
+        - Key: kubernetes.io/role/elb
+          Value: 1
+
+  GamePublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref GameVPC
+      CidrBlock: 10.1.11.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Public-Subnet-B"
+        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Game"
+          Value: shared
+        - Key: kubernetes.io/role/elb
+          Value: 1
+
+  ############################################################
+  # Game Private Subnets
+  ############################################################
+  GamePrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref GameVPC
+      CidrBlock: 10.1.20.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Private-Subnet-A"
+        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Game"
+          Value: shared
+        - Key: kubernetes.io/role/internal-elb
+          Value: 1
+
+  GamePrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref GameVPC
+      CidrBlock: 10.1.21.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Private-Subnet-B"
+        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Game"
+          Value: shared
+        - Key: kubernetes.io/role/internal-elb
+          Value: 1
+
+  ############################################################
+  # Game Public Route Table
+  ############################################################
+  GamePublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref GameVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Public-RT"
+
+  GamePublicRouteToInternet:
+    Type: AWS::EC2::Route
+    DependsOn: GameIGWAttachment
+    Properties:
+      RouteTableId: !Ref GamePublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref GameInternetGateway
+
+  GamePublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GamePublicSubnetA
+      RouteTableId: !Ref GamePublicRouteTable
+
+  GamePublicSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GamePublicSubnetB
+      RouteTableId: !Ref GamePublicRouteTable
+
+  ############################################################
+  # Game NAT Gateway
+  ############################################################
+  GameNatEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-NAT-EIP"
+
+  GameNatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt GameNatEIP.AllocationId
+      SubnetId: !Ref GamePublicSubnetA
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-NAT-GW"
+
+  ############################################################
+  # Game Private Route Table
+  ############################################################
+  GamePrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref GameVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Private-RT"
+
+  GamePrivateRouteToInternet:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref GamePrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref GameNatGateway
+
+  GamePrivateSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GamePrivateSubnetA
+      RouteTableId: !Ref GamePrivateRouteTable
+
+  GamePrivateSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GamePrivateSubnetB
+      RouteTableId: !Ref GamePrivateRouteTable
+
+  ############################################################
+  # VPC Peering (Same stack)
+  ############################################################
+  GameToMatchingPeering:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties:
+      VpcId: !Ref GameVPC
+      PeerVpcId: !Ref MatchingVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Matching-Peering"
+
+  ############################################################
+  # Routes: Game -> Matching
+  ############################################################
+  GamePublicRouteToMatching:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref GamePublicRouteTable
+      DestinationCidrBlock: !Ref MatchingVPCCidr
+      VpcPeeringConnectionId: !Ref GameToMatchingPeering
+
+  GamePrivateRouteToMatching:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref GamePrivateRouteTable
+      DestinationCidrBlock: !Ref MatchingVPCCidr
+      VpcPeeringConnectionId: !Ref GameToMatchingPeering
+
+  ############################################################
+  # Routes: Matching -> Game  (<<< 추가된 양방향 통신 핵심!!!)
+  ############################################################
+  MatchingPublicRouteToGame:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref MatchingPublicRT
+      DestinationCidrBlock: !Ref GameVPCCidr
+      VpcPeeringConnectionId: !Ref GameToMatchingPeering
+
+  MatchingPrivateRouteToGame:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref MatchingPrivateRT
+      DestinationCidrBlock: !Ref GameVPCCidr
+      VpcPeeringConnectionId: !Ref GameToMatchingPeering
+
+Outputs:
+  MatchingVPCId:
+    Value: !Ref MatchingVPC
+    Export:
+      Name: !Sub "${ProjectPrefix}-Matching-VPC-Id"
+
+  MatchingPublicSubnetIds:
+    Value: !Join [",", [!Ref MatchingPublicSubnetA, !Ref MatchingPublicSubnetB]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-Matching-Public-Subnet-Ids"
+
+  MatchingPrivateSubnetIds:
+    Value: !Join [",", [!Ref MatchingPrivateSubnetA, !Ref MatchingPrivateSubnetB]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-Matching-Private-Subnet-Ids"
+
+  GameVPCId:
+    Value: !Ref GameVPC
+    Export:
+      Name: !Sub "${ProjectPrefix}-Game-VPC-Id"
+
+  GamePublicSubnetIds:
+    Value: !Join [",", [!Ref GamePublicSubnetA, !Ref GamePublicSubnetB]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-Game-Public-Subnet-Ids"
+
+  GamePrivateSubnetIds:
+    Value: !Join [",", [!Ref GamePrivateSubnetA, !Ref GamePrivateSubnetB]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-Game-Private-Subnet-Ids"
+
+  VpcPeeringConnectionId:
+    Value: !Ref GameToMatchingPeering
+    Export:
+      Name: !Sub "${ProjectPrefix}-Game-Matching-Peering-Id"

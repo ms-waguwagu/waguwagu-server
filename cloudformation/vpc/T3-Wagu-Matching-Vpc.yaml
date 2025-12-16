@@ -1,0 +1,238 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: T3-Wagu Matching VPC (Standalone)
+
+# =====================
+# Parameters
+# =====================
+Parameters:
+  ProjectPrefix:
+    Type: String
+    Default: T3-Wagu
+
+  AzA:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: ap-northeast-2a
+
+  AzC:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: ap-northeast-2c
+
+# =====================
+# Resources
+# =====================
+Resources:
+  ############################################################
+  # Matching VPC
+  ############################################################
+  MatchingVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-VPC"
+
+  ############################################################
+  # Internet Gateway
+  ############################################################
+  MatchingIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-IGW"
+
+  MatchingIGWAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MatchingVPC
+      InternetGatewayId: !Ref MatchingIGW
+
+  ############################################################
+  # Public Subnets
+  ############################################################
+  MatchingPublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.10.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Public-Subnet-A"
+
+  MatchingPublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.11.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Public-Subnet-B"
+
+  ############################################################
+  # Private Subnets
+  ############################################################
+  MatchingPrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.20.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-Subnet-A"
+
+  MatchingPrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.21.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-Subnet-B"
+
+  ############################################################
+  # Private DB Subnets
+  ############################################################
+  MatchingPrivateDbSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.30.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-DB-Subnet-A"
+
+  MatchingPrivateDbSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.31.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-DB-Subnet-B"
+
+  ############################################################
+  # Route Tables
+  ############################################################
+  MatchingPublicRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MatchingVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Public-RT"
+
+  MatchingPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingIGWAttach
+    Properties:
+      RouteTableId: !Ref MatchingPublicRT
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MatchingIGW
+
+  MatchingPublicAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPublicSubnetA
+      RouteTableId: !Ref MatchingPublicRT
+
+  MatchingPublicAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPublicSubnetB
+      RouteTableId: !Ref MatchingPublicRT
+
+  ############################################################
+  # NAT Gateway (Single – Cost Optimized)
+  ############################################################
+  MatchingNatEip:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-NAT-EIP"
+
+  MatchingNatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt MatchingNatEip.AllocationId
+      SubnetId: !Ref MatchingPublicSubnetA
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-NAT-GW"
+
+  MatchingPrivateRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MatchingVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-RT"
+
+  MatchingPrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref MatchingPrivateRT
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref MatchingNatGateway
+
+  ############################################################
+  # Private RouteTable Associations
+  ############################################################
+  MatchingPrivateSubnetAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateSubnetA
+      RouteTableId: !Ref MatchingPrivateRT
+
+  MatchingPrivateSubnetAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateSubnetB
+      RouteTableId: !Ref MatchingPrivateRT
+
+  MatchingPrivateDbSubnetAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateDbSubnetA
+      RouteTableId: !Ref MatchingPrivateRT
+
+  MatchingPrivateDbSubnetAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateDbSubnetB
+      RouteTableId: !Ref MatchingPrivateRT
+
+# =====================
+# Outputs
+# =====================
+Outputs:
+  MatchingVPCId:
+    Value: !Ref MatchingVPC
+    Export:
+      Name: !Sub "${ProjectPrefix}-Matching-VPC-Id"
+
+  MatchingPublicSubnetIds:
+    Value: !Join [",", [!Ref MatchingPublicSubnetA, !Ref MatchingPublicSubnetB]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-Matching-Public-Subnet-Ids"
+
+  MatchingPrivateSubnetIds:
+    Value: !Join [",", [!Ref MatchingPrivateSubnetA, !Ref MatchingPrivateSubnetB]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-Matching-Private-Subnet-Ids"
