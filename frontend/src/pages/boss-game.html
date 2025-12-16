@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WAGUWAGU Boss Mode (Dev)</title>
+
+    <!-- 기존 스타일 재사용 -->
+    <link rel="stylesheet" href="../styles/main.css" />
+    <link rel="stylesheet" href="../styles/game.css" />
+  </head>
+
+  <body>
+    <!-- 카운트다운 -->
+    <div id="countdown-display" class="countdown"></div>
+
+    <div id="app">
+      <div id="game-screen" style="position: relative">
+
+        <div id="game-info">
+          <span>내 닉네임: <span id="my-nickname" style="color: yellow"></span></span>
+          <span>Boss Room: <span id="room-id"></span></span>
+        </div>
+
+        <canvas id="pacman-canvas" width="600" height="400"></canvas>
+
+        <!-- 사이드 점수판 -->
+        <div id="scoreboard">
+          <div id="game-timer">남은 시간: 60초</div>
+          <h3>점수</h3>
+          <div id="score-entries"></div>
+
+          <h2 class="game-over-title">GAME OVER</h2>
+          <p class="game-over-message">5초 뒤 메인으로 이동합니다.</p>
+        </div>
+
+        <p style="font-size: 0.9em; color: #aaa; margin-top: 10px">
+          조작: 방향키 (↑↓←→)
+        </p>
+      </div>
+    </div>
+
+    <!-- 기존 pacman 렌더링 엔진 재사용 -->
+    <!-- <script type="module" src="../../pacman-client.js"></script> -->
+
+    <!-- boss 모드 전용 js -->
+    <script type="module" src="../js/boss-game.js"></script>
+  </body>
+</html>

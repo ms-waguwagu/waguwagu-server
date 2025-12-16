@@ -7,9 +7,16 @@ import { BotModule } from 'src/engine/bot/bot.module';
 import { CoreModule } from 'src/engine/core/core.module';
 import { GameController } from './game.controller';
 import { GameService } from './game.service';
+import { BossModule } from '../boss/boss.module';
 
 @Module({
-  imports: [RankingModule, GhostModule, PlayerModule, BotModule, CoreModule],
+  imports: [
+		RankingModule, 
+		GhostModule, 
+		PlayerModule, 
+		BotModule, 
+		CoreModule,
+		BossModule],
   controllers: [GameController],
   providers: [GameGateway, GameService],
   exports: [GameGateway],

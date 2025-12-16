@@ -15,15 +15,22 @@ export class GameLoopService {
         private readonly lifecycle: LifecycleService,
       ) {}
 
-  run() {
-    if (this.lifecycle.gameOver) {
-      this.ghostManager.updateGhosts(this.lifecycle.map, this.playerService.getPlayers());
+  run(roomId: string) {
+		const players = this.playerService.getPlayers(roomId);
+    const bots = this.botManager.getBots(roomId);
+    const ghosts = this.ghostManager.getGhosts(roomId);
+
+    if (this.lifecycle.isGameOver(roomId)) {
+      this.ghostManager.updateGhosts(roomId, this.lifecycle.getMap(roomId), players);
       return;
     }
 
     const now = Date.now();
+		const map = this.lifecycle.getMap(roomId);
+    const dots = this.lifecycle.getDots(roomId);
 
-    for (const player of this.playerService.getPlayers()) {
+		// 플레이어 업데이트
+    for (const player of players) {
       if (player.stunned) {
         if (now >= player.stunEndTime) {
           player.stunned = false;
@@ -31,32 +38,50 @@ export class GameLoopService {
         }
         continue;
       }
-      this.playerService.updatePlayer(player, this.lifecycle.map, this.lifecycle.dots);
+      this.playerService.updatePlayer(player, map, dots);
     }
 
-    this.ghostManager.updateGhosts(this.lifecycle.map, this.playerService.getPlayers());
+		// 유령 업데이트
+    this.ghostManager.updateGhosts(roomId, map, players);
 
-    this.botManager.updateBots(this.lifecycle.map, this.playerService.getPlayers(), (p) =>
-      this.playerService['checkDotCollision'](p, this.lifecycle.dots),
+		// 봇 업데이트
+    this.botManager.updateBots(roomId, map, players, (bot) =>
+      this.playerService.checkDotCollision(bot, dots),
     );
 
+		// 충돌 체크
     const collidedPlayer = this.collisionService.checkPlayerGhostCollision(
-      this.playerService.getPlayers(),
+      roomId,
+			players,
     );
     if (collidedPlayer) this.playerService.applyStun(collidedPlayer);
 
-    const collidedBot = this.collisionService.checkBotGhostCollision();
+    const collidedBot = this.collisionService.checkBotGhostCollision(roomId);
     if (collidedBot) this.botManager.stunBot(collidedBot);
 
-    if (this.lifecycle.allDotsEaten()) this.lifecycle.triggerGameOver('all_dots_eaten');
-    if (this.lifecycle.isTimeOver()) this.lifecycle.triggerGameOver('time_over');
+		// 게임 종료 조건
+    if (!this.lifecycle.isGameOver(roomId)) {
+      if (this.lifecycle.allDotsEaten(roomId)) {
+        this.lifecycle.triggerGameOver(roomId, 'all_dots_eaten');
+      } else if (this.lifecycle.isTimeOver(roomId)) {
+        this.lifecycle.triggerGameOver(roomId, 'time_over');
+      }
+    }
   }
 
-  getState() {
-    return this.lifecycle.getState(
-      this.playerService.getPlayers(),
-      this.botManager.getBots(),
-      Object.values(this.ghostManager.getGhosts())
-    );
+	// ‼️보스 테스트‼️
+	// ‼️ boss ?? null 과 boss?: { x: number; y: number } | null) 이 부분 추가 ‼️
+  // getState(roomId: string) {
+  //   return this.lifecycle.getState(
+	// 		roomId,
+  //     this.playerService.getPlayers(roomId),
+  //     this.botManager.getBots(roomId),
+  //     Object.values(this.ghostManager.getGhosts(roomId)),
+  //     boss ?? null,
+  //   );
+  // }
+	 // ‼️roomId만 넘기면 모든 상태를 lifecycle이 조합‼️
+  getState(roomId: string) {
+    return this.lifecycle.getState(roomId);
   }
 }

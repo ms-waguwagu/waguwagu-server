@@ -8,29 +8,43 @@ export type Bot = BotState;
 
 @Injectable()
 export class BotManagerService {
-  private botPlayers: BotState[] = [];
-  private botCount = 0;
+  // private botPlayers: BotState[] = [];
+  // private botCount = 0;
 
-  getBots(): BotState[] {
-    return this.botPlayers;
+	private botPlayers: Record<string, BotState[]> = {};
+  private botCount: Record<string, number> = {};
+
+  private ensureRoom(roomId: string) {
+    if (!this.botPlayers[roomId]) {
+      this.botPlayers[roomId] = [];
+      this.botCount[roomId] = 0;
+    }
   }
 
-  getBotCount(): number {
-    return this.botPlayers.length;
+  getBots(roomId: string): BotState[] {
+		this.ensureRoom(roomId);
+    return this.botPlayers[roomId];
   }
 
-  getNextBotNumber(): number {
-    this.botCount += 1;
-    return this.botCount;
+  getBotCount(roomId: string): number {
+		this.ensureRoom(roomId);
+    return this.botCount[roomId];
   }
 
-  addBotPlayer(nickname?: string) {
+  getNextBotNumber(roomId: string): number {
+		this.ensureRoom(roomId);
+    this.botCount[roomId] += 1;
+    return this.botCount[roomId];
+  }
+
+  addBotPlayer(roomId: string, nickname?: string) {
+		this.ensureRoom(roomId);
     const spawnCol = 1;
     const spawnRow = 1;
     const offset = (TILE_SIZE - PLAYER_SIZE) / 2;
-    const botName = nickname ?? `bot-${this.botCount}`;
+    const botName = nickname ?? `bot-${this.botCount[roomId]}`;
 
-    this.botPlayers.push({
+    this.botPlayers[roomId].push({
       id: botName,
       nickname: botName,
       x: spawnCol * TILE_SIZE + offset,
@@ -48,13 +62,15 @@ export class BotManagerService {
   }
 
   updateBots(
+		roomId: string,
     map: number[][],
     humans: PlayerState[],
     checkDotCollision: (bot: BotState) => void,
   ) {
+		this.ensureRoom(roomId);
     const now = Date.now();
 
-    for (const bot of this.botPlayers) {
+    for (const bot of this.botPlayers[roomId]) {
       if (bot.stunned && now >= bot.stunEndTime) {
         bot.stunned = false;
         bot.alpha = 1;
@@ -71,8 +87,8 @@ export class BotManagerService {
     bot.score = Math.max(0, bot.score - 30);
   }
 
-  resetBots() {
-    this.botPlayers = [];
-    this.botCount = 0;
+  resetBots(roomId: string) {
+    delete this.botPlayers[roomId];
+    delete this.botCount[roomId];
   }
 }

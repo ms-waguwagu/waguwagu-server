@@ -18,40 +18,55 @@ export interface Dot {
 
 @Injectable()
 export class PlayerService {
-  private players: Record<string, PlayerState> = {};
-  private colorIndex = 0;
+  // private players: Record<string, PlayerState> = {};
+  // private colorIndex = 0;
+
+	private players: Record<string, Record<string, PlayerState>> = {};
+  private colorIndex: Record<string, number> = {};
+
+	private ensureRoom(roomId: string) {
+    if (!this.players[roomId]) {
+      this.players[roomId] = {};
+      this.colorIndex[roomId] = 0;
+    }
+  }
 
   constructor() {}
 
-  getPlayers() {
-    return Object.values(this.players);
+  getPlayers(roomId: string) {
+		this.ensureRoom(roomId);
+    return Object.values(this.players[roomId]);
   }
 
-  getPlayerMap() {
-    return this.players;
+  getPlayerMap(roomId: string) {
+		this.ensureRoom(roomId);
+    return this.players[roomId];
   }
 
-  getPlayer(id: string) {
-    return this.players[id] || null;
+  getPlayer(roomId: string, id: string) {
+    return this.players[roomId][id] || null;
   }
 
-  playerCount() {
-    return Object.keys(this.players).length;
+  playerCount(roomId: string) {
+    return Object.keys(this.players[roomId]).length;
   }
 
-  private pickColor(): string {
-    const color = PLAYER_COLORS[this.colorIndex % PLAYER_COLORS.length];
-    this.colorIndex += 1;
+  private pickColor(roomId: string): string {
+		this.ensureRoom(roomId);
+		const idx = this.colorIndex[roomId];
+    const color = PLAYER_COLORS[idx % PLAYER_COLORS.length];
+    this.colorIndex[roomId] += 1;
     return color;
   }
 
-  addPlayer(id: string, nickname: string) {
+  addPlayer(roomId: string, id: string, nickname: string) {
+		this.ensureRoom(roomId);
     const spawnCol = 1;
     const spawnRow = 1;
 
-    const color = this.pickColor();
+    const color = this.pickColor(roomId);
 
-    this.players[id] = {
+    this.players[roomId][id] = {
       id,
       nickname,
       x: spawnCol * TILE_SIZE + (TILE_SIZE - PLAYER_SIZE) / 2,
@@ -65,18 +80,23 @@ export class PlayerService {
     };
   }
 
-  removePlayer(id: string) {
-    delete this.players[id];
+  removePlayer(roomId: string, id: string) {
+		this.ensureRoom(roomId);
+    delete this.players[roomId][id];
   }
 
-  handleInput(id: string, dir: Direction) {
-    const p = this.players[id];
+  handleInput(roomId: string, id: string, dir: Direction) {
+		this.ensureRoom(roomId);
+    const p = this.players[roomId][id];
     if (!p) return;
 
     const clamp = (v: number) => (v > 0 ? 1 : v < 0 ? -1 : 0);
     p.dir = { dx: clamp(dir.dx), dy: clamp(dir.dy) };
   }
 
+
+  // updatePlayer / checkCollision / checkDotCollision / applyStun 은
+  // 그대로 두고, 호출할 때 roomId 기반 players 배열을 넘겨주면 됨
   updatePlayer(player: PlayerState, map: number[][], dots: Dot[]) {
     if (player.stunned) return;
 
@@ -115,7 +135,7 @@ export class PlayerService {
     return false;
   }
 
-  private checkDotCollision(player: PlayerState, dots: Dot[]) {
+  checkDotCollision(player: PlayerState, dots: Dot[]) {
     const px = Math.floor((player.x + PLAYER_SIZE / 2) / TILE_SIZE);
     const py = Math.floor((player.y + PLAYER_SIZE / 2) / TILE_SIZE);
 
@@ -126,6 +146,11 @@ export class PlayerService {
         break;
       }
     }
+  }
+
+	clearRoom(roomId: string) {
+    delete this.players[roomId];
+    delete this.colorIndex[roomId];
   }
 
   applyStun(player: PlayerState) {

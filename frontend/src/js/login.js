@@ -5,6 +5,8 @@ import { CONFIG } from "../../config.js";
 const nicknameInput = document.getElementById("nickname-input");
 const startButton = document.getElementById("start-button");
 const statusMessage = document.getElementById("status-message");
+const bossStartButton = document.getElementById("boss-start-button");
+
 
 startButton.addEventListener("click", async () => {
   const nickname = nicknameInput.value.trim();
@@ -86,6 +88,43 @@ async function loadHomeRanking() {
     }
   }
 }
+// ============================
+// ‼️보스 테스트‼️
+// ============================
+bossStartButton.addEventListener("click", async () => {
+  const nickname = nicknameInput.value.trim();
+
+  if (!nickname) {
+    statusMessage.textContent = "닉네임을 입력해주세요.";
+    nicknameInput.focus();
+    return;
+  }
+
+  try {
+    // 1) 백엔드에서 boss debug room 생성
+    const res = await fetch(CONFIG.API_URL + "/boss/debug-room", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nickname }),
+    });
+
+    const data = await res.json();
+    const roomId = data.roomId;
+
+    if (!roomId) throw new Error("roomId 없음");
+
+    console.log("[BossMode] roomId:", roomId);
+
+    // 2) 닉네임을 localStorage에 저장
+    localStorage.setItem("waguwagu_nickname", nickname);
+
+    // 3) boss 모드 전용 화면으로 이동
+    window.location.href = `boss-game.html?roomId=${roomId}`;
+  } catch (error) {
+    console.error(error);
+    statusMessage.textContent = "보스 모드 진입 실패";
+  }
+});
 
 
 

@@ -6,6 +6,7 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { GameEngineService } from '../engine/game-engine.service';
@@ -17,12 +18,13 @@ import { CollisionService } from 'src/engine/core/collision.service';
 import { LifecycleService } from 'src/engine/core/lifecycle.service';
 import { GameLoopService } from 'src/engine/core/game-loop.service';
 import { Logger } from '@nestjs/common';
+import { BossManagerService } from '../boss/boss-manager.service';
 
 @WebSocketGateway({
   namespace: '/game',
   cors: { origin: '*' },
 })
-export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
   @WebSocketServer()
   server: Server;
 
@@ -39,7 +41,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private collisionService: CollisionService,
     private lifecycleService: LifecycleService,
     private gameLoopService: GameLoopService,
+		private bossManagerService: BossManagerService,
   ) {}
+
+	// ‼️추후 보스모드에 대기열 추가할 때에는 없어도 됨(OnGatewayInit)‼️
+  afterInit(server: Server) {
+    this.lifecycleService.roomManager = this;
+  }
 
   handleConnection(client: Socket) {
     console.log('Client connected:', client.id);
@@ -84,6 +92,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`게임 룸 삭제: ${roomId}`);
     // interval 정지
     room.stopInterval();
+		
+    this.ghostManagerService.clearRoom(roomId);
+    this.playerService.clearRoom(roomId);
+    this.botManagerService.resetBots(roomId);
 
     // 모든 클라이언트 연결 끊기
     this.server.in(roomId).disconnectSockets();
@@ -109,16 +121,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.botManagerService,
       this.collisionService,
       this.lifecycleService,
-      this.gameLoopService
+      this.gameLoopService,
+			//‼️보스매니저 추가‼️
+			this.bossManagerService,
     );
 
     engine.roomId = roomId;
     engine.roomManager = this;
 
-    // 유령 추가 등 초기화
-    engine.addGhost('g1');
-    engine.addGhost('g2');
-    engine.addGhost('g3');
+		// 초기화
+		this.lifecycleService.initialize(roomId);
 
     this.rooms[roomId] = engine;
     console.log(`[Gateway] 룸 (roomId:${roomId}) 생성됨.`);
@@ -129,8 +141,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // 1) 클라이언트가 방 입장 요청
   // ============================
   @SubscribeMessage('join-room')
-  handleJoinRoom(client: Socket, data: { roomId: string; nickname: string }) {
-    const { roomId, nickname } = data;
+  handleJoinRoom(client: Socket, data: { roomId: string; nickname: string, mode?: 'NORMAL' | 'BOSS' }) {
+    const { roomId, nickname, mode } = data;
+		const gameMode = mode ?? 'NORMAL';
 
     console.log(`Client ${client.id} joining room ${roomId}`);
     console.log('현재 생성된 rooms:', Object.keys(this.rooms));
@@ -143,7 +156,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.botManagerService,
         this.collisionService,
         this.lifecycleService,
-        this.gameLoopService
+        this.gameLoopService,
+				this.bossManagerService,
       );
 
       // 👇 중요! roomId와 roomManager 설정
@@ -151,6 +165,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       engine.roomManager = this; // GameGateway를 roomManager로 설정
 
       this.rooms[roomId] = engine;
+
+      // 일반모드에서는 필요 없음
+			// 보스모드에서는 방을 미리 생성하지 않고 클라이언트가 입장할 때 생성
+			// -> initialize 필요
+      this.lifecycleService.initialize(roomId);
     }
 
     const room = this.rooms[roomId];
@@ -179,10 +198,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // 방 전체에 현재 상태 전달
     this.server.to(roomId).emit('state', room.getState());
 
-    if (totalPlayers === 5) {
-      console.log(`🎬 Room ${roomId} → 카운트다운 시작`);
-      this.startCountdown(roomId);
-    }
+		if (room.isBossMode()) {
+    	// 보스 모드는 첫 유저 들어오면 바로 시작
+    	console.log(`🎬 Room ${roomId} → 보스 모드 시작`);
+    	if (!room.intervalRunning) {
+      	room.startBossMode();
+    	}
+  	} else {
+    	// 일반 모드는 5명 모이면 카운트다운 후 시작
+    	if (totalPlayers === 5) {
+				console.log(`🎬 Room ${roomId} → 카운트다운 시작`);
+      	this.startCountdown(roomId);
+    	}
+   	}
   }
 
   private startCountdown(roomId: string) {
@@ -202,6 +230,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }, 1000);
   }
 
+	// 게임엔진으로 옮기기
   private startGameLoop(roomId: string) {
     const room = this.rooms[roomId];
     if (!room) return;
@@ -262,5 +291,51 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.startCountdown(roomId);
 
     this.server.to(roomId).emit('state', room.getState());
+  }
+
+	// ============================
+	// 4) ‼️보스 테스트‼️
+	// ============================
+	createBossDebugRoom(roomState: any) {
+		const roomId = roomState.id;
+    if (this.rooms[roomId]) return;
+		
+
+    // 기존 방 생성 로직 재사용
+    const engine = new GameEngineService(
+      this.ghostManagerService,
+      this.playerService,
+      this.botManagerService,
+      this.collisionService,
+      this.lifecycleService,
+      this.gameLoopService,
+			this.bossManagerService,
+    );
+
+
+    engine.roomId = roomId;
+    engine.roomManager = this;
+
+		engine.setMode('BOSS');
+
+		// 초기화
+		this.lifecycleService.initialize(roomId);
+
+		
+  // ‼️보스 스폰
+  if (roomState.boss) {
+    this.bossManagerService.spawnBoss(roomId, {
+      x: roomState.boss.x,
+      y: roomState.boss.y,
+			// ‼️필요하면 phase, speed도 여기서 튜닝 가능‼️
+    });
+  }
+
+    this.rooms[roomId] = engine;
+
+		// 보스 모드 전용 루프 시작
+		engine.startBossMode();
+
+    this.logger.log(`[Boss Debug] 룸 생성됨: ${roomId}`);
   }
 }
