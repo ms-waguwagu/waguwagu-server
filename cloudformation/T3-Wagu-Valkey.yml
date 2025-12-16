@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: WAGUWAGU Valkey (ElastiCache) for Matching Queue & Lock
+
+Parameters:
+  ProjectPrefix:
+    Type: String
+    Default: T3-Wagu
+
+  MatchingVpcId:
+    Type: String
+    Description: Matching VPC ID
+
+  MatchingPrivateDbSubnetIds:
+    Type: CommaDelimitedList
+    Description: Matching Private DB Subnet IDs (Multi-AZ)
+
+  ValkeySecurityGroupId:
+    Type: String
+    Description: Security Group ID for Valkey
+
+Resources:
+  ############################################################
+  # 1) ElastiCache Subnet Group
+  ############################################################
+  ValkeySubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnet group for Valkey (Matching VPC)
+      SubnetIds: !Ref MatchingPrivateDbSubnetIds
+      CacheSubnetGroupName: !Sub "${ProjectPrefix}-Valkey-SubnetGroup"
+
+  ############################################################
+  # 2) Valkey Replication Group
+  ############################################################
+  ValkeyReplicationGroup:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Properties:
+      ReplicationGroupId: !Sub "${ProjectPrefix}-Valkey"
+      ReplicationGroupDescription: Valkey for Matching Queue
+      Engine: valkey
+      EngineVersion: "7.2"
+      CacheNodeType: cache.t3.micro
+      Port: 6379
+
+      # High Availability
+      AutomaticFailoverEnabled: true
+      MultiAZEnabled: true
+      NumNodeGroups: 1
+      ReplicasPerNodeGroup: 1
+
+      # Network
+      CacheSubnetGroupName: !Ref ValkeySubnetGroup
+      SecurityGroupIds:
+        - !Ref ValkeySecurityGroupId
+
+      # Maintenance
+      PreferredMaintenanceWindow: sun:03:00-sun:04:00
+
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Valkey"
+        - Key: Project
+          Value: WAGUWAGU
+        - Key: Team
+          Value: T3-Wagu
+
+Outputs:
+  ValkeyReplicationGroupId:
+    Value: !Ref ValkeyReplicationGroup
+    Export:
+      Name: !Sub "${ProjectPrefix}-ValkeyReplicationGroupId"
+
+  ValkeyPrimaryEndpoint:
+    Description: Valkey Primary Endpoint
+    Value: !GetAtt ValkeyReplicationGroup.PrimaryEndPoint.Address
+    Export:
+      Name: !Sub "${ProjectPrefix}-ValkeyPrimaryEndpoint"
+
+  ValkeyReaderEndpoint:
+    Description: Valkey Reader Endpoint
+    Value: !GetAtt ValkeyReplicationGroup.ReaderEndPoint.Address
+    Export:
+      Name: !Sub "${ProjectPrefix}-ValkeyReaderEndpoint"
+
+  ValkeyPort:
+    Value: "6379"
+    Export:
+      Name: !Sub "${ProjectPrefix}-ValkeyPort"
