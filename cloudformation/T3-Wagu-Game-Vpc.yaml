@@ -1,0 +1,207 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description:
+  T3-Wagu Game VPC with Public and Private Subnets
+
+  # ============================================================
+  # T3-Wagu Game VPC with Public and Private Subnets
+  # ============================================================
+
+Resources:
+  T3WaguGameVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.1.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: T3-Wagu-Game-VPC
+
+  # ============================================================
+  # Internet Gateway
+  # ============================================================
+
+  T3WaguInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: T3-Wagu-IGW
+
+  T3WaguIGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref T3WaguGameVPC
+      InternetGatewayId: !Ref T3WaguInternetGateway
+
+  # ============================================================
+  # Public Subnets
+  # ============================================================
+
+  T3WaguPublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref T3WaguGameVPC
+      CidrBlock: 10.1.10.0/24
+      AvailabilityZone: ap-northeast-2a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: T3-Wagu-Public-Subnet-A
+
+
+  T3WaguPublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref T3WaguGameVPC
+      CidrBlock: 10.1.11.0/24
+      AvailabilityZone: ap-northeast-2c
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: T3-Wagu-Public-Subnet-B
+
+  # ============================================================
+  # Private Subnets
+  # ============================================================
+
+  T3WaguPrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref T3WaguGameVPC
+      CidrBlock: 10.1.20.0/24
+      AvailabilityZone: ap-northeast-2a
+      Tags:
+        - Key: Name
+          Value: T3-Wagu-Private-Subnet-A
+
+  T3WaguPrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref T3WaguGameVPC
+      CidrBlock: 10.1.21.0/24
+      AvailabilityZone: ap-northeast-2c
+      Tags:
+        - Key: Name
+          Value: T3-Wagu-Private-Subnet-B
+
+  # ============================================================
+  # Public Route Table
+  # ============================================================
+
+  T3WaguPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref T3WaguGameVPC
+      Tags:
+        - Key: Name
+          Value: T3-Wagu-Public-RT
+
+  T3WaguPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: T3WaguIGWAttachment
+    Properties:
+      RouteTableId: !Ref T3WaguPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref T3WaguInternetGateway
+
+  T3WaguPublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref T3WaguPublicSubnetA
+      RouteTableId: !Ref T3WaguPublicRouteTable
+
+  T3WaguPublicSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref T3WaguPublicSubnetB
+      RouteTableId: !Ref T3WaguPublicRouteTable
+
+  # ============================================================
+  # Elastic IP for NAT Gateway
+  # ============================================================
+  T3WaguNatEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: T3-Wagu-NAT-EIP
+
+  # ============================================================
+  # NAT Gateway (Public Subnet A)
+  # ============================================================
+  T3WaguNatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt T3WaguNatEIP.AllocationId
+      SubnetId: !Ref T3WaguPublicSubnetA
+      Tags:
+        - Key: Name
+          Value: T3-Wagu-NAT-GW
+
+  # ============================================================
+  # Private Route Table
+  # ============================================================
+  T3WaguPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref T3WaguGameVPC
+      Tags:
+        - Key: Name
+          Value: T3-Wagu-Private-RT
+
+  T3WaguPrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref T3WaguPrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref T3WaguNatGateway
+
+  T3WaguPrivateSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref T3WaguPrivateSubnetA
+      RouteTableId: !Ref T3WaguPrivateRouteTable
+
+  T3WaguPrivateSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref T3WaguPrivateSubnetB
+      RouteTableId: !Ref T3WaguPrivateRouteTable
+
+
+Outputs:
+  # ============================================================
+  # VPC & Subnet Exports
+  # ============================================================
+  T3WaguGameVPCId:
+    Description: T3-Wagu Game VPC ID
+    Value: !Ref T3WaguGameVPC
+    Export:
+      Name: T3WaguGameVPCId
+
+  T3WaguPublicSubnetAId:
+    Description: Public Subnet A ID
+    Value: !Ref T3WaguPublicSubnetA
+    Export:
+      Name: T3WaguPublicSubnetAId
+
+  T3WaguPublicSubnetBId:
+    Description: Public Subnet B ID
+    Value: !Ref T3WaguPublicSubnetB
+    Export:
+      Name: T3WaguPublicSubnetBId
+
+  T3WaguPrivateSubnetAId:
+    Description: Private Subnet A ID
+    Value: !Ref T3WaguPrivateSubnetA
+    Export:
+      Name: T3WaguPrivateSubnetAId
+
+  T3WaguPrivateSubnetBId:
+    Description: Private Subnet B ID
+    Value: !Ref T3WaguPrivateSubnetB
+    Export:
+      Name: T3WaguPrivateSubnetBId
+
