@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: WAGUWAGU ECR repositories for game and matching servers
+
+Resources:
+  ############################################################
+  # Game Server ECR
+  ############################################################
+  WaguGameServerECR:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: t3-wagu-game-server
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Name
+          Value: t3-wagu-game-server
+        - Key: Project
+          Value: WAGUWAGU
+        - Key: Team
+          Value: T3-Wagu
+
+  ############################################################
+  # Matching Server ECR
+  ############################################################
+  WaguMatchingServerECR:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: t3-wagu-matching-server
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Name
+          Value: t3-wagu-matching-server
+        - Key: Project
+          Value: WAGUWAGU
+        - Key: Team
+          Value: T3-Wagu
+
+Outputs:
+  ############################################################
+  # Exports
+  ############################################################
+  GameServerECRUri:
+    Description: ECR URI for Game Server
+    Value: !GetAtt WaguGameServerECR.RepositoryUri
+    Export:
+      Name: WAGUWAGU-GameServer-ECR-URI
+
+  MatchingServerECRUri:
+    Description: ECR URI for Matching Server
+    Value: !GetAtt WaguMatchingServerECR.RepositoryUri
+    Export:
+      Name: WAGUWAGU-MatchingServer-ECR-URI
