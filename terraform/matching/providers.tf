@@ -4,6 +4,10 @@ variable "region" {
 }
 
 
+provider "aws" {
+  region = var.region
+}
+
 # EKS 모듈 outputs 사용
 provider "kubernetes" {
   host                   = module.eks.cluster_endpoint

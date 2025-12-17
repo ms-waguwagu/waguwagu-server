@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matching-deploy
+  namespace: matching
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: matching
+  template:
+    metadata:
+      labels:
+        app: matching
+    spec:
+      containers:
+        - name: matching
+          image: matching:latest # TODO: 매칭 서버 이미지로 교체
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+          readinessProbe:
+            httpGet:
+              path: /health    
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
