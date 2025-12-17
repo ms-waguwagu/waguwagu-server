@@ -403,6 +403,7 @@ Resources:
       SubnetId: !Ref GamePrivateSubnetB
       RouteTableId: !Ref GamePrivateRouteTable
 
+
 Outputs:
   MatchingVPCId:
     Value: !Ref MatchingVPC
