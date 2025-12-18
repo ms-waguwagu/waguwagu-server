@@ -4,7 +4,7 @@ metadata:
   name: matching-ingress
   namespace: matching
   annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing  # 퍼블릭 ALB
+    alb.ingress.kubernetes.io/scheme: internet-facing # 퍼블릭 ALB
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
 spec:
