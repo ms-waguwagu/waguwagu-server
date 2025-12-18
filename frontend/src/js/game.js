@@ -248,10 +248,10 @@ export class GameManager {
       }
     }
 
-    // 5초 후 메인으로 자동 이동
+    // 5초 후 메인으로 자동 이동 (로그인X)
     setTimeout(() => {
       this.stop();
-      window.location.href = "login.html";
+      window.location.href = "home.html";
     }, 5000);
   }
 

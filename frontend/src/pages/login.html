@@ -61,6 +61,12 @@
       import { googleLogin } from "../api/google-login-api.js";
       import { MATCHING_CONFIG } from "../../config.js";
 
+      //이미 로그인 한 사용자라면, home으로 리다이렉션
+      const token = localStorage.getItem("accessToken");
+      if (token) {
+        location.href = "./home.html";
+      }
+
       window.onload = () => {
         google.accounts.id.initialize({
           client_id: MATCHING_CONFIG.GOOGLE_CLIENT_ID,

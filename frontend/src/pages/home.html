@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WAGUWAGU Home</title>
+
+    <!-- 기존 스타일 재사용 -->
+    <link rel="stylesheet" href="../styles/main.css" />
+    <link rel="stylesheet" href="../styles/ranking.css" />
+  </head>
+
+  <body class="mode-main">
+    <div id="layout">
+      <!-- 좌측 랭킹 -->
+      <aside id="ranking-panel">
+        <h2>WEEKLY TOP 10</h2>
+        <div id="ranking-list">
+          <div class="empty-ranking">로딩 중...</div>
+        </div>
+      </aside>
+
+      <!-- 우측 메인 -->
+      <main id="main-screen">
+        <section id="hero">
+          <div id="center-area">
+            <div id="game-title">WAGUWAGU</div>
+
+            <div id="app">
+              <button id="start-button">게임 시작</button>
+              <button id="boss-start-button">보스 테스트</button>
+              <button id="logout-button">로그아웃</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module">
+      import { CONFIG } from "../../config.js";
+
+      // 로그인 유지 체크
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
+        location.href = "./login.html";
+      }
+
+      // 게임 시작
+      document.getElementById("start-button").onclick = () => {
+        location.href = "./queue.html";
+      };
+
+      // 보스 테스트
+      document.getElementById("boss-start-button").onclick = () => {
+        location.href = "./login.html"; // 필요 시 보스 전용 페이지로 변경
+      };
+
+      // 로그아웃
+      document.getElementById("logout-button").onclick = () => {
+        localStorage.clear();
+        location.href = "./login.html";
+      };
+
+      // 랭킹 로드 (login.html과 동일 로직)
+      async function loadRanking() {
+        try {
+          const res = await fetch(CONFIG.API_URL + "/ranking/top");
+          const data = await res.json();
+
+          const list = document.getElementById("ranking-list");
+          if (!data || data.length === 0) {
+            list.innerHTML = "<div class='empty-ranking'>데이터 없음</div>";
+            return;
+          }
+
+          list.innerHTML = data
+            .map(
+              (item) => `
+              <div class="ranking-item">
+                <div class="rank">${item.rank}</div>
+                <div class="nick">${item.nickname}</div>
+                <div class="score">${item.score}</div>
+              </div>
+            `
+            )
+            .join("");
+        } catch (e) {
+          document.getElementById("ranking-list").innerHTML =
+            "<div class='empty-ranking'>랭킹 로드 실패</div>";
+        }
+      }
+
+      loadRanking();
+      setInterval(loadRanking, 30000);
+    </script>
+  </body>
+</html>
