@@ -4,7 +4,7 @@ resource "aws_eks_cluster" "this" {
   role_arn = aws_iam_role.cluster.arn
 
   vpc_config {
-    subnet_ids = [var.subnet_a_id, var.subnet_c_id]
+    subnet_ids = var.subnet_ids
   }
 
   depends_on = [
@@ -13,11 +13,11 @@ resource "aws_eks_cluster" "this" {
   ]
 }
 
-resource "aws_eks_node_group" "node_a" {
+resource "aws_eks_node_group" "this" {
   cluster_name    = aws_eks_cluster.this.name
-  node_group_name = var.node_group_name_a
+  node_group_name = var.node_group_name
   node_role_arn   = aws_iam_role.node.arn
-  subnet_ids      = [var.subnet_a_id]
+  subnet_ids      = var.subnet_ids
 
   scaling_config {
     desired_size = var.desired_size
@@ -28,32 +28,7 @@ resource "aws_eks_node_group" "node_a" {
   instance_types = var.instance_types
 
   tags = {
-    Name = "${var.cluster_name}-NodeA"
-  }
-
-  depends_on = [
-    aws_iam_role_policy_attachment.node_AmazonEKSWorkerNodePolicy,
-    aws_iam_role_policy_attachment.node_AmazonEKS_CNI_Policy,
-    aws_iam_role_policy_attachment.node_AmazonEC2ContainerRegistryReadOnly,
-  ]
-}
-
-resource "aws_eks_node_group" "node_c" {
-  cluster_name    = aws_eks_cluster.this.name
-  node_group_name = var.node_group_name_c
-  node_role_arn   = aws_iam_role.node.arn
-  subnet_ids      = [var.subnet_c_id]
-
-  scaling_config {
-    desired_size = var.desired_size
-    max_size     = var.max_size
-    min_size     = var.min_size
-  }
-
-  instance_types = var.instance_types
-
-  tags = {
-    Name = "${var.cluster_name}-NodeC"
+    Name = "${var.cluster_name}-Node"
   }
 
   depends_on = [
