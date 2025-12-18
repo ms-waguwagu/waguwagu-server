@@ -2,7 +2,7 @@ import { CONFIG } from "./config.js";
 import { GameManager } from "./src/js/game.js";
 
 // ====== 초기화 및 인증 체크 ======
-const token = localStorage.getItem("waguwagu_token");
+const token = localStorage.getItem("accessToken");
 const nickname = localStorage.getItem("waguwagu_nickname");
 
 if (!token || !nickname) {
@@ -33,7 +33,7 @@ const gameManager = new GameManager({
   gameEndModal,
   homeButton,
   finalScoreList,
-  mode: 'NORMAL',
+  mode: "NORMAL",
 });
 
 gameManager.start();

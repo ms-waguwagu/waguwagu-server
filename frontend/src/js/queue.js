@@ -132,15 +132,14 @@ export function initQueueScreen(socket, onMatchFound) {
 
 // 페이지 로드 시 자동 실행 (queue.html에서 실행될 경우)
 if (document.getElementById("queue-screen")) {
-  const token = localStorage.getItem("waguwagu_token");
+  const token = localStorage.getItem("accessToken");
 
   if (token) {
     // socket.io-client가 로드되어 있어야 함 (CDN)
     if (typeof io !== "undefined") {
       const socket = io("http://localhost:3000/queue", {
-        auth: { token: `Bearer ${token}` },
-        // transports: ["websocket"],
-      });
+        auth: { token },
+      });      
 
       // 소켓 연결되면 대기열 진입
       socket.on("connect", () => {

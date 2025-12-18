@@ -59,7 +59,7 @@ export class PlayerService {
     return color;
   }
 
-  addPlayer(roomId: string, id: string, nickname: string) {
+  addPlayer(roomId: string, id: string, googleSub: string, nickname: string) {
 		this.ensureRoom(roomId);
     const spawnCol = 1;
     const spawnRow = 1;
@@ -68,6 +68,7 @@ export class PlayerService {
 
     this.players[roomId][id] = {
       id,
+      googleSub,
       nickname,
       x: spawnCol * TILE_SIZE + (TILE_SIZE - PLAYER_SIZE) / 2,
       y: spawnRow * TILE_SIZE + (TILE_SIZE - PLAYER_SIZE) / 2,

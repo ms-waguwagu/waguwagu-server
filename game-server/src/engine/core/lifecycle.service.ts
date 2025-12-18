@@ -6,6 +6,7 @@ import { PlayerService, Player, Dot } from '../player/player.service';
 import { BotManagerService, Bot } from '../bot/bot-manager.service';
 import { Logger } from '@nestjs/common';
 import { BossManagerService } from '../../boss/boss-manager.service';
+import axios from 'axios';
 
 interface LifecycleState {
   gameStartTime: number;
@@ -103,28 +104,45 @@ export class LifecycleService {
     return state?.gameOver ?? false;
   }
 
-	// 게임 종료
-  triggerGameOver(roomId: string, reason: string) {
-		if (!this.roomManager?.server) return;
-
+  async triggerGameOver(roomId: string, reason: string) {
+    if (!this.roomManager?.server) return;
+  
     const state = this.rooms[roomId];
     state.gameOver = true;
     state.gameOverReason = reason;
-
+  
     this.sendGameOverEvent(roomId);
-
-		// 개발 모드일 경우 5초 후 게임 리셋
-    if (process.env.MODE === 'DEV') {
-      setTimeout(() => {
-        this.resetGame(roomId);
-      }, 5000);
-    } else {
-      setTimeout(() => {
-        this.removeRoom(roomId);
-      }, 5000);
+  
+    // 여기서 매칭 서버에 알림
+    try {
+      const players = this.playerService.getPlayers(roomId);
+      const userIds = players.map(p => p.googleSub); // ⚠️ userId = googleSub
+  
+      await axios.post(
+        `${process.env.MATCHING_SERVER_URL}/internal/game-finished`,
+        { userIds }
+      );
+  
+      this.logger.log(
+        `매칭 서버에 게임 종료 알림 완료: roomId=${roomId}, users=${userIds.join(',')}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `매칭 서버 게임 종료 알림 실패: roomId=${roomId}`,
+        err,
+      );
     }
+  
+    // 기존 로직 유지
+    setTimeout(() => {
+      if (process.env.MODE === 'DEV') {
+        this.resetGame(roomId);
+      } else {
+        this.removeRoom(roomId);
+      }
+    }, 5000);
   }
-
+  
 	// 게임 종료 이벤트 전송
   sendGameOverEvent(roomId: string) {
 		if (!this.roomManager?.server) return;

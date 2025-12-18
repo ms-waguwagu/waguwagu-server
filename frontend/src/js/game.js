@@ -12,13 +12,15 @@ export class GameManager {
     gameEndModal,
     homeButton,
     finalScoreList,
-    mode = 'NORMAL', // 기본값 NORMAL
+    mode = "NORMAL", // 기본값 NORMAL
   }) {
     this.nickname = nickname;
     this.roomId = roomId;
     this.token = token;
     this.socketUrl = socketUrl;
     this.mode = mode;
+    this.googlesub = localStorage.getItem("googlesub");
+    console.log("🧬 [GameManager] localStorage googlesub =", this.googlesub);
 
     // DOM Elements
     this.gameScreen = gameScreen;
@@ -87,10 +89,15 @@ export class GameManager {
   connectWebSocket() {
     this.socket = io(this.socketUrl, {
       transports: ["websocket"],
+      auth: {
+        token: localStorage.getItem("accessToken"),
+      },
     });
 
     this.socket.on("connect", () => {
       console.log("🟢 Connected:", this.socket.id);
+      console.log("🧬 [join-room] userId =", this.googlesub);
+
       this.socket.emit("join-room", {
         roomId: this.roomId,
         nickname: this.nickname,
@@ -107,38 +114,37 @@ export class GameManager {
       this.renderer.draw(initialState);
     });
 
-// ============================
-// 카운트다운 이벤트 처리
-// ============================
-this.socket.on("countdown", ({ count }) => {
-  const el = document.getElementById("countdown-display");
+    // ============================
+    // 카운트다운 이벤트 처리
+    // ============================
+    this.socket.on("countdown", ({ count }) => {
+      const el = document.getElementById("countdown-display");
 
-  if (!el) return;
+      if (!el) return;
 
-  if (count > 0) {
-    el.style.display = "block";
-    el.textContent = count;
-    el.classList.add("pop");   // 애니메이션
-    setTimeout(() => el.classList.remove("pop"), 350);
-  } else {
-    el.textContent = "START!";
-    el.classList.add("start");
-    setTimeout(() => {
-      el.style.display = "none";
-      el.classList.remove("start");
-    }, 900);
-  }
+      if (count > 0) {
+        el.style.display = "block";
+        el.textContent = count;
+        el.classList.add("pop"); // 애니메이션
+        setTimeout(() => el.classList.remove("pop"), 350);
+      } else {
+        el.textContent = "START!";
+        el.classList.add("start");
+        setTimeout(() => {
+          el.style.display = "none";
+          el.classList.remove("start");
+        }, 900);
+      }
 
-  // 카운트다운 동안 입력 막기
-  window.isCountdownActive = count > 0;
-});
-
+      // 카운트다운 동안 입력 막기
+      window.isCountdownActive = count > 0;
+    });
 
     this.socket.on("state", (serverState) => {
       if (!serverState) return;
 
-			// ‼️보스 테스트‼️
-			console.log("🔥 state.boss:", serverState.boss);
+      // ‼️보스 테스트‼️
+      console.log("🔥 state.boss:", serverState.boss);
 
       // 타이머 갱신 코드 추가
       const timerEl = document.getElementById("game-timer");
@@ -307,20 +313,19 @@ this.socket.on("countdown", ({ count }) => {
 
   startInputLoop() {
     this.inputLoopInterval = setInterval(() => {
-  if (!this.socket) return;
+      if (!this.socket) return;
 
-  // 카운트다운 중이면 입력 무시
-  if (window.isCountdownActive) return;
+      // 카운트다운 중이면 입력 무시
+      if (window.isCountdownActive) return;
 
-  const dir = { dx: 0, dy: 0 };
-  if (this.keys["ArrowUp"]) dir.dy = -1;
-  else if (this.keys["ArrowDown"]) dir.dy = 1;
-  else if (this.keys["ArrowLeft"]) dir.dx = -1;
-  else if (this.keys["ArrowRight"]) dir.dx = 1;
+      const dir = { dx: 0, dy: 0 };
+      if (this.keys["ArrowUp"]) dir.dy = -1;
+      else if (this.keys["ArrowDown"]) dir.dy = 1;
+      else if (this.keys["ArrowLeft"]) dir.dx = -1;
+      else if (this.keys["ArrowRight"]) dir.dx = 1;
 
-  this.socket.emit("input", { dir });
-}, 33);
-
+      this.socket.emit("input", { dir });
+    }, 33);
   }
 
   start() {

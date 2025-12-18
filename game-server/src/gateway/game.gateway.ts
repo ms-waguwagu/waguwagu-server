@@ -141,11 +141,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   // 1) 클라이언트가 방 입장 요청
   // ============================
   @SubscribeMessage('join-room')
-  handleJoinRoom(client: Socket, data: { roomId: string; nickname: string, mode?: 'NORMAL' | 'BOSS' }) {
-    const { roomId, nickname, mode } = data;
+  handleJoinRoom(client: Socket, data: { roomId: string; userId: string; nickname: string, mode?: 'NORMAL' | 'BOSS' }) {
+    const { roomId, nickname, userId, mode } = data;
 		const gameMode = mode ?? 'NORMAL';
 
-    console.log(`Client ${client.id} joining room ${roomId}`);
+    console.log(`Google Client ${userId} joining room ${roomId}`);
     console.log('현재 생성된 rooms:', Object.keys(this.rooms));
 
     // 방 객체 없으면 생성
@@ -179,7 +179,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     client.data.nickname = nickname;
 
 		// 유저만 추가
-    room.addPlayer(client.id, nickname);
+    room.addPlayer(client.id, userId, nickname);
 
     const humanPlayers = room.playerCount();
     const botPlayers = room.getBotCount();

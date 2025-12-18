@@ -1,95 +1,54 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable } from '@nestjs/common';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  DynamoDBDocumentClient,
-  PutCommand,
-  QueryCommand,
-} from '@aws-sdk/lib-dynamodb';
+
+interface RankingItem {
+  playerId: string;
+  nickname: string;
+  score: number;
+  playedAt: number;
+}
 
 @Injectable()
 export class RankingService {
-  private tableName = process.env.DYNAMO_TABLE_RANKING!;
-
-  private client = DynamoDBDocumentClient.from(
-    new DynamoDBClient({
-      region: process.env.AWS_REGION!,
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-      },
-    }),
-  );
+  // 🔥 임시 인메모리 랭킹 저장소
+  private rankings: RankingItem[] = [];
 
   // ⭐ 점수 저장
   async saveScore(playerId: string, nickname: string, score: number) {
-    const timestamp = Date.now();
-
-    const item = {
+    const item: RankingItem = {
       playerId,
-      playedAt: timestamp, // DynamoDB SortKey
       nickname,
       score,
-      pk: 'RANK', // GSI 조회용
+      playedAt: Date.now(),
     };
 
-    await this.client.send(
-      new PutCommand({
-        TableName: this.tableName,
-        Item: item,
-      }),
-    );
-
+    this.rankings.push(item);
     return true;
   }
 
-  // ⭐ TOP10 조회 (GSI 사용)
+  // ⭐ TOP10 조회
   async getTop10() {
-    const result = await this.client.send(
-      new QueryCommand({
-        TableName: this.tableName,
-        IndexName: 'ScoreIndex',
-        KeyConditionExpression: 'pk = :pk',
-        ExpressionAttributeValues: {
-          ':pk': 'RANK',
-        },
-        ScanIndexForward: false, // 점수 DESC
-      }),
-    );
-
-    if (!result.Items) return [];
-
-    // ✅ 봇 제외 (nickname이 bot-* 인 경우)
-    const humanOnly = result.Items.filter(
-      (item) => !item.nickname?.startsWith('bot-'),
-    );
-
-    // ✅ TOP 10만 자르기
-    return humanOnly.slice(0, 10).map((item, index) => ({
-      rank: index + 1,
-      playerId: item.playerId,
-      nickname: item.nickname,
-      score: item.score,
-      playedAt: item.playedAt,
-    }));
+    return this.rankings
+      // 🤖 봇 제외
+      .filter((item) => !item.nickname.startsWith('bot-'))
+      // 점수 내림차순
+      .sort((a, b) => b.score - a.score)
+      // TOP 10
+      .slice(0, 10)
+      .map((item, index) => ({
+        rank: index + 1,
+        playerId: item.playerId,
+        nickname: item.nickname,
+        score: item.score,
+        playedAt: item.playedAt,
+      }));
   }
 
   // ⭐ 특정 플레이어 최고 점수
   async getPlayerBestScore(playerId: string) {
-    const result = await this.client.send(
-      new QueryCommand({
-        TableName: this.tableName,
-        KeyConditionExpression: 'playerId = :pid',
-        ExpressionAttributeValues: {
-          ':pid': playerId,
-        },
-        ScanIndexForward: false, // playedAt 기준 내림차순
-        Limit: 1,
-      }),
-    );
+    const scores = this.rankings
+      .filter((item) => item.playerId === playerId)
+      .sort((a, b) => b.score - a.score);
 
-    return result.Items?.[0] || null;
+    return scores[0] || null;
   }
 }

@@ -1,4 +1,4 @@
-import { loginNickname } from "../api/login-api.js";
+import { setNickname } from "../api/login-api.js";
 import { CONFIG } from "../../config.js";
 // import { matchingQueue } from "../api/queue-api.js";
 
@@ -6,7 +6,6 @@ const nicknameInput = document.getElementById("nickname-input");
 const startButton = document.getElementById("start-button");
 const statusMessage = document.getElementById("status-message");
 const bossStartButton = document.getElementById("boss-start-button");
-
 
 startButton.addEventListener("click", async () => {
   const nickname = nicknameInput.value.trim();
@@ -18,24 +17,21 @@ startButton.addEventListener("click", async () => {
   }
 
   try {
-    const { accessToken } = await loginNickname(nickname);
+    // 닉네임 설정
+    const { accessToken } = await setNickname(nickname);
 
-    // 토큰과 닉네임을 localStorage에 저장
-    localStorage.setItem("waguwagu_token", accessToken);
+    // OAuth 토큰을 새 토큰으로 교체
+    localStorage.setItem("accessToken", accessToken);
     localStorage.setItem("waguwagu_nickname", nickname);
 
-    console.log("토큰/닉네임 저장 완료:", accessToken, nickname);
+    console.log("닉네임 설정 & 토큰 교체 완료:", nickname);
 
-    // 매칭 큐 진입
-    // await matchingQueue();
-    // console.log("매칭 큐 진입 성공");
-
+    // 매칭 큐 페이지로 이동
     window.location.href = "queue.html";
   } catch (error) {
     statusMessage.textContent = error.message;
   }
 });
-
 
 async function loadHomeRanking() {
   try {
@@ -63,7 +59,6 @@ async function loadHomeRanking() {
           `${String(date.getHours()).padStart(2, "0")}:${String(
             date.getMinutes()
           ).padStart(2, "0")}`;
-
 
         return `
           <div class="ranking-item rank-${item.rank}">
@@ -125,8 +120,6 @@ bossStartButton.addEventListener("click", async () => {
     statusMessage.textContent = "보스 모드 진입 실패";
   }
 });
-
-
 
 // 페이지 로드 시 TOP10 표시
 loadHomeRanking();

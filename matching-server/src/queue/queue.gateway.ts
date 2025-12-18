@@ -32,11 +32,11 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(client: Socket) {
     try {
-      const token = client.handshake.auth.token?.split(' ')[1];
+      const token = client.handshake.auth?.token;
       if (!token) throw new Error('토큰 없음');
       
       const decoded = this.jwtService.verify(token);
-      const userId = decoded.uuid; 
+      const userId = decoded.googleSub; 
 			const nickname = decoded.nickname;
 
       

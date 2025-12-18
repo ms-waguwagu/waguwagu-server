@@ -1,4 +1,5 @@
 export interface PlayerState {
+    googleSub?: String;
     id: string;
     nickname: string;
     x: number;

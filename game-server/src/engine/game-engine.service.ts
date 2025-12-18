@@ -106,9 +106,9 @@ export class GameEngineService {
     return this.playerService.getPlayer(this.roomId, id);
   }
 
-  addPlayer(id: string, nickname: string) {
-    this.playerService.addPlayer(this.roomId, id, nickname);
-  }
+  addPlayer(id: string, googleSub: string, nickname: string) {
+    this.playerService.addPlayer(this.roomId, id, googleSub, nickname);
+  }  
 
   removePlayer(id: string) {
     this.playerService.removePlayer(this.roomId, id);

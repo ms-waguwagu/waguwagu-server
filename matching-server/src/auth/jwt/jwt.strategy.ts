@@ -24,8 +24,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   // 2. 토큰이 유효할 경우 호출됨
-  async validate(payload: any) {
-    // 검증 후 Request 객체에 담아줄 정보를 반환
-    return { userId: payload.uuid, nickname: payload.nickname };
+  async validate(payload: any) { //Google Sub로 수정
+    return {
+      googleSub: payload.googleSub,
+      nickname: payload.nickname,
+    };
   }
+  
 }

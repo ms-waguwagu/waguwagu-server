@@ -1,23 +1,28 @@
 import { MATCHING_CONFIG } from "../../config.js";
 
-export async function loginNickname(nickname) {
+// OAuth 이후 닉네임 설정 전용 함수
+export async function setNickname(nickname) {
+  const accessToken = localStorage.getItem("accessToken");
+
+  if (!accessToken) {
+    throw new Error("로그인이 필요합니다");
+  }
+
   const res = await fetch(`${MATCHING_CONFIG.MATCHING_URL}/auth/nickname`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({ nickname }),
   });
 
   if (!res.ok) {
     const errorData = await res.json();
-    const message = errorData.message || "닉네임 입력 실패";
-		// 매칭서버에서 validation error가 배열로 반환됨
-		const errorMessage = Array.isArray(message) ? message[0] : message;
+    const message = errorData.message || "닉네임 설정 실패";
+    const errorMessage = Array.isArray(message) ? message[0] : message;
     throw new Error(errorMessage);
   }
 
-  // { message, accessToken }
-	return await res.json(); 
-
+  return await res.json(); // { accessToken }
 }

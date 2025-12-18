@@ -4,8 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WAGUWAGU Login</title>
+
+    <!-- 기존 스타일 -->
     <link rel="stylesheet" href="../styles/main.css" />
     <link rel="stylesheet" href="../styles/ranking.css" />
+
+    <!-- Google Identity Services SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <!-- 닉네임 카드 기본 숨김 -->
+    <style>
+      #app {
+        display: none;
+      }
+    </style>
   </head>
 
   <body class="mode-main">
@@ -20,22 +32,71 @@
       </aside>
 
       <main id="main-screen">
-        <!-- 배경 + 중앙정렬 기준이 되는 히어로(배경이미지는 여기서만!) -->
+        <!-- 배경 + 중앙정렬 기준 히어로 -->
         <section id="hero">
-          <!-- 배경 중앙 기준으로 로고/입력/버튼이 정렬됨 -->
           <div id="center-area">
             <div id="game-title">WAGUWAGU</div>
 
-        <!-- 닉네임 + 버튼 카드 -->
-        <div id="app">
-          <input type="text" id="nickname-input" placeholder="닉네임 입력" />
-          <button id="start-button">게임 시작</button>
-					<button id="boss-start-button">보스 테스트</button>
-          <p id="status-message"></p>
-        </div>
-      </div>
+            <!-- 🔥 구글 로그인 버튼 영역 -->
+            <div id="google-login-area"></div>
+
+            <!-- 🔥 OAuth 이후 신규 유저만 쓰는 닉네임 카드 -->
+            <div id="app">
+              <input
+                type="text"
+                id="nickname-input"
+                placeholder="닉네임 입력"
+              />
+              <button id="start-button">게임 시작</button>
+              <button id="boss-start-button">보스 테스트</button>
+              <p id="status-message"></p>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
 
+    <!-- 🔥 로그인 로직 -->
+    <script type="module">
+      import { googleLogin } from "../api/google-login-api.js";
+      import { MATCHING_CONFIG } from "../../config.js";
+
+      window.onload = () => {
+        google.accounts.id.initialize({
+          client_id: MATCHING_CONFIG.GOOGLE_CLIENT_ID,
+          callback: async (response) => {
+            try {
+              const data = await googleLogin(response.credential);
+
+              localStorage.setItem("accessToken", data.accessToken);
+              localStorage.setItem("googlesub", data.googleSub);
+
+              if (data.isNewUser) {
+                // 신규 유저 → 닉네임 입력 UI 활성화
+                document.getElementById("app").style.display = "block";
+                document.getElementById("google-login-area").style.display =
+                  "none";
+              } else {
+                // 기존 유저 → 바로 큐로
+                location.href = "./queue.html";
+              }
+            } catch (e) {
+              alert(e.message);
+            }
+          },
+        });
+
+        google.accounts.id.renderButton(
+          document.getElementById("google-login-area"),
+          {
+            theme: "outline",
+            size: "large",
+          }
+        );
+      };
+    </script>
+
+    <!-- 기존 닉네임/게임 시작 로직 -->
     <script type="module" src="../js/login.js"></script>
   </body>
 </html>

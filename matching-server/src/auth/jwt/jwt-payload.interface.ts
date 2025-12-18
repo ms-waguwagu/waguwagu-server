@@ -1,4 +1,4 @@
 export interface JwtPayload {
-  uuid: string;
-  nickname: string;
+  googleSub: string;
+  nickname?: string | null;  
 }
