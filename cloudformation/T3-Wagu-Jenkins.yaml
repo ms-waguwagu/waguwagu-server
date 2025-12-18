@@ -65,25 +65,41 @@ Resources:
       InstanceProfileName: !Sub "${ProjectPrefix}-Jenkins-Instance-Profile"
 
   ############################################################
-  # Security Group for Jenkins (NO inbound rules)
+  # Security Group for Jenkins Matching (NO inbound rules)
   ############################################################
-  JenkinsSG:
+  JenkinsMatchingSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security Group for Jenkins Server (SSM-only)
+      GroupDescription: Security Group for Jenkins Matching Server (SSM-only)
       VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
       # 인바운드(22/8080) 완전 제거 -> SSM으로만 접속하고, UI는 SSM 포트포워딩으로 접속
       SecurityGroupIngress: []
       Tags:
         - Key: Name
-          Value: !Sub "${ProjectPrefix}-Jenkins-SG"
+          Value: !Sub "${ProjectPrefix}-Jenkins-Matching-SG"
         - Key: Project
           Value: WAGUWAGU
 
   ############################################################
-  # Jenkins EC2 Instance
+  # Security Group for Jenkins Game (NO inbound rules)
   ############################################################
-  JenkinsInstance:
+  JenkinsGameSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Jenkins Game Server (SSM-only)
+      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
+      # 인바운드(22/8080) 완전 제거 -> SSM으로만 접속하고, UI는 SSM 포트포워딩으로 접속
+      SecurityGroupIngress: []
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Jenkins-Game-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # Jenkins EC2 Instance (Matching)
+  ############################################################
+  JenkinsInstanceMatching:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref InstanceType
@@ -93,7 +109,7 @@ Resources:
         - AssociatePublicIpAddress: true
           DeviceIndex: "0"
           GroupSet:
-            - !Ref JenkinsSG
+            - !Ref JenkinsMatchingSG
           # 첫번째 서브넷 사용
           SubnetId: !Select [0, !Split [",", !ImportValue T3-Wagu-Matching-Public-Subnet-Ids]]
       
@@ -128,17 +144,79 @@ Resources:
       
       Tags:
         - Key: Name
-          Value: !Sub "${ProjectPrefix}-Jenkins"
+          Value: !Sub "${ProjectPrefix}-Jenkins-Matching"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # Jenkins EC2 Instance (Game)
+  ############################################################
+  JenkinsInstanceGame:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref JenkinsInstanceProfile
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: "0"
+          GroupSet:
+            - !Ref JenkinsGameSG
+          # 첫번째 서브넷 사용
+          SubnetId: !Select [0, !Split [",", !ImportValue T3-Wagu-Game-Public-Subnet-Ids]]
+      
+       # Jenkins 자동 설치(UserData)
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+
+          dnf update -y
+
+          # Java 17 (Jenkins 실행 필수)
+          dnf install -y java-17-amazon-corretto
+
+          # Jenkins repo 추가
+          curl -fsSL https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key | tee /etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins > /dev/null
+          cat >/etc/yum.repos.d/jenkins.repo <<'EOF'
+          [jenkins]
+          name=Jenkins-stable
+          baseurl=https://pkg.jenkins.io/redhat-stable
+          gpgcheck=1
+          gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins
+          EOF
+
+          dnf install -y jenkins
+
+          systemctl enable jenkins
+          systemctl start jenkins
+
+          # 설치 확인용 로그
+          systemctl status jenkins --no-pager || true
+      
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Jenkins-Game"
         - Key: Project
           Value: WAGUWAGU
 
 Outputs:
-  JenkinsInstanceId:
-    Value: !Ref JenkinsInstance
-    Description: Instance ID of the Jenkins Server
+  JenkinsInstanceMatchingId:
+    Value: !Ref JenkinsInstanceMatching
+    Description: Instance ID of the Jenkins Matching Server
     Export:
-      Name: !Sub "${ProjectPrefix}-Jenkins-Instance-Id"
+      Name: !Sub "${ProjectPrefix}-Jenkins-Matching-Instance-Id"
 
-  JenkinsPublicIp:
-    Value: !GetAtt JenkinsInstance.PublicIp
-    Description: Public IP of the Jenkins Server
+  JenkinsInstanceMatchingPublicIp:
+    Value: !GetAtt JenkinsInstanceMatching.PublicIp
+    Description: Public IP of the Jenkins Matching Server
+
+  JenkinsInstanceGameId:
+    Value: !Ref JenkinsInstanceGame
+    Description: Instance ID of the Jenkins Game Server
+    Export:
+      Name: !Sub "${ProjectPrefix}-Jenkins-Game-Instance-Id"
+
+  JenkinsInstanceGamePublicIp:
+    Value: !GetAtt JenkinsInstanceGame.PublicIp
+    Description: Public IP of the Jenkins Game Server
