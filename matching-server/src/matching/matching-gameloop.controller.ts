@@ -11,10 +11,8 @@ export class MatchingGameLoopController {
   async gameFinished(@Body() body: { userIds: string[] }) {
     console.log('🔥 game-finished user-google-Ids:', body.userIds);
 
-    for (const userId of body.userIds) {
-      console.log('🔥 updateStatus try:', userId);
+    for (const userId of body.userIds) { //게임 종료 후 IDLE 상태로 변환
       const result = await this.queueService.updateStatus(userId, PlayerStatus.IDLE);
-      console.log('🔥 updateStatus result:', result);
     }
 
     return { ok: true };

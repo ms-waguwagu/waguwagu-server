@@ -38,6 +38,7 @@ import {
 		return {
 		  accessToken,
 		  isNewUser: true, // 🔥 지금 구조에선 항상 신규
+		  googleSub, // 구글 아이디 추가
 		};
 	  } catch (err) {
 		console.error('AuthService.googleLogin Error:', err);

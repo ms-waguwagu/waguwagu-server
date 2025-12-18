@@ -108,6 +108,9 @@ export class LifecycleService {
     if (!this.roomManager?.server) return;
   
     const state = this.rooms[roomId];
+    if (!state || state.gameOver) {
+      return; //이미 종료 처리
+    }
     state.gameOver = true;
     state.gameOverReason = reason;
   
@@ -133,7 +136,7 @@ export class LifecycleService {
       );
     }
   
-    // 기존 로직 유지
+    // Gateway에도 방 삭제 요청
     setTimeout(() => {
       if (process.env.MODE === 'DEV') {
         this.resetGame(roomId);

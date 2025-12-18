@@ -100,6 +100,7 @@ export class GameManager {
 
       this.socket.emit("join-room", {
         roomId: this.roomId,
+        userId: this.googlesub, 
         nickname: this.nickname,
         mode: this.mode,
       });
