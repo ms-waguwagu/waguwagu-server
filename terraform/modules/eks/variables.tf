@@ -9,14 +9,9 @@ variable "cluster_version" {
   default     = "1.34"
 }
 
-variable "subnet_a_id" {
-  description = "Subnet ID for Node Group A"
-  type        = string
-}
-
-variable "subnet_c_id" {
-  description = "Subnet ID for Node Group C"
-  type        = string
+variable "subnet_ids" {
+  description = "List of subnet IDs for the EKS cluster"
+  type        = list(string)
 }
 
 variable "vpc_id" {
@@ -24,16 +19,10 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "node_group_name_a" {
-  description = "Name of the EKS node group A"
+variable "node_group_name" {
+  description = "Name of the EKS node group"
   type        = string
-  default     = "node-group-a"
-}
-
-variable "node_group_name_c" {
-  description = "Name of the EKS node group C"
-  type        = string
-  default     = "node-group-c"
+  default     = "main-node-group"
 }
 
 variable "instance_types" {
