@@ -48,3 +48,9 @@ variable "min_size" {
   type        = number
   default     = 1
 }
+
+variable "disk_size" {
+  description = "Root EBS volume size for worker nodes (GiB)"
+  type        = number
+  default     = 60
+}
