@@ -25,9 +25,11 @@ module "eks" {
   cluster_name      = "T3-Wagu-Game-EKS"
   vpc_id            = data.aws_vpc.game.id
   subnet_ids      = [data.aws_subnet.game_private_a.id, data.aws_subnet.game_private_b.id]
-  node_group_name = "game-node-group"
+  node_group_name = "game-node-group-v2"
   instance_types    = ["t3.medium"]
+  disk_size       = 60
   desired_size      = 2
   max_size          = 3
   min_size          = 1
 }
+
