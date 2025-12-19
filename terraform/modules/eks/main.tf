@@ -18,6 +18,12 @@ resource "aws_eks_node_group" "this" {
   node_group_name = var.node_group_name
   node_role_arn   = aws_iam_role.node.arn
   subnet_ids      = var.subnet_ids
+  disk_size = var.disk_size
+
+  lifecycle {
+  create_before_destroy = true
+}
+
 
   scaling_config {
     desired_size = var.desired_size

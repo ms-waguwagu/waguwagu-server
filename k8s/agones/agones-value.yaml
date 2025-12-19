@@ -1,0 +1,4 @@
+gameservers:
+  namespaces:
+    - game
+#helm chart에 넘기기 때문에 굳이 kubectl apply -f agones-value.yaml 하지 않아도 된다
