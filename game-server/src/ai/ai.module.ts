@@ -5,19 +5,19 @@ import { join } from 'path';
 
 @Module({
   imports: [
-    ClientsModule.register([
-      {
-        name: 'BOSS_AI_PACKAGE',
-        transport: Transport.GRPC,
-        options: {
-          url: 'localhost:50051',
-          package: 'ai',
-          protoPath: join(process.cwd(), 'src/proto/ai.proto'),
-        },
-      },
-    ]),
+    // ClientsModule.register([
+    //   {
+    //     name: 'BOSS_AI_PACKAGE',
+    //     transport: Transport.GRPC,
+    //     options: {
+    //       url: 'localhost:50051',
+    //       package: 'ai',
+    //       protoPath: join(process.cwd(), 'src/proto/ai.proto'),
+    //     },
+    //   },
+    // ]),
   ],
-  providers: [AiService],
-  exports: [AiService],
+  providers: [],
+  exports: [],
 })
 export class AiModule {}

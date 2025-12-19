@@ -6,38 +6,57 @@
     <title>WAGUWAGU Pacman (Dev Mode)</title>
     <link rel="stylesheet" href="../styles/main.css" />
     <link rel="stylesheet" href="../styles/game.css" />
-
   </head>
   <body>
-
+    <!-- 가운데에 뜨는 카운트다운 숫자 -->
     <div id="countdown-display" class="countdown"></div>
 
     <div id="app">
-      <div id="game-screen" style="position:relative;"> 
+      <div id="game-screen" style="position: relative">
+        <!-- 예전 상단 바(#game-info)는 삭제 -->
+        <!--
+        <div id="game-info">
+          <span>내 닉네임: <span id="my-nickname" style="color: yellow"></span></span>
+          <span>방 번호: <span id="room-id"></span></span>
+        </div>
+        -->
 
-			
-  <div id="game-info">
-    <span>내 닉네임: <span id="my-nickname" style="color: yellow"></span></span>
-    <span>방 번호: <span id="room-id"></span></span>
-  </div>
+        <!-- 게임 맵 -->
+        <canvas id="pacman-canvas" width="600" height="400"></canvas>
 
-  <canvas id="pacman-canvas" width="600" height="400"></canvas>
+        <!--  오른쪽 사이드 점수판 -->
+        <div id="scoreboard">
+          <!-- 🔹 닉네임 / 방 번호 요약 -->
+          <div id="player-summary">
+            <div class="info-row">
+              <span class="info-label">닉네임</span>
+              <span id="my-nickname" class="info-value"></span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">방 번호</span>
+              <span id="room-id" class="info-value"></span>
+            </div>
+          </div>
 
-  <!-- 사이드 점수판 -->
-  <div id="scoreboard">
-    <div id="game-timer">남은 시간: 60초</div>
-    <h3>점수</h3>
-    <div id="score-entries"></div>
-    <!-- 게임 종료 때만 나타나는 요소 -->
-    <h2 class="game-over-title">GAME OVER</h2>
-    <p class="game-over-message">5초 뒤 메인으로 이동합니다.</p>
-  </div>
+          <!-- 남은 시간 -->
+          <div id="game-timer">남은 시간: 60초</div>
 
+          <!-- 점수 리스트 -->
+          <h3>점수</h3>
+          <div id="score-entries"></div>
 
-  <p style="font-size: 0.9em; color: #aaa; margin-top:10px;">조작: 방향키 (↑↓←→)</p>
+          <!-- 게임 종료 때만 나타나는 요소 -->
+          <h2 class="game-over-title">GAME OVER</h2>
+          <p class="game-over-message">5초 뒤 메인으로 이동합니다.</p>
+        </div>
 
-</div>
-<script type="module" src="../../pacman-client.js"></script>
-<script type="module" src="../js/game.js"></script>
-</body>
+        <p style="font-size: 0.9em; color: #aaa; margin-top: 10px">
+          조작: 방향키 (↑↓←→)
+        </p>
+      </div>
+    </div>
+
+    <script type="module" src="../../pacman-client.js"></script>
+    <script type="module" src="../js/game.js"></script>
+  </body>
 </html>
