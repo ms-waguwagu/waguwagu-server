@@ -45,6 +45,9 @@
         location.href = "./login.html";
       }
 
+        // 🧹 홈 진입 시 게임 잔존 정보 정리
+      localStorage.removeItem("waguwagu_room_id");
+
       // 게임 시작
       document.getElementById("start-button").onclick = () => {
         location.href = "./queue.html";

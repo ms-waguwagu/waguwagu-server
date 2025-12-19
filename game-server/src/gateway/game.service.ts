@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException, ConflictException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
 import { GameGateway } from './game.gateway';
 
 @Injectable()
@@ -9,7 +14,7 @@ export class GameService {
 
   createRoomWithBots(roomId: string, users: string[], maxPlayers = 5) {
     // 1. 방 생성
-    const isCreated = this.gameGateway.createRoomByApi(roomId);
+    const isCreated = this.gameGateway.createRoomByApi(roomId, users);
 
     if (!isCreated) {
       throw new ConflictException('이미 존재하는 방 ID입니다.');
@@ -25,9 +30,8 @@ export class GameService {
     const humanCount = users.length;
     const botsToAdd = Math.max(0, maxPlayers - humanCount);
 
-		// 디버깅용
     this.logger.debug(
-      `유저 ${humanCount}명, 목표 ${maxPlayers}명 → 봇 ${botsToAdd}개 추가`
+      `유저 ${humanCount}명, 목표 ${maxPlayers}명 → 봇 ${botsToAdd}개 추가`,
     );
 
     // 4. 봇 추가
@@ -40,5 +44,12 @@ export class GameService {
     }
 
     return { roomId, botsToAdd };
+  }
+
+  // =========================
+  // 새로고침 / 탭 닫기 처리
+  // =========================
+  handleUserLeave(googleSub: string) {
+    this.gameGateway.handleHttpLeave(googleSub);
   }
 }

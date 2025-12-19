@@ -14,6 +14,14 @@ export class GameManager {
     finalScoreList,
     mode = "NORMAL", // 기본값 NORMAL
   }) {
+
+        // 🚨 game 페이지 진입 가드 (새로고침/뒤로가기 대비)
+    if (!roomId) {
+      console.warn("❗ roomId 없음 → 홈으로 리다이렉트");
+      window.location.replace("home.html"); // 또는 queue.html
+      return;
+    }
+
     this.nickname = nickname;
     this.roomId = roomId;
     this.token = token;
@@ -64,13 +72,21 @@ export class GameManager {
     window.addEventListener("keydown", this.handleKeyDown.bind(this));
     window.addEventListener("keyup", this.handleKeyUp.bind(this));
 
+    // ✅ 새로고침 / 탭 닫기 = 게임 종료
+    window.addEventListener(
+      "beforeunload",
+      this.sendGameLeave.bind(this)
+    );
+
     if (this.homeButton) {
       this.homeButton.addEventListener("click", () => {
+        this.sendGameLeave(); // 👈 홈 버튼도 동일 처리
         this.stop();
         window.location.href = "login.html";
       });
     }
   }
+
 
   handleKeyDown(e) {
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
@@ -86,6 +102,22 @@ export class GameManager {
     this.keys[e.code] = false;
   }
 
+  sendGameLeave() {
+    localStorage.removeItem("waguwagu_room_id");
+
+    navigator.sendBeacon(
+      "http://localhost:3001/api/game/leave",
+      new Blob(
+        [JSON.stringify({ reason: "UNLOAD" })],
+        { type: "application/json" }
+      )
+    );
+
+    console.log("🚪 leave beacon sent");
+  }
+
+
+
   connectWebSocket() {
     this.socket = io(this.socketUrl, {
       transports: ["websocket"],
@@ -94,17 +126,24 @@ export class GameManager {
       },
     });
 
-    this.socket.on("connect", () => {
-      console.log("🟢 Connected:", this.socket.id);
-      console.log("🧬 [join-room] userId =", this.googlesub);
+this.socket.on("connect", () => {
+  console.log("🟢 Connected:", this.socket.id);
+  console.log("🧬 [join-room] userId =", this.googlesub);
 
-      this.socket.emit("join-room", {
-        roomId: this.roomId,
-        userId: this.googlesub, 
-        nickname: this.nickname,
-        mode: this.mode,
-      });
-    });
+  // 🔒 핵심 가드: roomId 없으면 join-room 보내지 않음
+  if (!this.roomId) {
+    console.warn("❗ roomId 없음 → join-room 스킵 (새로고침/뒤로가기)");
+    return;
+  }
+
+  this.socket.emit("join-room", {
+    roomId: this.roomId,
+    userId: this.googlesub,
+    nickname: this.nickname,
+    mode: this.mode,
+  });
+});
+
 
     this.socket.on("init-game", (data) => {
       const { playerId, roomId, mapData, initialState } = data;
@@ -250,6 +289,7 @@ export class GameManager {
 
     // 5초 후 메인으로 자동 이동 (로그인X)
     setTimeout(() => {
+      localStorage.removeItem("waguwagu_room_id");
       this.stop();
       window.location.href = "home.html";
     }, 5000);

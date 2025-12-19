@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
@@ -19,6 +20,12 @@ import { LifecycleService } from 'src/engine/core/lifecycle.service';
 import { GameLoopService } from 'src/engine/core/game-loop.service';
 import { Logger } from '@nestjs/common';
 import { BossManagerService } from '../boss/boss-manager.service';
+import axios from 'axios';
+
+interface RoomWrapper {
+  engine: GameEngineService;
+  users: string[]; // ⭐ 매칭 시점의 googleSub 고정
+}
 
 @WebSocketGateway({
   namespace: '/game',
@@ -33,7 +40,7 @@ export class GameGateway
   private readonly logger = new Logger(GameGateway.name);
 
   // roomId → GameEngineService instance
-  private rooms: Record<string, GameEngineService> = {};
+  private rooms: Record<string, RoomWrapper> = {};
 
   constructor(
     private rankingService: RankingService,
@@ -55,14 +62,16 @@ export class GameGateway
     console.log('Client connected:', client.id);
   }
 
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     console.log('Client disconnected:', client.id);
 
     const roomId = client.data.roomId;
     if (!roomId) return;
 
-    const room = this.rooms[roomId];
-    if (!room) return;
+    const roomWrapper = this.rooms[roomId];
+    if (!roomWrapper) return;
+
+    const room = roomWrapper.engine;
 
     // 플레이어 제거
     room.removePlayer(client.id);
@@ -72,8 +81,20 @@ export class GameGateway
     if (room.playerCount() === 0) {
       this.logger.log(`게임 룸(${roomId}) 이 비어있으므로 삭제`);
 
-      room.stopInterval(); // interval 정지
-      delete this.rooms[roomId]; // 완전 삭제
+      // ⭐ 여기! playerService 쓰지 말고 wrapper.users 사용
+      const userIds = roomWrapper.users;
+
+      try {
+        await axios.post('http://localhost:3000/internal/game-finished', {
+          userIds,
+        });
+        this.logger.log(`📤 game-finished sent to matching server`, userIds);
+      } catch (err) {
+        this.logger.error('❌ game-finished notify failed', err);
+      }
+
+      room.stopInterval();
+      delete this.rooms[roomId];
       return;
     }
 
@@ -81,18 +102,31 @@ export class GameGateway
     this.server.to(roomId).emit('state', room.getState());
   }
 
+  // game.gateway.ts
+  handleHttpLeave(userId: string) {
+    for (const socket of this.server.sockets.sockets.values()) {
+      if (socket.data?.userId === userId) {
+        this.logger.log(`🚪 HTTP leave → socket disconnect: ${userId}`);
+        socket.disconnect(true); // 기존 handleDisconnect 자동 실행
+        return;
+      }
+    }
+
+    this.logger.warn(`❗ HTTP leave 요청 but socket 없음: ${userId}`);
+  }
+
   // 방 조회 메서드
   getRoom(roomId: string): GameEngineService | undefined {
-    return this.rooms[roomId];
+    return this.rooms[roomId]?.engine;
   }
 
   // 방 삭제 메서드
   removeRoom(roomId: string) {
-    const room = this.rooms[roomId];
-    if (!room) return;
+    const roomWrapper = this.rooms[roomId];
+    if (!roomWrapper) return;
 
-    this.logger.log(`게임 룸 삭제: ${roomId}`);
-    // interval 정지
+    const room = roomWrapper.engine;
+
     room.stopInterval();
 
     this.ghostManagerService.clearRoom(roomId);
@@ -111,7 +145,7 @@ export class GameGateway
   // ============================
 
   // 컨트롤러에서 호출할 방 생성 메서드
-  createRoomByApi(roomId: string): boolean {
+  createRoomByApi(roomId: string, userIds: string[]): boolean {
     if (this.rooms[roomId]) {
       console.log(`⚠️ Room ${roomId} already exists.`);
       return false;
@@ -134,7 +168,10 @@ export class GameGateway
     // 초기화
     this.lifecycleService.initialize(roomId);
 
-    this.rooms[roomId] = engine;
+    this.rooms[roomId] = {
+      engine,
+      users: [...userIds], // 👉 여기서 세팅 (아래에서 채움)
+    };
     console.log(`[Gateway] 룸 (roomId:${roomId}) 생성됨.`);
     return true;
   }
@@ -158,6 +195,12 @@ export class GameGateway
     console.log(`Google Client ${userId} joining room ${roomId}`);
     console.log('현재 생성된 rooms:', Object.keys(this.rooms));
 
+    if (!roomId) {
+      this.logger.warn('❗ join-room 요청에 roomId 없음');
+      client.disconnect();
+      return;
+    }
+
     // 방 객체 없으면 생성
     if (!this.rooms[roomId]) {
       const engine = new GameEngineService(
@@ -172,29 +215,29 @@ export class GameGateway
 
       // 👇 중요! roomId와 roomManager 설정
       engine.roomId = roomId;
-      engine.roomManager = this; // GameGateway를 roomManager로 설정
-
-      this.rooms[roomId] = engine;
-
-      // 일반모드에서는 필요 없음
-      // 보스모드에서는 방을 미리 생성하지 않고 클라이언트가 입장할 때 생성
-      // -> initialize 필요
+      engine.roomManager = this;
       this.lifecycleService.initialize(roomId);
+
+      this.rooms[roomId] = {
+        engine,
+        users: [], // 보스 모드 등 예외
+      };
     }
 
-    const room = this.rooms[roomId];
+    const roomWrapper = this.rooms[roomId];
+    const room = roomWrapper.engine;
 
     client.join(roomId);
     client.data.roomId = roomId;
     client.data.nickname = nickname;
+    client.data.userId = userId;
 
-    // 유저만 추가
+    // 유저 추가
     room.addPlayer(client.id, userId, nickname);
 
     const humanPlayers = room.playerCount();
     const botPlayers = room.getBotCount();
     const totalPlayers = humanPlayers + botPlayers;
-
     // 내 ID 전달
     // 맵 데이터를 포함한 초기 정보를 전송
     client.emit('init-game', {
@@ -241,14 +284,16 @@ export class GameGateway
 
   // 게임엔진으로 옮기기
   private startGameLoop(roomId: string) {
-    const room = this.rooms[roomId];
-    if (!room) return;
+    const roomWrapper = this.rooms[roomId];
+    if (!roomWrapper) return;
+
+    const room = roomWrapper.engine;
 
     if (room.intervalRunning) return;
 
     room.intervalRunning = true;
 
-    room.interval = setInterval(() => {
+    room.interval = setInterval(async () => {
       room.update();
       this.server.to(roomId).emit('state', room.getState());
 
@@ -259,11 +304,21 @@ export class GameGateway
           room.intervalRunning = false;
         }
 
-        if (room.interval) {
-          clearInterval(room.interval);
-          room.interval = null;
-          room.intervalRunning = false;
+        const userIds = roomWrapper.users;
+
+        try {
+          await axios.post('http://localhost:3000/internal/game-finished', {
+            userIds,
+          });
+          this.logger.log(
+            `🔥 game-finished sent to matching server: ${userIds.join(', ')}`,
+          );
+        } catch (e) {
+          this.logger.error('❌ failed to notify matching server', e);
         }
+
+        room.stopInterval();
+        delete this.rooms[roomId];
       }
     }, 1000 / 30);
   }
@@ -276,10 +331,10 @@ export class GameGateway
     const roomId = client.data.roomId;
     if (!roomId) return;
 
-    const room = this.rooms[roomId];
-    if (!room) return;
+    const roomWrapper = this.rooms[roomId];
+    if (!roomWrapper) return;
 
-    room.handleInput(client.id, data.dir);
+    roomWrapper.engine.handleInput(client.id, data.dir);
   }
 
   // ============================
@@ -288,14 +343,13 @@ export class GameGateway
   @SubscribeMessage('reset')
   handleReset(client: Socket, data: { roomId: string }) {
     const roomId = data.roomId;
-    const room = this.rooms[roomId];
-    if (!room) return;
+    const roomWrapper = this.rooms[roomId];
+    if (!roomWrapper) return;
+
+    const room = roomWrapper.engine;
 
     room.resetGame();
-
-    // 리셋 후 카운트다운
     this.startCountdown(roomId);
-
     this.server.to(roomId).emit('state', room.getState());
   }
 
@@ -334,7 +388,10 @@ export class GameGateway
       });
     }
 
-    this.rooms[roomId] = engine;
+    this.rooms[roomId] = {
+      engine,
+      users: [],
+    };
 
     // 보스 모드 전용 루프 시작
     engine.startBossMode();
