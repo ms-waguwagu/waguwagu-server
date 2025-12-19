@@ -80,6 +80,21 @@ Resources:
           ToPort: 3001
           SourceSecurityGroupId: !Ref GameAlbSG
 
+        # (추가) Matching -> Agones allocator (VPC Peering)
+        # allocator 포트가 443이 아닐 수도 있음. 보통 443 또는 8443 중 하나
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.0.0.0/16 # Matching VPC CIDR
+
+        # (추가) User -> GameServer (Agones Dynamic Ports)
+        # TCP 기반 게임이면 TCP만.
+        - IpProtocol: tcp
+          FromPort: 30000
+          ToPort: 32767
+          CidrIp: 0.0.0.0/0
+
+
         # Matching -> Game (VPC Peering)
         - IpProtocol: tcp
           FromPort: 3001

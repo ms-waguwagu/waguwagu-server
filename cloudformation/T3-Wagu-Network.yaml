@@ -156,6 +156,15 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref MatchingIGW
 
+  # 추가: Matching → Game (Peering)
+  MatchingPublicRouteToGameVpc:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingToGamePeering
+    Properties:
+      RouteTableId: !Ref MatchingPublicRT
+      DestinationCidrBlock: !GetAtt GameVPC.CidrBlock
+    VpcPeeringConnectionId: !Ref MatchingToGamePeering
+
   MatchingPublicAssocA:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -366,6 +375,15 @@ Resources:
       RouteTableId: !Ref GamePublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref GameInternetGateway
+
+  # 추가: Game → Matching (Peering)
+  GamePublicRouteToMatchingVpc:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingToGamePeering
+    Properties:
+      RouteTableId: !Ref GamePublicRouteTable
+      DestinationCidrBlock: !GetAtt MatchingVPC.CidrBlock
+    VpcPeeringConnectionId: !Ref MatchingToGamePeering
 
   GamePublicSubnetARouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation

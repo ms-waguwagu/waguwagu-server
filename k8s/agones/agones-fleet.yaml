@@ -1,0 +1,57 @@
+apiVersion: "agones.dev/v1"
+kind: Fleet
+metadata:
+  name: waguwagu-fleet
+  labels:
+    app: waguwagu
+spec:
+  # Ready 또는 Allocated 상태로 유지할 GameServer 개수
+  replicas: 10
+
+  # 스케줄링 전략. 기본값은 Packed.
+  scheduling: Packed
+
+  # 템플릿 변경 시 교체 전략. 운영 안정성은 RollingUpdate가 기본값.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+
+  template:
+    metadata:
+      labels:
+        app: waguwagu
+        mode: room-per-pod
+    spec:
+      ports:
+        - name: game
+          portPolicy: Dynamic
+          containerPort: 3000
+          protocol: TCP  # UDP/TCPUDP 가능
+      health:
+        disabled: false
+        initialDelaySeconds: 10
+        periodSeconds: 5
+        failureThreshold: 3
+      sdkServer:
+        logLevel: Info
+      template:
+        spec:
+          terminationGracePeriodSeconds: 30
+          containers:
+            - name: game-server
+              image: <YOUR_ECR_IMAGE:TAG> # TODO: ECR 이미지로 변경
+              imagePullPolicy: IfNotPresent
+              ports:
+                - containerPort: 3000
+              env:
+                - name: PORT
+                  value: "3000"
+              resources:
+                requests:
+                  cpu: "250m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "1000m"
+                  memory: "1Gi"

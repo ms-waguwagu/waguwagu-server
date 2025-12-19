@@ -4,19 +4,26 @@ Description: T3-Wagu RDS MySQL Database Stack
 Parameters:
   DBName:
     Type: String
-    Default: t3wagudb
-  DBUsername:
-    Type: String
-    NoEcho: true
-  DBPassword:
-    Type: String
-    NoEcho: true
+    Default: wagudb
   DBInstanceClass:
     Type: String
     Default: db.t3.micro
   AllocatedStorage:
     Type: Number
     Default: 20
+  
+   # 마스터 계정 정보
+  MasterUsername:
+    Type: String
+    Description: Enter the master username for the DB
+    Default: t3_admin
+    AllowedPattern: '[a-zA-Z0-9_]+'
+
+  MasterPassword:
+    Type: String
+    Description: Enter the master password for the DB (Min 8 chars)
+    NoEcho: true
+    MinLength: 8
 
 Resources:
   WaguDBSecurityGroup:
@@ -24,11 +31,7 @@ Resources:
     Properties:
       GroupDescription: Allow MySQL access
       VpcId: !ImportValue T3-Wagu-Game-VPC-Id
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 3306
-          ToPort: 3306
-          CidrIp: 0.0.0.0/0
+
 
   WaguDBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -45,13 +48,13 @@ Resources:
       Engine: mysql
       EngineVersion: "8.0"
       DBName: !Ref DBName
-      MasterUsername: !Ref DBUsername
-      MasterUserPassword: !Ref DBPassword
       DBInstanceClass: !Ref DBInstanceClass
       AllocatedStorage: !Ref AllocatedStorage
       StorageType: gp2
+      MasterUsername: !Ref MasterUsername
+      MasterUserPassword: !Ref MasterPassword
       PubliclyAccessible: false
-      MultiAZ: false
+      MultiAZ: true
       BackupRetentionPeriod: 7
       VPCSecurityGroups:
         - !Ref WaguDBSecurityGroup
