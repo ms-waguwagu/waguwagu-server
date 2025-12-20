@@ -33,3 +33,19 @@ spec:
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 10
+          volumeMounts:
+            - name: allocator-client-cert
+              mountPath: /etc/agones/allocator/client
+              readOnly: true
+            - name: allocator-ca-cert
+              mountPath: /etc/agones/allocator/ca
+              readOnly: true
+      volumes:
+        - name: allocator-client-cert
+          secret:
+            # client 시크릿
+            secretName: allocator-client.default
+        - name: allocator-ca-cert
+          secret:
+            # ca 시크릿
+            secretName: allocator-tls-ca
