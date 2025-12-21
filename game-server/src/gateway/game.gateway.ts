@@ -147,7 +147,7 @@ export class GameGateway
   // 컨트롤러에서 호출할 방 생성 메서드
   createRoomByApi(roomId: string, userIds: string[]): boolean {
     if (this.rooms[roomId]) {
-      console.log(`⚠️ Room ${roomId} already exists.`);
+      console.log(`Room ${roomId} already exists.`);
       return false;
     }
 
@@ -170,7 +170,7 @@ export class GameGateway
 
     this.rooms[roomId] = {
       engine,
-      users: [...userIds], // 👉 여기서 세팅 (아래에서 채움)
+      users: [...userIds], // 여기서 세팅 (아래에서 채움)
     };
     console.log(`[Gateway] 룸 (roomId:${roomId}) 생성됨.`);
     return true;
