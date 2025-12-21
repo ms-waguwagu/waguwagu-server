@@ -42,6 +42,10 @@ pipeline {
     stage("Change check") {
       steps {
         script {
+          // - 변경 없으면 빌드 막기가 아니라,
+          // - "변경 여부를 로그로만 남기고" 무조건 계속 진행한다.
+          // (즉, git 변경이 없어도 ECR Push는 항상 됨)
+
           // FORCE_BUILD=true면 변경 체크 무시
           if (params.FORCE_BUILD) {
             echo "FORCE_BUILD=true -> skip change check"
@@ -65,9 +69,13 @@ pipeline {
             script: "git diff --name-only HEAD~1..HEAD | grep -E '^game-server/'"
           )
 
+          // 변경이 없어도 error()로 막지 말고, 로그만 찍고 계속 진행
           if (changedRc != 0) {
-            currentBuild.result = 'NOT_BUILT'
-            error("No changes in game-server/. Skip.")
+            echo "No changes in game-server/, but continue (always Build & Push)."
+            // currentBuild.result = 'NOT_BUILT'  // 더 이상 NOT_BUILT로 바꾸지 않음
+            // error("No changes in game-server/. Skip.") // 더 이상 중단하지 않음
+          } else {
+            echo "Changes detected in game-server/ -> proceed."
           }
         }
       }
