@@ -1,6 +1,6 @@
 // boss-game.js
 
-import { GameManager } from "./game.js"; 
+import { GameManager } from "./game.js";
 import { CONFIG } from "../../config.js";
 
 // ---------------------------------------------
@@ -26,7 +26,6 @@ if (!nickname) {
 }
 console.log("보스 roomId:", roomId, "닉네임:", nickname);
 
-
 // ---------------------------------------------
 // 3) DOM Selectors
 // ---------------------------------------------
@@ -47,7 +46,7 @@ const manager = new GameManager({
   gameEndModal: modal,
   homeButton,
   finalScoreList,
-  mode: 'BOSS',
+  mode: "BOSS",
 });
 
 // ---------------------------------------------
@@ -61,5 +60,5 @@ document.getElementById("room-id").textContent = roomId;
 // ---------------------------------------------
 manager.start();
 
-console.log("🔥 Boss Mode Started");
+console.log("Boss Mode Started");
 console.log("roomId:", roomId, "nickname:", nickname);

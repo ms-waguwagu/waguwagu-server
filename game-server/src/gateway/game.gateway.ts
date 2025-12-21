@@ -145,7 +145,11 @@ export class GameGateway
   // ============================
 
   // 컨트롤러에서 호출할 방 생성 메서드
-  createRoomByApi(roomId: string, userIds: string[]): boolean {
+  createRoomByApi(
+    roomId: string,
+    userIds: string[],
+    mode: 'NORMAL' | 'BOSS' = 'NORMAL',
+  ): boolean {
     if (this.rooms[roomId]) {
       console.log(`Room ${roomId} already exists.`);
       return false;
@@ -158,21 +162,40 @@ export class GameGateway
       this.collisionService,
       this.lifecycleService,
       this.gameLoopService,
-      //‼️보스매니저 추가‼️
+      //보스매니저 추가
       this.bossManagerService,
     );
 
     engine.roomId = roomId;
     engine.roomManager = this;
 
+    // 보스모드 설정
+    if (mode === 'BOSS') {
+      engine.setMode('BOSS');
+      console.log('보스 모드 설정:', roomId);
+    }
+
     // 초기화
     this.lifecycleService.initialize(roomId);
 
+    // 보스 모드일 때 보스 스폰 및 루프 시작
+    if (mode === 'BOSS') {
+      this.bossManagerService.spawnBoss(roomId, {
+        x: 200,
+        y: 200,
+      });
+      console.log('보스 스폰:', roomId);
+
+      // 보스 모드 루프 시작
+      engine.startBossMode();
+      console.log('보스 모드 루프 시작:', roomId);
+    }
+
     this.rooms[roomId] = {
       engine,
-      users: [...userIds], // 여기서 세팅 (아래에서 채움)
+      users: [...userIds],
     };
-    console.log(`[Gateway] 룸 (roomId:${roomId}) 생성됨.`);
+    console.log(`[Gateway] 룸 (roomId:${roomId}, mode:${mode}) 생성됨.`);
     return true;
   }
 
@@ -216,6 +239,13 @@ export class GameGateway
       // 👇 중요! roomId와 roomManager 설정
       engine.roomId = roomId;
       engine.roomManager = this;
+
+      // 보스모드 설정
+      if (gameMode === 'BOSS') {
+        engine.setMode('BOSS');
+        console.log('보스 모드로 방 생성:', roomId);
+      }
+
       this.lifecycleService.initialize(roomId);
 
       this.rooms[roomId] = {
@@ -251,15 +281,16 @@ export class GameGateway
     this.server.to(roomId).emit('state', room.getState());
 
     if (room.isBossMode()) {
+			// this.startCountdown(roomId);
       // 보스 모드는 첫 유저 들어오면 바로 시작
-      console.log(`🎬 Room ${roomId} → 보스 모드 시작`);
+      console.log('Room', roomId, '→ 보스 모드 시작');
       if (!room.intervalRunning) {
         room.startBossMode();
       }
     } else {
       // 일반 모드는 5명 모이면 카운트다운 후 시작
       if (totalPlayers === 5) {
-        console.log(`🎬 Room ${roomId} → 카운트다운 시작`);
+        console.log('Room', roomId, '→ 카운트다운 시작');
         this.startCountdown(roomId);
       }
     }
