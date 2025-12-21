@@ -16,16 +16,20 @@ pipeline {
     // game ECR URI (계정 ID)
     ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
 
+    // (CD 단계에서만 사용, 지금은 주석)
     CLUSTER_NAME = "T3-Wagu-Game-EKS"
     NAMESPACE    = "game"
 
-    // Agones Fleet
+    // Agones Fleet (CD 단계에서만 사용)
     FLEET_NAME     = "waguwagu-fleet"
     CONTAINER_NAME = "game-server"
   }
 
+  // Declarative Pipeline 기본 checkout 1회 + stage(Checkout)에서 또 checkout 하면
+  // 중복 checkout이 되므로 기본 checkout을 끔
   options {
     timestamps()
+    skipDefaultCheckout(true)
   }
 
   stages {
@@ -35,33 +39,33 @@ pipeline {
       }
     }
 
-    // (선택) game-server 폴더 변경 없으면 스킵
     stage("Change check") {
       steps {
         script {
-          //  FORCE_BUILD=true면 변경 체크 무시
+          // FORCE_BUILD=true면 변경 체크 무시
           if (params.FORCE_BUILD) {
             echo "FORCE_BUILD=true -> skip change check"
             return
           }
 
-          //  첫 빌드(HEAD~1 없음) 방어
+          // 첫 빌드(HEAD~1 없음) 방어: returnStatus 사용 ( echo 필요 없음)
           def hasPrev = sh(
-            script: "git rev-parse HEAD~1 >/dev/null 2>&1; echo $?",
-            returnStdout: true
-          ).trim()
+            returnStatus: true,
+            script: "git rev-parse HEAD~1 >/dev/null 2>&1"
+          )
 
-          if (hasPrev != "0") {
+          if (hasPrev != 0) {
             echo "No previous commit (first build). Continue without change check."
             return
           }
 
-          def changed = sh(
-            script: "git diff --name-only HEAD~1..HEAD | grep -E '^game-server/' || true",
-            returnStdout: true
-          ).trim()
+          // 변경 체크: grep 결과 있으면 0, 없으면 1
+          def changedRc = sh(
+            returnStatus: true,
+            script: "git diff --name-only HEAD~1..HEAD | grep -E '^game-server/'"
+          )
 
-          if (!changed) {
+          if (changedRc != 0) {
             currentBuild.result = 'NOT_BUILT'
             error("No changes in game-server/. Skip.")
           }
@@ -86,6 +90,7 @@ pipeline {
           def tag = "${env.GIT_COMMIT.take(7)}-${env.BUILD_NUMBER}"
           env.IMAGE_TAG = tag
           env.IMAGE_URI = "${env.ECR_REPO_URI}:${tag}"
+          echo "IMAGE_URI = ${env.IMAGE_URI}"
         }
 
         sh '''
