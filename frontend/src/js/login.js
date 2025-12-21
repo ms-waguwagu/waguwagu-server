@@ -51,7 +51,7 @@ async function loadHomeRanking() {
       .map((item) => {
         const date = new Date(item.playedAt);
 
-        // ✅ 초 제거 (HH:mm)
+        // 초 제거 (HH:mm)
         const formattedTime =
           `${String(date.getMonth() + 1).padStart(2, "0")}-${String(
             date.getDate()
@@ -96,28 +96,18 @@ bossStartButton.addEventListener("click", async () => {
   }
 
   try {
-    // 1) 백엔드에서 boss debug room 생성
-    const res = await fetch(CONFIG.API_URL + "/boss/debug-room", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname }),
-    });
+    // 닉네임 설정 (일반 게임 시작과 동일)
+    const { accessToken } = await setNickname(nickname);
 
-    const data = await res.json();
-    const roomId = data.roomId;
-
-    if (!roomId) throw new Error("roomId 없음");
-
-    console.log("[BossMode] roomId:", roomId);
-
-    // 2) 닉네임을 localStorage에 저장
+    // OAuth 토큰을 새 토큰으로 교체
+    localStorage.setItem("accessToken", accessToken);
     localStorage.setItem("waguwagu_nickname", nickname);
 
-    // 3) boss 모드 전용 화면으로 이동
-    window.location.href = `boss-game.html?roomId=${roomId}`;
+    // 보스 모드 큐 페이지로 이동
+    window.location.href = "queue.html?mode=boss";
   } catch (error) {
     console.error(error);
-    statusMessage.textContent = "보스 모드 진입 실패";
+    statusMessage.textContent = error.message || "보스 모드 진입 실패";
   }
 });
 
