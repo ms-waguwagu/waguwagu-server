@@ -16,7 +16,9 @@ pipeline {
   }
 
   options {
-    timestamps()
+    
+    // (옵션) 중복 checkout 방지하고 싶으면 켜도 됨
+    // skipDefaultCheckout(true)
   }
 
   stages {
@@ -30,13 +32,12 @@ pipeline {
     stage("Change check") {
       steps {
         script {
-          // 멀티브랜치/웹훅 환경에서 깔끔히 걸러주는 용도
           def changed = sh(
             script: "git diff --name-only HEAD~1..HEAD | grep -E '^game-server/' || true",
             returnStdout: true
           ).trim()
 
-          //  변경 없어도 빌드를 막지 말고 그냥 진행
+          // 변경 없어도 빌드를 막지 말고 그냥 진행
           if (!changed) {
             echo "No changes in game-server/, but continue (always Build & Push)."
           } else {
@@ -59,10 +60,13 @@ pipeline {
     stage("Build & Push") {
       steps {
         script {
-          // 태그 전략: 커밋, 빌드번호 조합
-          def tag = "${env.GIT_COMMIT.take(7)}-${env.BUILD_NUMBER}"
+          // env.GIT_COMMIT이 null로 들어오는 Jenkins가 있어서 git으로 직접 뽑아 안정화
+          def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
+
+          def tag = "${sha7}-${env.BUILD_NUMBER}"
           env.IMAGE_TAG = tag
           env.IMAGE_URI = "${env.ECR_REPO_URI}:${tag}"
+          echo "IMAGE_URI = ${env.IMAGE_URI}"
         }
 
         sh '''
