@@ -1,6 +1,15 @@
 pipeline {
   agent any
 
+  //  수동 테스트용 강제 빌드 파라미터 추가
+  parameters {
+    booleanParam(
+      name: 'FORCE_BUILD',
+      defaultValue: false,
+      description: 'true면 matching-server 변경이 없어도 강제로 Build & Push 실행'
+    )
+  }
+
   environment {
     AWS_REGION   = "ap-northeast-2"
 
@@ -29,6 +38,23 @@ pipeline {
     stage("Change check") {
       steps {
         script {
+          //  FORCE_BUILD=true면 변경 체크를 무시하고 계속 진행
+          if (params.FORCE_BUILD) {
+            echo "FORCE_BUILD=true -> skip change check"
+            return
+          }
+
+          // 첫 빌드(HEAD~1 없음) 방어: 에러 없이 계속 진행
+          def hasPrev = sh(
+            script: "git rev-parse HEAD~1 >/dev/null 2>&1; echo $?",
+            returnStdout: true
+          ).trim()
+
+          if (hasPrev != "0") {
+            echo "No previous commit (first build). Continue without change check."
+            return
+          }
+
           def changed = sh(
             script: "git diff --name-only HEAD~1..HEAD | grep -E '^matching-server/' || true",
             returnStdout: true
