@@ -60,7 +60,8 @@ pipeline {
       steps {
         script {
           // 태그 전략: 커밋해시, 빌드번호
-          def tag = "${env.GIT_COMMIT.take(7)}-${env.BUILD_NUMBER}"
+          def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
+          def tag  = "${sha7}-${env.BUILD_NUMBER}"
           env.IMAGE_TAG = tag
           env.IMAGE_URI = "${env.ECR_REPO_URI}:${tag}"
         }
