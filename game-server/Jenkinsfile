@@ -62,7 +62,6 @@ pipeline {
         script {
           // env.GIT_COMMIT이 null로 들어오는 Jenkins가 있어서 git으로 직접 뽑아 안정화
           def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
-
           def tag = "${sha7}-${env.BUILD_NUMBER}"
           env.IMAGE_TAG = tag
           env.IMAGE_URI = "${env.ECR_REPO_URI}:${tag}"
