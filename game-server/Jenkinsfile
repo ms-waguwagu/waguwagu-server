@@ -1,36 +1,22 @@
 pipeline {
   agent any
 
-  // 수동 테스트용 강제 빌드 파라미터
-  parameters {
-    booleanParam(
-      name: 'FORCE_BUILD',
-      defaultValue: false,
-      description: 'true면 game-server 변경이 없어도 강제로 Build & Push 실행'
-    )
-  }
-
   environment {
     AWS_REGION   = "ap-northeast-2"
 
-    // game ECR URI (계정 ID)
+    //game ECR URI 일단 내 계정 accountid
     ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
 
-    // (CD 단계에서만 사용, 지금은 주석)
     CLUSTER_NAME = "T3-Wagu-Game-EKS"
     NAMESPACE    = "game"
 
-    // Agones Fleet (CD 단계에서만 사용)
-    FLEET_NAME     = "waguwagu-fleet"
+    // Agones Fleet
+    FLEET_NAME   = "waguwagu-fleet"
     CONTAINER_NAME = "game-server"
   }
 
-  // Declarative Pipeline 기본 checkout 1회 + stage(Checkout)에서 또 checkout 하면
-  // 중복 checkout이 되므로 기본 checkout을 끔
   options {
-    //  이 Jenkins에서는 Declarative option timestamps()를 지원 안 해서 컴파일 실패남
-    // timestamps()
-    skipDefaultCheckout(true)
+    timestamps()
   }
 
   stages {
@@ -40,34 +26,18 @@ pipeline {
       }
     }
 
+    // (선택) game-server 폴더 변경 체크 (하지만 이제 스킵/중단 안 함)
     stage("Change check") {
       steps {
         script {
-          // FORCE_BUILD=true면 변경 체크 무시
-          if (params.FORCE_BUILD) {
-            echo "FORCE_BUILD=true -> skip change check"
-            return
-          }
+          // 멀티브랜치/웹훅 환경에서 깔끔히 걸러주는 용도
+          def changed = sh(
+            script: "git diff --name-only HEAD~1..HEAD | grep -E '^game-server/' || true",
+            returnStdout: true
+          ).trim()
 
-          // 첫 빌드(HEAD~1 없음) 방어: returnStatus 사용 ( echo 필요 없음)
-          def hasPrev = sh(
-            returnStatus: true,
-            script: "git rev-parse HEAD~1 >/dev/null 2>&1"
-          )
-
-          if (hasPrev != 0) {
-            echo "No previous commit (first build). Continue without change check."
-            return
-          }
-
-          // 변경 체크: grep 결과 있으면 0, 없으면 1
-          def changedRc = sh(
-            returnStatus: true,
-            script: "git diff --name-only HEAD~1..HEAD | grep -E '^game-server/'"
-          )
-
-          //  변경 없어도 막지 말고 그냥 진행
-          if (changedRc != 0) {
+          //  변경 없어도 빌드를 막지 말고 그냥 진행
+          if (!changed) {
             echo "No changes in game-server/, but continue (always Build & Push)."
           } else {
             echo "Changes detected in game-server/ -> proceed."
@@ -89,11 +59,10 @@ pipeline {
     stage("Build & Push") {
       steps {
         script {
-          // 태그 전략: 커밋 sha7 + 빌드번호
+          // 태그 전략: 커밋, 빌드번호 조합
           def tag = "${env.GIT_COMMIT.take(7)}-${env.BUILD_NUMBER}"
           env.IMAGE_TAG = tag
           env.IMAGE_URI = "${env.ECR_REPO_URI}:${tag}"
-          echo "IMAGE_URI = ${env.IMAGE_URI}"
         }
 
         sh '''
@@ -124,9 +93,12 @@ pipeline {
       steps {
         sh '''
           set -e
+          # CRD(Fleet)는 kubectl set image가  잘 먹지 않아서 patch 추천
+          #  containers 배열이 1개라는 전제로 merge patch 사용
           kubectl -n ${NAMESPACE} patch fleet ${FLEET_NAME} --type merge \
             -p "{\"spec\":{\"template\":{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"${CONTAINER_NAME}\",\"image\":\"${IMAGE_URI}\"}]}}}}}}"
 
+          # 반영 확인
           kubectl -n ${NAMESPACE} get fleet ${FLEET_NAME} -o yaml | grep -n "image:" | head -n 5
         '''
       }
