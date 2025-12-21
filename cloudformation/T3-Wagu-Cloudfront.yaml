@@ -1,0 +1,129 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'WaguWagu Project: CloudFront Distribution for S3 Frontend (OAC)'
+
+Parameters:
+  MatchingAlbDns:
+    Type: String
+
+Resources:
+  # ------------------------------------------------------------
+  # 1. Origin Access Control (OAC)
+  # ------------------------------------------------------------
+  TWCloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "tw-oac-${AWS::StackName}"
+        Description: "OAC for WaguWagu Frontend"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # ------------------------------------------------------------
+  # 2. CloudFront Distribution
+  # ------------------------------------------------------------
+  TWCloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Comment: "WaguWagu Frontend Distribution"
+        
+        Origins:
+          - Id: WaguWaguFrontendOrigin
+            DomainName: !Sub 
+              - "${BucketName}.s3.${AWS::Region}.amazonaws.com"
+              - BucketName: !ImportValue waguwagu-s3-bucket
+            S3OriginConfig:
+              OriginAccessIdentity: "" # OAC 사용 시 비워둠
+            OriginAccessControlId: !GetAtt TWCloudFrontOAC.Id
+
+          - Id: WaguWaguMatchingOrigin
+            DomainName: !Ref MatchingAlbDns
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only
+              OriginSSLProtocols:
+                - TLSv1.2
+            
+        DefaultCacheBehavior:
+          TargetOriginId: WaguWaguFrontendOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          # CachingOptimized Managed Policy ID
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+
+        CacheBehaviors:
+          - PathPattern: /api/matching/*
+            TargetOriginId: WaguWaguMatchingOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - PUT
+              - POST
+              - PATCH
+              - DELETE
+            CachedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            Compress: true
+            # CachingDisabled Managed Policy ID (API는 캐싱하면 안됨)
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            # AllViewer Origin Request Policy ID (헤더, 쿠키, 쿼리스트링 모두 전달)
+            OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
+          
+        # SPA(Single Page Application)를 위한 에러 페이지 설정 (React/Vue 등 사용 시 필수)
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            
+  # ------------------------------------------------------------
+  # 3. S3 Bucket Policy
+  # ------------------------------------------------------------
+  TWS3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !ImportValue waguwagu-s3-bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub 
+              - "${BucketArn}/*"
+              - BucketArn: !ImportValue waguwagu-s3-bucket-arn
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${TWCloudFrontDistribution.Id}"
+
+Outputs:
+  DistributionId:
+    Description: CloudFront Distribution ID
+    Value: !Ref TWCloudFrontDistribution
+    Export:
+      Name: WaguWagu-CloudFront-Distribution-ID
+  
+  DistributionDomainName:
+    Description: CloudFront Domain Name
+    Value: !GetAtt TWCloudFrontDistribution.DomainName
+    Export:
+      Name: WaguWagu-CloudFront-Domain-Name
