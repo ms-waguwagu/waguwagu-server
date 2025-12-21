@@ -15,7 +15,9 @@ pipeline {
   }
 
   options {
-    timestamps()
+    skipDefaultCheckout(true)
+    // (옵션) 중복 checkout 방지하고 싶으면 켜도 됨
+    // skipDefaultCheckout(true)
   }
 
   stages {
