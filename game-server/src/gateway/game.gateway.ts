@@ -151,7 +151,7 @@ export class GameGateway
     mode: 'NORMAL' | 'BOSS' = 'NORMAL',
   ): boolean {
     if (this.rooms[roomId]) {
-      console.log(`⚠️ Room ${roomId} already exists.`);
+      console.log(`Room ${roomId} already exists.`);
       return false;
     }
 

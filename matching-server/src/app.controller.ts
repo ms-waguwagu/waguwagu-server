@@ -11,6 +11,7 @@ export class AppController {
   }
   @Get('health')
   getHealth(): string {
+    console.log('health check');
     return 'OK';
   }
 }
