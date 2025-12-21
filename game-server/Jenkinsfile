@@ -1,0 +1,112 @@
+pipeline {
+  agent any
+
+  environment {
+    AWS_REGION   = "ap-northeast-2"
+
+    //game ECR URI 일단 내 계정 accountid
+    ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
+
+    CLUSTER_NAME = "T3-Wagu-Game-EKS"
+    NAMESPACE    = "game"
+
+    // Agones Fleet
+    FLEET_NAME   = "waguwagu-fleet"
+    CONTAINER_NAME = "game-server"
+  }
+
+  options {
+    timestamps()
+  }
+
+  stages {
+    stage("Checkout") {
+      steps {
+        checkout scm
+      }
+    }
+
+    // (선택) game-server 폴더 변경 없으면 빠르게 종료
+    stage("Change check") {
+      steps {
+        script {
+          // 멀티브랜치/웹훅 환경에서 깔끔히 걸러주는 용도
+          def changed = sh(
+            script: "git diff --name-only HEAD~1..HEAD | grep -E '^game-server/' || true",
+            returnStdout: true
+          ).trim()
+
+          if (!changed) {
+            currentBuild.result = 'NOT_BUILT'
+            error("No changes in game-server/. Skip.")
+          }
+        }
+      }
+    }
+
+    stage("ECR Login") {
+      steps {
+        sh '''
+          set -e
+          aws ecr get-login-password --region ${AWS_REGION} \
+            | docker login --username AWS --password-stdin ${ECR_REPO_URI%/*}
+        '''
+      }
+    }
+
+    stage("Build & Push") {
+      steps {
+        script {
+          // 태그 전략: 커밋, 빌드번호 조합
+          def tag = "${env.GIT_COMMIT.take(7)}-${env.BUILD_NUMBER}"
+          env.IMAGE_TAG = tag
+          env.IMAGE_URI = "${env.ECR_REPO_URI}:${tag}"
+        }
+
+        sh '''
+          set -e
+          cd game-server
+          docker build -t ${ECR_REPO_URI}:${IMAGE_TAG} .
+          docker push ${ECR_REPO_URI}:${IMAGE_TAG}
+        '''
+      }
+    }
+
+    /*
+    // ===========================
+    // CD 단계 (클러스터/Agones 준비되면 주석 해제)
+    // ===========================
+
+    stage("Configure kubeconfig") {
+      steps {
+        sh '''
+          set -e
+          aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
+          kubectl get ns ${NAMESPACE}
+        '''
+      }
+    }
+
+    stage("Deploy (Agones Fleet image update)") {
+      steps {
+        sh '''
+          set -e
+          # CRD(Fleet)는 kubectl set image가  잘 먹지 않아서 patch 추천
+          #  containers 배열이 1개라는 전제로 merge patch 사용 
+          kubectl -n ${NAMESPACE} patch fleet ${FLEET_NAME} --type merge \
+            -p "{\"spec\":{\"template\":{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"${CONTAINER_NAME}\",\"image\":\"${IMAGE_URI}\"}]}}}}}}"
+
+          # 반영 확인
+          kubectl -n ${NAMESPACE} get fleet ${FLEET_NAME} -o yaml | grep -n "image:" | head -n 5
+        '''
+      }
+    }
+    */
+  }
+
+  post {
+    always {
+      sh 'docker image prune -f || true'
+    }
+  }
+}
