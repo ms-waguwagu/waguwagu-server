@@ -1,17 +1,26 @@
 pipeline {
   agent any
 
+  // 수동 테스트용 강제 빌드 파라미터
+  parameters {
+    booleanParam(
+      name: 'FORCE_BUILD',
+      defaultValue: false,
+      description: 'true면 game-server 변경이 없어도 강제로 Build & Push 실행'
+    )
+  }
+
   environment {
     AWS_REGION   = "ap-northeast-2"
 
-    //game ECR URI 일단 내 계정 accountid
+    // game ECR URI (계정 ID)
     ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
 
     CLUSTER_NAME = "T3-Wagu-Game-EKS"
     NAMESPACE    = "game"
 
     // Agones Fleet
-    FLEET_NAME   = "waguwagu-fleet"
+    FLEET_NAME     = "waguwagu-fleet"
     CONTAINER_NAME = "game-server"
   }
 
@@ -26,11 +35,27 @@ pipeline {
       }
     }
 
-    // (선택) game-server 폴더 변경 없으면 빠르게 종료
+    // (선택) game-server 폴더 변경 없으면 스킵
     stage("Change check") {
       steps {
         script {
-          // 멀티브랜치/웹훅 환경에서 깔끔히 걸러주는 용도
+          //  FORCE_BUILD=true면 변경 체크 무시
+          if (params.FORCE_BUILD) {
+            echo "FORCE_BUILD=true -> skip change check"
+            return
+          }
+
+          //  첫 빌드(HEAD~1 없음) 방어
+          def hasPrev = sh(
+            script: "git rev-parse HEAD~1 >/dev/null 2>&1; echo $?",
+            returnStdout: true
+          ).trim()
+
+          if (hasPrev != "0") {
+            echo "No previous commit (first build). Continue without change check."
+            return
+          }
+
           def changed = sh(
             script: "git diff --name-only HEAD~1..HEAD | grep -E '^game-server/' || true",
             returnStdout: true
@@ -57,7 +82,7 @@ pipeline {
     stage("Build & Push") {
       steps {
         script {
-          // 태그 전략: 커밋, 빌드번호 조합
+          // 태그 전략: 커밋 sha7 + 빌드번호
           def tag = "${env.GIT_COMMIT.take(7)}-${env.BUILD_NUMBER}"
           env.IMAGE_TAG = tag
           env.IMAGE_URI = "${env.ECR_REPO_URI}:${tag}"
@@ -91,12 +116,9 @@ pipeline {
       steps {
         sh '''
           set -e
-          # CRD(Fleet)는 kubectl set image가  잘 먹지 않아서 patch 추천
-          #  containers 배열이 1개라는 전제로 merge patch 사용 
           kubectl -n ${NAMESPACE} patch fleet ${FLEET_NAME} --type merge \
             -p "{\"spec\":{\"template\":{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"${CONTAINER_NAME}\",\"image\":\"${IMAGE_URI}\"}]}}}}}}"
 
-          # 반영 확인
           kubectl -n ${NAMESPACE} get fleet ${FLEET_NAME} -o yaml | grep -n "image:" | head -n 5
         '''
       }
