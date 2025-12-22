@@ -2,3 +2,13 @@ gameservers:
   namespaces:
     - game
 #helm chart에 넘기기 때문에 굳이 kubectl apply -f agones-value.yaml 하지 않아도 된다
+
+agones:
+  allocator:
+    service:
+      annotations:
+        service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+        service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+  
+  tls:
+    enabled: true

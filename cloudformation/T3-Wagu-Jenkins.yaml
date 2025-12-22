@@ -18,6 +18,20 @@ Parameters:
     Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64'
     Description: Latest Amazon Linux 2023 AMI ID from SSM Parameter Store
+  
+
+  JenkinsAdminUser:
+    Type: String
+    Default: admin
+
+  JenkinsAdminPassword:
+    Type: String
+    NoEcho: true
+
+  JenkinsBaseUrl:
+    Type: String
+    Default: ""   # 예: http://your-domain-or-ip:8080 (없으면 빈 값)
+
 
 Resources:
   ############################################################
@@ -36,6 +50,10 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
+        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
       Policies:
         - PolicyName: JenkinsECRPolicy
           PolicyDocument:
@@ -64,37 +82,6 @@ Resources:
         - !Ref JenkinsRole
       InstanceProfileName: !Sub "${ProjectPrefix}-Jenkins-Instance-Profile"
 
-  ############################################################
-  # Security Group for Jenkins Matching (NO inbound rules)
-  ############################################################
-  JenkinsMatchingSG:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security Group for Jenkins Matching Server (SSM-only)
-      VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
-      # 인바운드(22/8080) 완전 제거 -> SSM으로만 접속하고, UI는 SSM 포트포워딩으로 접속
-      SecurityGroupIngress: []
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectPrefix}-Jenkins-Matching-SG"
-        - Key: Project
-          Value: WAGUWAGU
-
-  ############################################################
-  # Security Group for Jenkins Game (NO inbound rules)
-  ############################################################
-  JenkinsGameSG:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security Group for Jenkins Game Server (SSM-only)
-      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
-      # 인바운드(22/8080) 완전 제거 -> SSM으로만 접속하고, UI는 SSM 포트포워딩으로 접속
-      SecurityGroupIngress: []
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectPrefix}-Jenkins-Game-SG"
-        - Key: Project
-          Value: WAGUWAGU
 
   ############################################################
   # Jenkins EC2 Instance (Matching)
@@ -109,7 +96,7 @@ Resources:
         - AssociatePublicIpAddress: true
           DeviceIndex: "0"
           GroupSet:
-            - !Ref JenkinsMatchingSG
+            - !ImportValue T3-Wagu-JenkinsMatchingSGId
           # 첫번째 서브넷 사용
           SubnetId: !Select [0, !Split [",", !ImportValue T3-Wagu-Matching-Public-Subnet-Ids]]
       
@@ -119,28 +106,72 @@ Resources:
           #!/bin/bash
           set -euxo pipefail
 
-          dnf update -y
+          # 로그 남기기 (실패 원인 숨기지 않기)
+          exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
 
-          # Java 17 (Jenkins 실행 필수)
+          dnf update -y
           dnf install -y java-17-amazon-corretto
 
-          # Jenkins repo 추가
-          curl -fsSL https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key | tee /etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins > /dev/null
-          cat >/etc/yum.repos.d/jenkins.repo <<'EOF'
-          [jenkins]
-          name=Jenkins-stable
-          baseurl=https://pkg.jenkins.io/redhat-stable
-          gpgcheck=1
-          gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins
-          EOF
+          # Jenkins repo (공식 문서 방식)
+          wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+          rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+
+          dnf clean all
+          dnf makecache -y
 
           dnf install -y jenkins
 
-          systemctl enable jenkins
-          systemctl start jenkins
+          # Setup wizard 스킵 (기존 옵션 덮어쓰기 말고 append)
+          mkdir -p /etc/sysconfig
+          if [ -f /etc/sysconfig/jenkins ] && grep -q '^JENKINS_JAVA_OPTIONS=' /etc/sysconfig/jenkins; then
+            sed -i 's#^JENKINS_JAVA_OPTIONS="\(.*\)"#JENKINS_JAVA_OPTIONS="\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
+          else
+            echo 'JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"' >> /etc/sysconfig/jenkins
+          fi
 
-          # 설치 확인용 로그
+          systemctl daemon-reload
+          systemctl enable jenkins
+          systemctl stop jenkins || true
+
+          # 관리자 계정 자동 생성
+          mkdir -p /var/lib/jenkins/init.groovy.d
+          cat >/var/lib/jenkins/init.groovy.d/01-security.groovy <<'GROOVY'
+          import jenkins.model.*
+          import hudson.security.*
+          import jenkins.model.JenkinsLocationConfiguration
+
+          def instance = Jenkins.get()
+
+          def adminUser = "${JenkinsAdminUser}"
+          def adminPass = "${JenkinsAdminPassword}"
+
+          def realm = new HudsonPrivateSecurityRealm(false)
+          if (realm.getUser(adminUser) == null) {
+            realm.createAccount(adminUser, adminPass)
+          }
+          instance.setSecurityRealm(realm)
+
+          def strategy = new FullControlOnceLoggedInAuthorizationStrategy()
+          strategy.setAllowAnonymousRead(false)
+          instance.setAuthorizationStrategy(strategy)
+
+          def baseUrl = "${JenkinsBaseUrl}"
+          if (baseUrl != null && baseUrl.trim().length() > 0) {
+            def loc = JenkinsLocationConfiguration.get()
+            loc.setUrl(baseUrl.trim())
+            loc.save()
+          }
+
+          instance.save()
+          GROOVY
+
+          chown -R jenkins:jenkins /var/lib/jenkins/init.groovy.d
+
+          systemctl start jenkins
           systemctl status jenkins --no-pager || true
+          ss -lntp | grep 8080 || true
+          curl -fsSLI http://localhost:8080/login || true
+
       
       Tags:
         - Key: Name
@@ -161,38 +192,110 @@ Resources:
         - AssociatePublicIpAddress: true
           DeviceIndex: "0"
           GroupSet:
-            - !Ref JenkinsGameSG
+            - !ImportValue T3-Wagu-JenkinsGameSGId
           # 첫번째 서브넷 사용
           SubnetId: !Select [0, !Split [",", !ImportValue T3-Wagu-Game-Public-Subnet-Ids]]
       
-       # Jenkins 자동 설치(UserData)
+       # Jenkins 자동 설치(UserData) 혹시 몰라서 남겨둡니다 ㅎ..
+      # UserData:
+      #   Fn::Base64: !Sub |
+      #     #!/bin/bash
+      #     set -euxo pipefail
+
+      #     dnf update -y
+
+      #     # Java 17 (Jenkins 실행 필수)
+      #     dnf install -y java-17-amazon-corretto
+
+      #     # Jenkins repo 추가
+      #     curl -fsSL https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key | tee /etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins > /dev/null
+      #     cat >/etc/yum.repos.d/jenkins.repo <<'EOF'
+      #     [jenkins]
+      #     name=Jenkins-stable
+      #     baseurl=https://pkg.jenkins.io/redhat-stable
+      #     gpgcheck=1
+      #     gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins
+      #     EOF
+
+      #     dnf install -y jenkins
+
+      #     systemctl enable jenkins
+      #     systemctl start jenkins
+
+      #     # 설치 확인용 로그
+      #     systemctl status jenkins --no-pager || true
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
           set -euxo pipefail
 
-          dnf update -y
+          # 로그 남기기 (실패 원인 숨기지 않기)
+          exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
 
-          # Java 17 (Jenkins 실행 필수)
+          dnf update -y
           dnf install -y java-17-amazon-corretto
 
-          # Jenkins repo 추가
-          curl -fsSL https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key | tee /etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins > /dev/null
-          cat >/etc/yum.repos.d/jenkins.repo <<'EOF'
-          [jenkins]
-          name=Jenkins-stable
-          baseurl=https://pkg.jenkins.io/redhat-stable
-          gpgcheck=1
-          gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins
-          EOF
+          # Jenkins repo (공식 문서 방식)
+          wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+          rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+
+          dnf clean all
+          dnf makecache -y
 
           dnf install -y jenkins
 
-          systemctl enable jenkins
-          systemctl start jenkins
+          # Setup wizard 스킵 (기존 옵션 덮어쓰기 말고 append)
+          mkdir -p /etc/sysconfig
+          if [ -f /etc/sysconfig/jenkins ] && grep -q '^JENKINS_JAVA_OPTIONS=' /etc/sysconfig/jenkins; then
+            sed -i 's#^JENKINS_JAVA_OPTIONS="\(.*\)"#JENKINS_JAVA_OPTIONS="\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
+          else
+            echo 'JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"' >> /etc/sysconfig/jenkins
+          fi
 
-          # 설치 확인용 로그
+          systemctl daemon-reload
+          systemctl enable jenkins
+          systemctl stop jenkins || true
+
+          # 관리자 계정 자동 생성
+          mkdir -p /var/lib/jenkins/init.groovy.d
+          cat >/var/lib/jenkins/init.groovy.d/01-security.groovy <<'GROOVY'
+          import jenkins.model.*
+          import hudson.security.*
+          import jenkins.model.JenkinsLocationConfiguration
+
+          def instance = Jenkins.get()
+
+          def adminUser = "${JenkinsAdminUser}"
+          def adminPass = "${JenkinsAdminPassword}"
+
+          def realm = new HudsonPrivateSecurityRealm(false)
+          if (realm.getUser(adminUser) == null) {
+            realm.createAccount(adminUser, adminPass)
+          }
+          instance.setSecurityRealm(realm)
+
+          def strategy = new FullControlOnceLoggedInAuthorizationStrategy()
+          strategy.setAllowAnonymousRead(false)
+          instance.setAuthorizationStrategy(strategy)
+
+          def baseUrl = "${JenkinsBaseUrl}"
+          if (baseUrl != null && baseUrl.trim().length() > 0) {
+            def loc = JenkinsLocationConfiguration.get()
+            loc.setUrl(baseUrl.trim())
+            loc.save()
+          }
+
+          instance.save()
+          GROOVY
+
+          chown -R jenkins:jenkins /var/lib/jenkins/init.groovy.d
+
+          systemctl start jenkins
           systemctl status jenkins --no-pager || true
+          ss -lntp | grep 8080 || true
+          curl -fsSLI http://localhost:8080/login || true
+
+
       
       Tags:
         - Key: Name

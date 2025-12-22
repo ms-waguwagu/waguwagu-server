@@ -80,6 +80,21 @@ Resources:
           ToPort: 3001
           SourceSecurityGroupId: !Ref GameAlbSG
 
+        # (추가) Matching -> Agones allocator (VPC Peering)
+        # allocator 포트가 443이 아닐 수도 있음. 보통 443 또는 8443 중 하나
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.0.0.0/16 # Matching VPC CIDR
+
+        # (추가) User -> GameServer (Agones Dynamic Ports)
+        # TCP 기반 게임이면 TCP만.
+        - IpProtocol: tcp
+          FromPort: 30000
+          ToPort: 32767
+          CidrIp: 0.0.0.0/0
+
+
         # Matching -> Game (VPC Peering)
         - IpProtocol: tcp
           FromPort: 3001
@@ -110,6 +125,70 @@ Resources:
         - Key: Project
           Value: WAGUWAGU
 
+  ############################################################
+  # 6) Jenkins Matching SG 
+  ############################################################
+  JenkinsMatchingSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Jenkins Matching Server (SSM + GitHub Webhook)
+      VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
+
+      SecurityGroupIngress:
+      # GitHub Webhook → Jenkins (HTTP 8080)
+      - IpProtocol: tcp
+        FromPort: 8080
+        ToPort: 8080
+        CidrIp: 140.82.112.0/20
+
+      - IpProtocol: tcp
+        FromPort: 8080
+        ToPort: 8080
+        CidrIp: 192.30.252.0/22
+
+      # 아웃바운드는 전체 허용 (SSM, GitHub, ECR, EKS 접근용)
+      SecurityGroupEgress:
+      - IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+    
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Jenkins-Matching-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # 7) Jenkins Game SG 
+  ############################################################
+  JenkinsGameSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Jenkins Game Server (SSM-only)
+      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
+      # 인바운드(22/8080) 완전 제거 -> SSM으로만 접속하고, UI는 SSM 포트포워딩으로 접속
+      SecurityGroupIngress: 
+        # GitHub Webhook → Jenkins (HTTP 8080)
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 140.82.112.0/20
+
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 192.30.252.0/22
+
+      # 아웃바운드는 전체 허용 (SSM, GitHub, ECR, EKS 접근용)
+      SecurityGroupEgress:
+      - IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Jenkins-Game-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
 Outputs:
   MatchingAlbSGId:
     Value: !Ref MatchingAlbSG
@@ -135,3 +214,13 @@ Outputs:
     Value: !Ref ValkeySG
     Export:
       Name: !Sub "${ProjectPrefix}-ValkeySGId"
+
+  JenkinsMatchingSGId:
+    Value: !Ref JenkinsMatchingSG
+    Export:
+      Name: !Sub "${ProjectPrefix}-JenkinsMatchingSGId"
+
+  JenkinsGameSGId:
+    Value: !Ref JenkinsGameSG
+    Export:
+      Name: !Sub "${ProjectPrefix}-JenkinsGameSGId"

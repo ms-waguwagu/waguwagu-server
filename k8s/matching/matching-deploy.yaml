@@ -25,7 +25,7 @@ spec:
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: matching-redis-secret
+                  name: matching-secret
                   key: JWT_SECRET
           readinessProbe:
             httpGet:
@@ -33,3 +33,19 @@ spec:
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 10
+          volumeMounts:
+            - name: allocator-client-cert
+              mountPath: /etc/agones/allocator/client
+              readOnly: true
+            - name: allocator-ca-cert
+              mountPath: /etc/agones/allocator/ca
+              readOnly: true
+      volumes:
+        - name: allocator-client-cert
+          secret:
+            # client 시크릿
+            secretName: allocator-client
+        - name: allocator-ca-cert
+          secret:
+            # ca 시크릿
+            secretName: allocator-ca

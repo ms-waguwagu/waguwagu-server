@@ -156,6 +156,15 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref MatchingIGW
 
+  # 추가: Matching → Game (Peering)
+  MatchingPublicRouteToGameVpc:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingToGamePeering
+    Properties:
+      RouteTableId: !Ref MatchingPublicRT
+      DestinationCidrBlock: !GetAtt GameVPC.CidrBlock
+      VpcPeeringConnectionId: !Ref MatchingToGamePeering
+
   MatchingPublicAssocA:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -366,6 +375,15 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref GameInternetGateway
 
+  # 추가: Game → Matching (Peering)
+  GamePublicRouteToMatchingVpc:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingToGamePeering
+    Properties:
+      RouteTableId: !Ref GamePublicRouteTable
+      DestinationCidrBlock: !GetAtt MatchingVPC.CidrBlock
+      VpcPeeringConnectionId: !Ref MatchingToGamePeering
+
   GamePublicSubnetARouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -439,6 +457,37 @@ Resources:
     Properties:
       SubnetId: !Ref GamePrivateDbSubnetB
       RouteTableId: !Ref GamePrivateRouteTable
+
+  ############################################################
+  # VPC Peering Connection (Matching <-> Game)
+  ############################################################
+  MatchingToGamePeering:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties:
+      VpcId: !Ref MatchingVPC
+      PeerVpcId: !Ref GameVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Game-Peering"
+
+  # Private Route: Matching -> Game
+  MatchingPrivateRouteToGameVpc:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingToGamePeering
+    Properties:
+      RouteTableId: !Ref MatchingPrivateRT
+      DestinationCidrBlock: !GetAtt GameVPC.CidrBlock
+      VpcPeeringConnectionId: !Ref MatchingToGamePeering
+
+  # Private Route: Game -> Matching
+  GamePrivateRouteToMatchingVpc:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingToGamePeering
+    Properties:
+      RouteTableId: !Ref GamePrivateRouteTable
+      DestinationCidrBlock: !GetAtt MatchingVPC.CidrBlock
+      VpcPeeringConnectionId: !Ref MatchingToGamePeering
+
 
 Outputs:
   MatchingVPCId:
