@@ -67,7 +67,7 @@
       // 랭킹 로드 (login.html과 동일 로직)
       async function loadRanking() {
         try {
-          const res = await fetch(CONFIG.API_URL + "/ranking/top");
+          const res = await fetch(CONFIG.API_URL + "/ranking");
           const data = await res.json();
 
           const list = document.getElementById("ranking-list");

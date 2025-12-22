@@ -11,7 +11,6 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { GameEngineService } from '../engine/game-engine.service';
-import { RankingService } from '../ranking/ranking.service';
 import { PlayerService } from 'src/engine/player/player.service';
 import { GhostManagerService } from 'src/engine/ghost/ghost-manager.service';
 import { BotManagerService } from 'src/engine/bot/bot-manager.service';
@@ -43,7 +42,6 @@ export class GameGateway
   private rooms: Record<string, RoomWrapper> = {};
 
   constructor(
-    private rankingService: RankingService,
     private ghostManagerService: GhostManagerService,
     private playerService: PlayerService,
     private botManagerService: BotManagerService,
@@ -304,15 +302,42 @@ export class GameGateway
           room.intervalRunning = false;
         }
 
-        const userIds = roomWrapper.users;
+        // ⭐ 1. 게임 결과 생성
+        const results = room.getFinalResults();
+        // [{ googleSub, score, rank }, ...]
 
         try {
-          await axios.post('http://localhost:3000/internal/game-finished', {
-            userIds,
-          });
-          this.logger.log(
-            `🔥 game-finished sent to matching server: ${userIds.join(', ')}`,
+          // ⭐ 2. 게임 결과 저장 (RDS)
+          await axios.post(
+            'http://localhost:3000/internal/game-result',
+            {
+              gameId: roomId,
+              roomId,
+              results,
+            },
+            {
+              headers: {
+                'x-internal-token': process.env.INTERNAL_TOKEN, // ⭐ 필수
+              },
+              timeout: 3000,
+            },
           );
+
+          // ⭐ 3. 세션 종료 알림 (기존 로직 유지)
+          await axios.post(
+            'http://localhost:3000/internal/game-finished',
+            {
+              userIds: roomWrapper.users,
+            },
+            {
+              headers: {
+                'x-internal-token': process.env.INTERNAL_TOKEN,
+              },
+              timeout: 3000,
+            },
+          );
+
+          this.logger.log(`🔥 game-result + game-finished sent`);
         } catch (e) {
           this.logger.error('❌ failed to notify matching server', e);
         }

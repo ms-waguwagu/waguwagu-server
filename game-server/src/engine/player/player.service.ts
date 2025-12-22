@@ -21,10 +21,10 @@ export class PlayerService {
   // private players: Record<string, PlayerState> = {};
   // private colorIndex = 0;
 
-	private players: Record<string, Record<string, PlayerState>> = {};
+  private players: Record<string, Record<string, PlayerState>> = {};
   private colorIndex: Record<string, number> = {};
 
-	private ensureRoom(roomId: string) {
+  private ensureRoom(roomId: string) {
     if (!this.players[roomId]) {
       this.players[roomId] = {};
       this.colorIndex[roomId] = 0;
@@ -34,12 +34,12 @@ export class PlayerService {
   constructor() {}
 
   getPlayers(roomId: string) {
-		this.ensureRoom(roomId);
+    this.ensureRoom(roomId);
     return Object.values(this.players[roomId]);
   }
 
   getPlayerMap(roomId: string) {
-		this.ensureRoom(roomId);
+    this.ensureRoom(roomId);
     return this.players[roomId];
   }
 
@@ -52,15 +52,15 @@ export class PlayerService {
   }
 
   private pickColor(roomId: string): string {
-		this.ensureRoom(roomId);
-		const idx = this.colorIndex[roomId];
+    this.ensureRoom(roomId);
+    const idx = this.colorIndex[roomId];
     const color = PLAYER_COLORS[idx % PLAYER_COLORS.length];
     this.colorIndex[roomId] += 1;
     return color;
   }
 
   addPlayer(roomId: string, id: string, googleSub: string, nickname: string) {
-		this.ensureRoom(roomId);
+    this.ensureRoom(roomId);
     const spawnCol = 1;
     const spawnRow = 1;
 
@@ -82,19 +82,18 @@ export class PlayerService {
   }
 
   removePlayer(roomId: string, id: string) {
-		this.ensureRoom(roomId);
+    this.ensureRoom(roomId);
     delete this.players[roomId][id];
   }
 
   handleInput(roomId: string, id: string, dir: Direction) {
-		this.ensureRoom(roomId);
+    this.ensureRoom(roomId);
     const p = this.players[roomId][id];
     if (!p) return;
 
     const clamp = (v: number) => (v > 0 ? 1 : v < 0 ? -1 : 0);
     p.dir = { dx: clamp(dir.dx), dy: clamp(dir.dy) };
   }
-
 
   // updatePlayer / checkCollision / checkDotCollision / applyStun 은
   // 그대로 두고, 호출할 때 roomId 기반 players 배열을 넘겨주면 됨
@@ -149,7 +148,7 @@ export class PlayerService {
     }
   }
 
-	clearRoom(roomId: string) {
+  clearRoom(roomId: string) {
     delete this.players[roomId];
     delete this.colorIndex[roomId];
   }

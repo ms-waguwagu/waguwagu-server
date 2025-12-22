@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable } from '@nestjs/common';
 import { Direction } from '../types/direction.type';
 import { TILE_SIZE, MAP_DESIGN } from '../map/map.data';
@@ -37,10 +38,13 @@ export class GameEngineService {
     private readonly bossManager: BossManagerService,
   ) {
     const { map } = parseMap(MAP_DESIGN);
-
     this.rows = map.length;
     this.cols = map[0].length;
   }
+
+  /* =========================
+     초기화 / 모드
+  ========================= */
 
   initialize() {
     this.lifecycle.initialize(this.roomId);
@@ -54,6 +58,10 @@ export class GameEngineService {
     return this.gameMode === 'BOSS';
   }
 
+  /* =========================
+     Map / State
+  ========================= */
+
   get map() {
     return this.lifecycle.getMap(this.roomId);
   }
@@ -62,37 +70,23 @@ export class GameEngineService {
     return this.lifecycle.getDots(this.roomId);
   }
 
-  // ‼️보스 테스트‼️ 전용 루프. 랭킹은 빠져있음
-  startBossMode() {
-    if (this.intervalRunning) {
-      console.log(`[BossMode] Room ${this.roomId} 이미 루프 실행 중`);
-      return;
-    }
-
-    console.log(`[BossMode] Room ${this.roomId} 보스 모드 루프 시작`);
-    this.intervalRunning = true;
-
-    this.interval = setInterval(() => {
-      // 1) 기존 게임 루프 한 틱 실행
-      this.update();
-
-      // 2) 상태를 해당 room 에 브로드캐스트
-      if (this.roomManager && this.roomManager.server) {
-        this.roomManager.server.to(this.roomId).emit('state', this.getState());
-      }
-
-      // 게임 종료 처리
-      if (this.gameOver) {
-        console.log(`[BossMode] 게임 종료 → 루프 정리 시작`);
-
-        if (this.interval) {
-          clearInterval(this.interval);
-          this.interval = null;
-        }
-        this.intervalRunning = false;
-      }
-    }, 1000 / 30); // 30 FPS
+  getMapData() {
+    return {
+      map: this.map,
+      dots: this.dots,
+      rows: this.rows,
+      cols: this.cols,
+      tileSize: this.tileSize,
+    };
   }
+
+  getState() {
+    return this.gameLoop.getState(this.roomId);
+  }
+
+  /* =========================
+     Player / Bot / Ghost
+  ========================= */
 
   getPlayer(id: string) {
     return this.playerService.getPlayer(this.roomId, id);
@@ -130,6 +124,10 @@ export class GameEngineService {
     return this.botManager.getNextBotNumber(this.roomId);
   }
 
+  /* =========================
+     Game Loop
+  ========================= */
+
   update() {
     this.gameLoop.run(this.roomId);
   }
@@ -142,28 +140,65 @@ export class GameEngineService {
     return this.lifecycle.resetGame(this.roomId);
   }
 
-  getAllPlayerScores() {
-    return this.playerService.getPlayers(this.roomId).map((p) => ({
-      playerId: p.id,
-      nickname: p.nickname,
-      score: p.score,
-    }));
+  /* =========================
+     ⭐ 게임 종료 결과 생성 (핵심)
+  ========================= */
+
+  /**
+   * 게임 정상 종료 시 최종 결과 생성
+   * - googleSub 기준
+   * - score 내림차순
+   * - rank 계산 포함
+   */
+  getFinalResults(): {
+    googleSub: string;
+    score: number;
+    rank: number;
+  }[] {
+    const players = this.playerService.getPlayers(this.roomId);
+
+    return players
+      .map((p) => ({
+        googleSub: p.googleSub,
+        score: p.score,
+      }))
+      .sort((a, b) => b.score - a.score)
+      .map((p, index) => ({
+        ...p,
+        rank: index + 1,
+      }));
   }
 
-  getMapData() {
-    return {
-      map: this.map,
-      dots: this.dots,
-      rows: this.rows,
-      cols: this.cols,
-      tileSize: this.tileSize,
-    };
+  /* =========================
+     Boss Mode (Debug / Test)
+  ========================= */
+
+  startBossMode() {
+    if (this.intervalRunning) {
+      console.log(`[BossMode] Room ${this.roomId} 이미 실행 중`);
+      return;
+    }
+
+    console.log(`[BossMode] Room ${this.roomId} 보스 모드 시작`);
+    this.intervalRunning = true;
+
+    this.interval = setInterval(() => {
+      this.update();
+
+      if (this.roomManager?.server) {
+        this.roomManager.server.to(this.roomId).emit('state', this.getState());
+      }
+
+      if (this.gameOver) {
+        console.log(`[BossMode] 게임 종료`);
+        this.stopInterval();
+      }
+    }, 1000 / 30);
   }
 
-  // ‼️보스 테스트‼️
-  getState() {
-    return this.gameLoop.getState(this.roomId);
-  }
+  /* =========================
+     Cleanup
+  ========================= */
 
   stopInterval() {
     if (this.interval) {

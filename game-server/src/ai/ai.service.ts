@@ -37,9 +37,7 @@ interface BossAIServiceClient {
 export class AiService implements OnModuleInit {
   private bossAIClient: BossAIServiceClient;
 
-  constructor(
-    @Inject('BOSS_AI_PACKAGE') private readonly client: ClientGrpc,
-  ) {}
+  constructor(@Inject('BOSS_AI_PACKAGE') private readonly client: ClientGrpc) {}
 
   onModuleInit() {
     this.bossAIClient =

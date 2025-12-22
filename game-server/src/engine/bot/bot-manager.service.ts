@@ -11,7 +11,7 @@ export class BotManagerService {
   // private botPlayers: BotState[] = [];
   // private botCount = 0;
 
-	private botPlayers: Record<string, BotState[]> = {};
+  private botPlayers: Record<string, BotState[]> = {};
   private botCount: Record<string, number> = {};
 
   private ensureRoom(roomId: string) {
@@ -22,29 +22,30 @@ export class BotManagerService {
   }
 
   getBots(roomId: string): BotState[] {
-		this.ensureRoom(roomId);
+    this.ensureRoom(roomId);
     return this.botPlayers[roomId];
   }
 
   getBotCount(roomId: string): number {
-		this.ensureRoom(roomId);
+    this.ensureRoom(roomId);
     return this.botCount[roomId];
   }
 
   getNextBotNumber(roomId: string): number {
-		this.ensureRoom(roomId);
+    this.ensureRoom(roomId);
     this.botCount[roomId] += 1;
     return this.botCount[roomId];
   }
 
   addBotPlayer(roomId: string, nickname?: string) {
-		this.ensureRoom(roomId);
+    this.ensureRoom(roomId);
     const spawnCol = 1;
     const spawnRow = 1;
     const offset = (TILE_SIZE - PLAYER_SIZE) / 2;
     const botName = nickname ?? `bot-${this.botCount[roomId]}`;
 
     this.botPlayers[roomId].push({
+      googleSub: `BOT_${botName}`,
       id: botName,
       nickname: botName,
       x: spawnCol * TILE_SIZE + offset,
@@ -62,12 +63,12 @@ export class BotManagerService {
   }
 
   updateBots(
-		roomId: string,
+    roomId: string,
     map: number[][],
     humans: PlayerState[],
     checkDotCollision: (bot: BotState) => void,
   ) {
-		this.ensureRoom(roomId);
+    this.ensureRoom(roomId);
     const now = Date.now();
 
     for (const bot of this.botPlayers[roomId]) {
