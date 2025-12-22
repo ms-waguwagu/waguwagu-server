@@ -1,11 +1,11 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Jenkins Server for WAGUWAGU
+Description: Jenkins Server for WAGUWAGU (Matching/Game ºÐ¸®)
 
 Parameters:
   ProjectPrefix:
     Type: String
     Default: T3-Wagu
-  
+
   InstanceType:
     Type: String
     Default: t3.medium
@@ -13,12 +13,11 @@ Parameters:
       - t3.medium
       - t3.large
       - t3.xlarge
-  
+
   LatestAmiId:
-    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
-    Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64'
+    Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
+    Default: "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64"
     Description: Latest Amazon Linux 2023 AMI ID from SSM Parameter Store
-  
 
   JenkinsAdminUser:
     Type: String
@@ -28,14 +27,19 @@ Parameters:
     Type: String
     NoEcho: true
 
+  # (¼±ÅÃ) Jenkins URL ¼³Á¤
+  # ºñ¿öµÎ¸é Jenkins Location URLÀº µû·Î ¼³Á¤ÇÏÁö ¾ÊÀ½
   JenkinsBaseUrl:
     Type: String
-    Default: ""   # ì˜ˆ: http://your-domain-or-ip:8080 (ì—†ìœ¼ë©´ ë¹ˆ ê°’)
-
+    Default: ""
+    Description: "Optional. Example: http://your-domain-or-ip:8080 (leave blank if not used)"
 
 Resources:
   ############################################################
-  # IAM Role for Jenkins
+  # IAM Role for Jenkins EC2
+  # -SSM Á¢¼Ó(¼¼¼Ç ¸Å´ÏÀú)
+  # -ECR push/pull
+  # - (¼±ÅÃ) EKS Á¢±Ù/¹èÆ÷( CD È®Àå ½Ã¿¡)
   ############################################################
   JenkinsRole:
     Type: AWS::IAM::Role
@@ -82,9 +86,65 @@ Resources:
         - !Ref JenkinsRole
       InstanceProfileName: !Sub "${ProjectPrefix}-Jenkins-Instance-Profile"
 
+  ############################################################
+  # Security Group (Matching Jenkins)
+  # Áö±ÝÀº Github Webhook ¹æ½ÄÀÌ ¾Æ´Ï¶ó, Poll SCM(³»ºÎ¿¡¼­ GitHub È®ÀÎ) ¹æ½ÄÀ» »ç¿ëÇÏ°í ÀÖ¾î¼­
+  # 8080 ÀÎ¹Ù¿îµå°¡ ¾ø¾îµµ µÊ(SSM Æ÷Æ®Æ÷¿öµùÀ¸·Î Á¢¼Ó)
+  # ³ªÁß¿¡ GitHub WebhookÀ» ³ªÁß¿¡ ¾´´Ù°í ÇÏ¸é ÇÊ¿äÇÒ ¼ö´Â ÀÖ´Ù (GitHub IP ´ë¿ª¿¡¼­ 8080 Çã¿ëÀÌ ÇÊ¿äÇÒ ¼ö ÀÖÀ½)
+  ############################################################
+  JenkinsMatchingSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Jenkins Matching Server (SSM + optional GitHub Webhook 8080)
+      VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
+
+      SecurityGroupIngress:
+        # (¼±ÅÃ) GitHub Webhook -> Jenkins (HTTP 8080)
+        # GitHub IP ´ë¿ªÀº º¯°æµÉ ¼ö ÀÖÀ¸¹Ç·Î ¿î¿µ ½Ã ÃÖ½Å È®ÀÎÀÌ ÇÊ¿ä
+        # Áï, ÀÌ ¾Æ·¡ÀÇ ÄÚµå´Â polling ¹æ½ÄÀÌ ¾Æ´Ï¶ó webhook¹æ½ÄÀ» ¾´´Ù´Â °¡Á¤ÇÏ¿¡ Á¸ÀçÇÏ´Â ÄÚµåÀÎ°ÅÀÓ
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 140.82.112.0/20
+
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 192.30.252.0/22
+
+      # ¾Æ¿ô¹Ù¿îµå´Â ÀüÃ¼ Çã¿ë(SSM, GitHub, ECR, EKS µî Á¢±Ù ¸ñÀû)
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Jenkins-Matching-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # Security Group (Game Jenkins)
+  # - ÀÎ¹Ù¿îµå ¿ÏÀü Â÷´Ü(SSMÀ¸·Î¸¸ Á¢¼Ó)
+  # - Jenkins UI´Â SSM Æ÷Æ®Æ÷¿öµù(localhost:8080)À¸·Î Á¢±Ù
+  # ÀÌ ¾Æ·¡¿¡ ÀÖ´Â ÄÚµåµéµµ polling¹æ½ÄÀÌ ¾Æ´Ï¶ó, webhook¹æ½ÄÀ» ¾´´Ù´Â °¡Á¤ÇÏ°Ô Á¸ÀçÇÏ´Â ÄÚµåµé
+  ############################################################
+  JenkinsGameSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Jenkins Game Server (SSM-only, no inbound)
+      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
+      SecurityGroupIngress: []
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Jenkins-Game-SG"
+        - Key: Project
+          Value: WAGUWAGU
 
   ############################################################
   # Jenkins EC2 Instance (Matching)
+  # - matching-ci JobÀ» init.groovy·Î ÀÚµ¿ »ý¼º
+  # - Poll SCM Æ®¸®°Å Àû¿ë, 5ºÐ¸¶´Ù
   ############################################################
   JenkinsInstanceMatching:
     Type: AWS::EC2::Instance
@@ -92,36 +152,84 @@ Resources:
       InstanceType: !Ref InstanceType
       ImageId: !Ref LatestAmiId
       IamInstanceProfile: !Ref JenkinsInstanceProfile
+
       NetworkInterfaces:
         - AssociatePublicIpAddress: true
           DeviceIndex: "0"
           GroupSet:
-            - !ImportValue T3-Wagu-JenkinsMatchingSGId
-          # ì²«ë²ˆì§¸ ì„œë¸Œë„· ì‚¬ìš©
-          SubnetId: !Select [0, !Split [",", !ImportValue T3-Wagu-Matching-Public-Subnet-Ids]]
-      
-       # Jenkins ìžë™ ì„¤ì¹˜(UserData)
+            - !Ref JenkinsMatchingSG
+          # Matching Public Subnet Áß Ã¹ ¹øÂ° »ç¿ë
+          SubnetId: !Select
+            - 0
+            - !Split
+              - ","
+              - !ImportValue T3-Wagu-Matching-Public-Subnet-Ids
+
+      # Jenkins ÀÚµ¿ ¼³Ä¡/¼³Á¤(UserData)
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
           set -euxo pipefail
 
-          # ë¡œê·¸ ë‚¨ê¸°ê¸° (ì‹¤íŒ¨ ì›ì¸ ìˆ¨ê¸°ì§€ ì•Šê¸°)
+          # ·Î±× ³²±â±â(½ÇÆÐ ¿øÀÎ È®ÀÎ¿ë)
           exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
 
           dnf update -y
+
+          # CI¿¡ ÇÊ¿äÇÑ µµ±¸µé: docker/git/awscli (+ ÆíÀÇ À¯Æ¿)
+          # NOTE: AL2023¿¡¼­ curl ¼³Ä¡´Â curl-minimal°ú Ãæµ¹ °¡´É -> Á¦¿Ü
+          dnf install -y docker git wget unzip jq awscli
+          systemctl enable --now docker
+
+          # kubectl ¼³Ä¡ (KVER´Â Fn::Sub º¯¼ö·Î ¿ÀÇØ¹ÞÁö ¾Ê°Ô $KVER »ç¿ë)
+          KVER="$(wget -qO- https://dl.k8s.io/release/stable.txt)"
+          wget -q "https://dl.k8s.io/release/$KVER/bin/linux/amd64/kubectl" -O /usr/local/bin/kubectl
+          chmod +x /usr/local/bin/kubectl
+
+          # Jenkins ½ÇÇà¿¡ ÇÊ¿äÇÑ Java
           dnf install -y java-17-amazon-corretto
 
-          # Jenkins repo (ê³µì‹ ë¬¸ì„œ ë°©ì‹)
+          # Jenkins repo (°ø½Ä ¹æ½Ä)
           wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
           rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
 
           dnf clean all
           dnf makecache -y
-
           dnf install -y jenkins
 
-          # Setup wizard ìŠ¤í‚µ (ê¸°ì¡´ ì˜µì…˜ ë®ì–´ì“°ê¸° ë§ê³  append)
+          # jenkins À¯Àú°¡ docker ½ÇÇà °¡´ÉÇÏµµ·Ï
+          usermod -aG docker jenkins
+
+          # ÇÃ·¯±×ÀÎ ÀÚµ¿ ¼³Ä¡(Pipeline/Git/GitHub/Credentials µî)
+          mkdir -p /var/lib/jenkins/plugins
+          cat >/tmp/plugins.txt <<'EOF'
+          workflow-aggregator
+          git
+          github
+          github-branch-source
+          credentials-binding
+          pipeline-stage-view
+          EOF
+
+          export JENKINS_HOME=/var/lib/jenkins
+
+          # jenkins-plugin-cli°¡ ÀÖÀ¸¸é »ç¿ë, ¾øÀ¸¸é plugin manager tool(jar) »ç¿ë
+          if command -v jenkins-plugin-cli >/dev/null 2>&1; then
+            PLUGINS="$(tr '\n' ' ' </tmp/plugins.txt)"
+            jenkins-plugin-cli --plugins "$PLUGINS" --plugin-dir /var/lib/jenkins/plugins
+          else
+            PIM_VER="2.13.2"
+            wget -q -O /tmp/jenkins-plugin-manager.jar \
+              "https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/$PIM_VER/jenkins-plugin-manager-$PIM_VER.jar"
+            java -jar /tmp/jenkins-plugin-manager.jar \
+              --war /usr/share/java/jenkins.war \
+              --plugin-file /tmp/plugins.txt \
+              --plugin-download-directory /var/lib/jenkins/plugins
+          fi
+
+          chown -R jenkins:jenkins /var/lib/jenkins
+
+          # Setup Wizard ½ºÅµ ½Ãµµ (È¯°æ¿¡ µû¶ó ¿ÏÀüÈ÷ ¾È ¸ÔÀ» ¼öµµ ÀÖÀ½)
           mkdir -p /etc/sysconfig
           if [ -f /etc/sysconfig/jenkins ] && grep -q '^JENKINS_JAVA_OPTIONS=' /etc/sysconfig/jenkins; then
             sed -i 's#^JENKINS_JAVA_OPTIONS="\(.*\)"#JENKINS_JAVA_OPTIONS="\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
@@ -133,7 +241,7 @@ Resources:
           systemctl enable jenkins
           systemctl stop jenkins || true
 
-          # ê´€ë¦¬ìž ê³„ì • ìžë™ ìƒì„±
+          # °ü¸®ÀÚ °èÁ¤ ÀÚµ¿ »ý¼º/º¸¾È ¼³Á¤ + (¼±ÅÃ) Jenkins URL ¼³Á¤
           mkdir -p /var/lib/jenkins/init.groovy.d
           cat >/var/lib/jenkins/init.groovy.d/01-security.groovy <<'GROOVY'
           import jenkins.model.*
@@ -165,14 +273,60 @@ Resources:
           instance.save()
           GROOVY
 
+          # Job ÀÚµ¿ »ý¼º (matching-ci) + Poll SCM
+          cat >/var/lib/jenkins/init.groovy.d/02-jobs.groovy <<'GROOVY'
+          import jenkins.model.*
+          import org.jenkinsci.plugins.workflow.job.WorkflowJob
+          import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition
+          import hudson.plugins.git.*
+          import hudson.triggers.SCMTrigger
+
+          def j = Jenkins.get()
+
+          def repoUrl = "https://github.com/ms-waguwagu/waguwagu-server.git"
+          def branchSpec = "*/main"
+
+          def ensurePipelineJob = { String jobName, String scriptPath ->
+            def existing = j.getItem(jobName)
+            if (existing != null) {
+              println("[OK] Job already exists: " + jobName)
+              return
+            }
+
+            println("[CREATE] Job: " + jobName)
+
+            WorkflowJob job = j.createProject(WorkflowJob, jobName)
+
+            def remote = new UserRemoteConfig(repoUrl, null, null, null) // public repo -> credentialsId ºÒÇÊ¿ä
+            def scm = new GitSCM(
+              [remote],
+              [new BranchSpec(branchSpec)],
+              false,
+              [],
+              null,
+              null,
+              []
+            )
+
+            job.definition = new CpsScmFlowDefinition(scm, scriptPath)
+
+            // Poll SCM: 5ºÐ¸¶´Ù º¯°æ °¨Áö
+            job.addTrigger(new SCMTrigger("H/5 * * * *"))
+
+            job.save()
+          }
+
+          ensurePipelineJob("matching-ci", "matching-server/Jenkinsfile")
+          j.save()
+          GROOVY
+
           chown -R jenkins:jenkins /var/lib/jenkins/init.groovy.d
 
           systemctl start jenkins
           systemctl status jenkins --no-pager || true
           ss -lntp | grep 8080 || true
-          curl -fsSLI http://localhost:8080/login || true
+          wget -qS --spider http://localhost:8080/login || true
 
-      
       Tags:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Jenkins-Matching"
@@ -181,6 +335,8 @@ Resources:
 
   ############################################################
   # Jenkins EC2 Instance (Game)
+  # - game-ci JobÀ» init.groovy·Î ÀÚµ¿ »ý¼º
+  # - Poll Æ®¸®°Å Àû¿ë, 5ºÐ¸¶´Ù
   ############################################################
   JenkinsInstanceGame:
     Type: AWS::EC2::Instance
@@ -188,63 +344,80 @@ Resources:
       InstanceType: !Ref InstanceType
       ImageId: !Ref LatestAmiId
       IamInstanceProfile: !Ref JenkinsInstanceProfile
+
       NetworkInterfaces:
         - AssociatePublicIpAddress: true
           DeviceIndex: "0"
           GroupSet:
-            - !ImportValue T3-Wagu-JenkinsGameSGId
-          # ì²«ë²ˆì§¸ ì„œë¸Œë„· ì‚¬ìš©
-          SubnetId: !Select [0, !Split [",", !ImportValue T3-Wagu-Game-Public-Subnet-Ids]]
-      
-       # Jenkins ìžë™ ì„¤ì¹˜(UserData) í˜¹ì‹œ ëª°ë¼ì„œ ë‚¨ê²¨ë‘¡ë‹ˆë‹¤ ã…Ž..
-      # UserData:
-      #   Fn::Base64: !Sub |
-      #     #!/bin/bash
-      #     set -euxo pipefail
+            - !Ref JenkinsGameSG
+          # Game Public Subnet Áß Ã¹ ¹øÂ° »ç¿ë
+          SubnetId: !Select
+            - 0
+            - !Split
+              - ","
+              - !ImportValue T3-Wagu-Game-Public-Subnet-Ids
 
-      #     dnf update -y
-
-      #     # Java 17 (Jenkins ì‹¤í–‰ í•„ìˆ˜)
-      #     dnf install -y java-17-amazon-corretto
-
-      #     # Jenkins repo ì¶”ê°€
-      #     curl -fsSL https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key | tee /etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins > /dev/null
-      #     cat >/etc/yum.repos.d/jenkins.repo <<'EOF'
-      #     [jenkins]
-      #     name=Jenkins-stable
-      #     baseurl=https://pkg.jenkins.io/redhat-stable
-      #     gpgcheck=1
-      #     gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins
-      #     EOF
-
-      #     dnf install -y jenkins
-
-      #     systemctl enable jenkins
-      #     systemctl start jenkins
-
-      #     # ì„¤ì¹˜ í™•ì¸ìš© ë¡œê·¸
-      #     systemctl status jenkins --no-pager || true
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
           set -euxo pipefail
 
-          # ë¡œê·¸ ë‚¨ê¸°ê¸° (ì‹¤íŒ¨ ì›ì¸ ìˆ¨ê¸°ì§€ ì•Šê¸°)
+          # ·Î±× ³²±â±â(½ÇÆÐ ¿øÀÎ È®ÀÎ¿ë)
           exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
 
           dnf update -y
+
+          # CI¿¡ ÇÊ¿äÇÑ µµ±¸µé: docker/git/awscli (+ ÆíÀÇ À¯Æ¿)
+          dnf install -y docker git wget unzip jq awscli
+          systemctl enable --now docker
+
+          # kubectl ¼³Ä¡
+          KVER="$(wget -qO- https://dl.k8s.io/release/stable.txt)"
+          wget -q "https://dl.k8s.io/release/$KVER/bin/linux/amd64/kubectl" -O /usr/local/bin/kubectl
+          chmod +x /usr/local/bin/kubectl
+
           dnf install -y java-17-amazon-corretto
 
-          # Jenkins repo (ê³µì‹ ë¬¸ì„œ ë°©ì‹)
+          # Jenkins repo (°ø½Ä ¹æ½Ä)
           wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
           rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
 
           dnf clean all
           dnf makecache -y
-
           dnf install -y jenkins
 
-          # Setup wizard ìŠ¤í‚µ (ê¸°ì¡´ ì˜µì…˜ ë®ì–´ì“°ê¸° ë§ê³  append)
+          # jenkins À¯Àú°¡ docker ½ÇÇà °¡´ÉÇÏµµ·Ï
+          usermod -aG docker jenkins
+
+          # ÇÃ·¯±×ÀÎ ÀÚµ¿ ¼³Ä¡
+          mkdir -p /var/lib/jenkins/plugins
+          cat >/tmp/plugins.txt <<'EOF'
+          workflow-aggregator
+          git
+          github
+          github-branch-source
+          credentials-binding
+          pipeline-stage-view
+          EOF
+
+          export JENKINS_HOME=/var/lib/jenkins
+
+          if command -v jenkins-plugin-cli >/dev/null 2>&1; then
+            PLUGINS="$(tr '\n' ' ' </tmp/plugins.txt)"
+            jenkins-plugin-cli --plugins "$PLUGINS" --plugin-dir /var/lib/jenkins/plugins
+          else
+            PIM_VER="2.13.2"
+            wget -q -O /tmp/jenkins-plugin-manager.jar \
+              "https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/$PIM_VER/jenkins-plugin-manager-$PIM_VER.jar"
+            java -jar /tmp/jenkins-plugin-manager.jar \
+              --war /usr/share/java/jenkins.war \
+              --plugin-file /tmp/plugins.txt \
+              --plugin-download-directory /var/lib/jenkins/plugins
+          fi
+
+          chown -R jenkins:jenkins /var/lib/jenkins
+
+          # Setup Wizard ½ºÅµ ½Ãµµ
           mkdir -p /etc/sysconfig
           if [ -f /etc/sysconfig/jenkins ] && grep -q '^JENKINS_JAVA_OPTIONS=' /etc/sysconfig/jenkins; then
             sed -i 's#^JENKINS_JAVA_OPTIONS="\(.*\)"#JENKINS_JAVA_OPTIONS="\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
@@ -256,7 +429,7 @@ Resources:
           systemctl enable jenkins
           systemctl stop jenkins || true
 
-          # ê´€ë¦¬ìž ê³„ì • ìžë™ ìƒì„±
+          # °ü¸®ÀÚ °èÁ¤ ÀÚµ¿ »ý¼º/º¸¾È ¼³Á¤
           mkdir -p /var/lib/jenkins/init.groovy.d
           cat >/var/lib/jenkins/init.groovy.d/01-security.groovy <<'GROOVY'
           import jenkins.model.*
@@ -288,15 +461,60 @@ Resources:
           instance.save()
           GROOVY
 
+          # Job ÀÚµ¿ »ý¼º (game-ci) + Poll SCM
+          cat >/var/lib/jenkins/init.groovy.d/02-jobs.groovy <<'GROOVY'
+          import jenkins.model.*
+          import org.jenkinsci.plugins.workflow.job.WorkflowJob
+          import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition
+          import hudson.plugins.git.*
+          import hudson.triggers.SCMTrigger
+
+          def j = Jenkins.get()
+
+          def repoUrl = "https://github.com/ms-waguwagu/waguwagu-server.git"
+          def branchSpec = "*/main"
+
+          def ensurePipelineJob = { String jobName, String scriptPath ->
+            def existing = j.getItem(jobName)
+            if (existing != null) {
+              println("[OK] Job already exists: " + jobName)
+              return
+            }
+
+            println("[CREATE] Job: " + jobName)
+
+            WorkflowJob job = j.createProject(WorkflowJob, jobName)
+
+            def remote = new UserRemoteConfig(repoUrl, null, null, null) // public repo -> credentialsId ºÒÇÊ¿ä
+            def scm = new GitSCM(
+              [remote],
+              [new BranchSpec(branchSpec)],
+              false,
+              [],
+              null,
+              null,
+              []
+            )
+
+            job.definition = new CpsScmFlowDefinition(scm, scriptPath)
+
+            // Poll SCM: 5ºÐ¸¶´Ù º¯°æ °¨Áö
+            job.addTrigger(new SCMTrigger("H/5 * * * *"))
+
+            job.save()
+          }
+
+          ensurePipelineJob("game-ci", "game-server/Jenkinsfile")
+          j.save()
+          GROOVY
+
           chown -R jenkins:jenkins /var/lib/jenkins/init.groovy.d
 
           systemctl start jenkins
           systemctl status jenkins --no-pager || true
           ss -lntp | grep 8080 || true
-          curl -fsSLI http://localhost:8080/login || true
+          wget -qS --spider http://localhost:8080/login || true
 
-
-      
       Tags:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Jenkins-Game"

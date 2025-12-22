@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: matching
-          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:latest # TODO: 매칭 서버 이미지로 교체
+          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:1997ba6-5 # TODO: 매칭 서버 이미지로 교체 무조건 jenkins먼저해라!!!
           imagePullPolicy: Always
           ports:
             - containerPort: 3000

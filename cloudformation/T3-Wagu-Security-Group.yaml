@@ -80,20 +80,19 @@ Resources:
           ToPort: 3001
           SourceSecurityGroupId: !Ref GameAlbSG
 
-        # (ì¶”ê°€) Matching -> Agones allocator (VPC Peering)
-        # allocator í¬íŠ¸ê°€ 443ì´ ì•„ë‹ ìˆ˜ë„ ìžˆìŒ. ë³´í†µ 443 ë˜ëŠ” 8443 ì¤‘ í•˜ë‚˜
+        # (ì¶”ê??) Matching -> Agones allocator (VPC Peering)
+        # allocator ?¬?Š¸ê°? 443?´ ?•„?‹ ?ˆ˜?„ ?žˆ?Œ. ë³´í†µ 443 ?˜?Š” 8443 ì¤? ?•˜?‚˜
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
           CidrIp: 10.0.0.0/16 # Matching VPC CIDR
 
-        # (ì¶”ê°€) User -> GameServer (Agones Dynamic Ports)
-        # TCP ê¸°ë°˜ ê²Œìž„ì´ë©´ TCPë§Œ.
+        # (ì¶”ê??) User -> GameServer (Agones Dynamic Ports)
+        # TCP ê¸°ë°˜ ê²Œìž„?´ë©? TCPë§?.
         - IpProtocol: tcp
           FromPort: 30000
           ToPort: 32767
           CidrIp: 0.0.0.0/0
-
 
         # Matching -> Game (VPC Peering)
         - IpProtocol: tcp
