@@ -29,7 +29,7 @@ spec:
         - name: game
           portPolicy: Dynamic
           containerPort: 3001
-          protocol: TCP  # UDP/TCPUDP 가능
+          protocol: TCP # UDP/TCPUDP 가능
       health:
         disabled: false
         initialDelaySeconds: 10
