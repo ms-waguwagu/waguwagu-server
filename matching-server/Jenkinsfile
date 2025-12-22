@@ -31,6 +31,7 @@ pipeline {
     stage("Change check") {
       steps {
         script {
+          echo "=== MATCHING JENKINSFILE TEST v1 ==="   // <- 이거 한 줄 추가해보기 테스트용도 실제 잘 polling되나
           def changed = sh(
             script: "git diff --name-only HEAD~1..HEAD | grep -E '^matching-server/' || true",
             returnStdout: true
