@@ -29,6 +29,7 @@ interface RoomWrapper {
 
 @WebSocketGateway({
   namespace: '/game',
+	path: '/api/game/socket.io',
   cors: { origin: '*' },
 })
 export class GameGateway

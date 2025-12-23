@@ -6,7 +6,9 @@ import { AuthModule } from './auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { ScheduleModule } from '@nestjs/schedule';
-import { AgonesModule } from './agones-test/agones.module';
+import { AgonesTestModule } from './agones-test/agones-test.module';
+import { AgonesAllocatorModule } from './agones-allocator/agoness-allocator.module';
+import { QueueModule } from './queue/queue.module';
 
 @Module({
   imports: [
@@ -14,17 +16,28 @@ import { AgonesModule } from './agones-test/agones.module';
     ScheduleModule.forRoot(),
     MatchingModule,
     AuthModule,
-		AgonesModule,
+		AgonesTestModule,
+		AgonesAllocatorModule,
+		QueueModule,
     RedisModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        isGlobal: true,
-        type: 'single',
-        options: {
-          host: configService.get<string>('REDIS_HOST'),
-          port: configService.get<number>('REDIS_PORT'),
-        },
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const host = configService.get<string>('REDIS_HOST');
+        const port = configService.get<number>('REDIS_PORT');
+        console.log('[BOOT] Redis config:', host, port);
+        return {
+          isGlobal: true,
+          type: 'single',
+          options: {
+            host,
+            port,
+            tls: {
+              servername: host,
+              rejectUnauthorized: true,
+            },
+          },
+        };
+      },
       inject: [ConfigService],
     }),
   ],
