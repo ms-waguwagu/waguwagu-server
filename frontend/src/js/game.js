@@ -102,7 +102,7 @@ export class GameManager {
     localStorage.removeItem("waguwagu_game_mode");
 
     navigator.sendBeacon(
-      "http://localhost:3001/api/game/leave",
+      CONFIG.API_URL + "/leave",
       new Blob([JSON.stringify({ reason: "UNLOAD" })], {
         type: "application/json",
       })

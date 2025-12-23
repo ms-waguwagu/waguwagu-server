@@ -1,3 +1,5 @@
+import { MATCHING_CONFIG } from "../../config.js";
+
 // DOM 요소 가져오기
 const timerEl = document.getElementById("queue-timer");
 const cancelBtn = document.getElementById("cancel-queue-btn");
@@ -172,8 +174,10 @@ if (document.getElementById("queue-screen")) {
 
     // socket.io-client가 로드되어 있어야 함 (CDN)
     if (typeof io !== "undefined") {
-      const socket = io("http://localhost:3000/queue", {
+      const socket = io(MATCHING_CONFIG.WS_MATCHING_URL,{
+        path: "/socket.io",
         auth: { token },
+        transports: ["websocket"],
       });
 
       // 소켓 연결되면 대기열 진입
