@@ -4,6 +4,14 @@ pipeline {
   environment {
     AWS_REGION = "ap-northeast-2"
     S3_BUCKET  = "waguwagu-s3-bucket-061039804626-ap-northeast-2"
+
+    // Secrets Manager에서 읽어올 배포 아이디
+    CF_SECRET_ID  = "T3-Wagu-Secrets"
+    CF_SECRET_KEY = "CLOUDFRONT_DISTRIBUTION_ID"
+  }
+
+  options {
+    disableConcurrentBuilds()
   }
 
   stages {
@@ -14,16 +22,50 @@ pipeline {
     stage('Deploy to S3 (include src/)') {
       steps {
         sh '''
-          set -eux
+          set -euo pipefail
           DEST="s3://$S3_BUCKET/"
 
-          aws s3 sync "frontend/" "$DEST" --delete --region "$AWS_REGION"
+          # 1) 전체 업로드 (src 포함)
+          # Jenkinsfile 파일이 S3에 올라가는 것 방지
+          aws s3 sync "frontend/" "$DEST" --delete --region "$AWS_REGION" \
+            --exclude "Jenkinsfile" \
+            --exclude ".git/*" \
+            --exclude "*.md"
 
-          # index.html만 no-cache로 다시 업로드(브라우저 캐시 완화)
-          aws s3 cp "frontend/index.html" "${DEST}index.html" --region "$AWS_REGION" \
-            --cache-control "no-cache, no-store, must-revalidate" \
-            --content-type "text/html; charset=utf-8" \
-            --metadata-directive REPLACE
+          # 2) 모든 .html 파일을 no-cache로 메타데이터 덮어쓰기
+          find frontend -type f -name "*.html" -print0 | while IFS= read -r -d '' f; do
+            rel="${f#frontend/}"
+            aws s3 cp "$f" "${DEST}${rel}" --region "$AWS_REGION" \
+              --cache-control "no-cache, no-store, must-revalidate" \
+              --content-type "text/html; charset=utf-8" \
+              --metadata-directive REPLACE
+          done
+        '''
+      }
+    }
+
+    stage('Invalidate CloudFront (ALL)') {
+      steps {
+        sh '''
+          set -euo pipefail
+
+          SECRET_JSON="$(aws secretsmanager get-secret-value \
+            --secret-id "$CF_SECRET_ID" \
+            --query "SecretString" \
+            --output text \
+            --region "$AWS_REGION")"
+
+          CF_ID="$(echo "$SECRET_JSON" | jq -r --arg k "$CF_SECRET_KEY" '.[$k]')"
+
+          if [ -z "$CF_ID" ] || [ "$CF_ID" = "null" ]; then
+            echo "[ERROR] CloudFront Distribution ID not found in Secrets Manager. secret=$CF_SECRET_ID key=$CF_SECRET_KEY"
+            exit 1
+          fi
+
+          echo "[INFO] Invalidate CloudFront: $CF_ID"
+          aws cloudfront create-invalidation \
+            --distribution-id "$CF_ID" \
+            --paths "/*"
         '''
       }
     }
