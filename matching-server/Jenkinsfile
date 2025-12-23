@@ -76,32 +76,7 @@ pipeline {
       }
     }
 
-    /*
-    // ===========================
-    // CD 단계 (클러스터 생기면 주석 해제)
-    // ===========================
-
-    stage("Configure kubeconfig") {
-      steps {
-        sh '''
-          set -e
-          aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
-          kubectl get ns ${NAMESPACE}
-        '''
-      }
-    }
-
-    stage("Deploy (Update Deployment image)") {
-      steps {
-        sh '''
-          set -e
-          kubectl -n ${NAMESPACE} set image deploy/${DEPLOYMENT_NAME} ${CONTAINER_NAME}=${IMAGE_URI}
-          kubectl -n ${NAMESPACE} rollout status deploy/${DEPLOYMENT_NAME} --timeout=300s
-          kubectl -n ${NAMESPACE} get deploy ${DEPLOYMENT_NAME} -o wide
-        '''
-      }
-    }
-    */
+  
   }
 
   post {
@@ -110,3 +85,86 @@ pipeline {
     }
   }
 }
+
+
+/* 내일 이걸로 한번 돌려봐라...
+
+pipeline {
+  agent any
+
+  environment {
+    AWS_REGION   = "ap-northeast-2"
+    ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
+    APP_DIR      = "matching-server"
+  }
+
+  options {
+    skipDefaultCheckout(true)
+    disableConcurrentBuilds()
+  }
+
+  stages {
+    stage("Checkout") {
+      steps { checkout scm }
+    }
+
+    stage("Change check") {
+      steps {
+        script {
+          def prev = (env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: "").trim()
+          def curr = (env.GIT_COMMIT ?: "").trim()
+
+          if (!prev) {
+            env.RUN_PIPELINE = "true"
+            echo "[CHANGE] First build (no previous successful commit) -> RUN"
+          } else {
+            def range = curr ? "${prev}..${curr}" : "${prev}..HEAD"
+            def changed = sh(
+              script: "git diff --name-only ${range} | grep -E '^${APP_DIR}/' || true",
+              returnStdout: true
+            ).trim()
+
+            env.RUN_PIPELINE = changed ? "true" : "false"
+            echo changed ? "[CHANGE] Detected:\n${changed}" : "[CHANGE] No ${APP_DIR}/ changes -> SKIP"
+          }
+        }
+      }
+    }
+
+    stage("ECR Login") {
+      when { expression { env.RUN_PIPELINE == "true" } }
+      steps {
+        sh '''
+          set -e
+          aws ecr get-login-password --region ${AWS_REGION} \
+            | docker login --username AWS --password-stdin ${ECR_REPO_URI%/*}
+        '''
+      }
+    }
+
+    stage("Build & Push") {
+      when { expression { env.RUN_PIPELINE == "true" } }
+      steps {
+        script {
+          def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
+          env.IMAGE_TAG = "${sha7}-${env.BUILD_NUMBER}"
+        }
+
+        sh '''
+          set -e
+          cd ${APP_DIR}
+          docker build -t ${ECR_REPO_URI}:${IMAGE_TAG} .
+          docker push ${ECR_REPO_URI}:${IMAGE_TAG}
+        '''
+      }
+    }
+  }
+
+  post {
+    always { sh 'docker image prune -f || true' }
+  }
+}
+
+
+
+*/
