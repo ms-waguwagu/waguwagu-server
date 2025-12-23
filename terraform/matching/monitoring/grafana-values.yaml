@@ -13,7 +13,7 @@ datasources:
     datasources:
       - name: Prometheus-Game
         type: prometheus
-        url: http://internal-a17e6f97e116b438bbbfc1e1ea93112c-574407106.ap-northeast-2.elb.amazonaws.com
+        url: http://internal-a17e6f97e116b438bbbfc1e1ea93112c-574407106.ap-northeast-2.elb.amazonaws.com #하드코딩, 매일 바꿔야 하는 값
         access: proxy
         isDefault: true
 
