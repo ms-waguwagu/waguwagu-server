@@ -8,7 +8,7 @@ export async function setNickname(nickname) {
     throw new Error("로그인이 필요합니다");
   }
 
-  const res = await fetch(`${MATCHING_CONFIG.MATCHING_URL}/auth/nickname`, {
+  const res = await fetch(`${MATCHING_CONFIG.API_BASE_URL}/auth/nickname`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

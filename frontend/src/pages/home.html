@@ -45,7 +45,7 @@
         location.href = "./login.html";
       }
 
-        // 🧹 홈 진입 시 게임 잔존 정보 정리
+      // 🧹 홈 진입 시 게임 잔존 정보 정리
       localStorage.removeItem("waguwagu_room_id");
 
       // 게임 시작
@@ -55,7 +55,7 @@
 
       // 보스 테스트
       document.getElementById("boss-start-button").onclick = () => {
-        location.href = "./login.html"; // 필요 시 보스 전용 페이지로 변경
+        location.href = "./queue.html?mode=boss";
       };
 
       // 로그아웃

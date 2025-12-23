@@ -41,7 +41,7 @@ export class QueueService implements OnModuleInit {
       'utf8',
     );
 
-		this.EXTRACT_PARTIAL_MATCH_LUA = await fs.readFile(
+    this.EXTRACT_PARTIAL_MATCH_LUA = await fs.readFile(
       path.join(luaDirPath, 'extract-partial-match.lua'),
       'utf8',
     );
@@ -98,30 +98,28 @@ export class QueueService implements OnModuleInit {
     return result as string[];
   }
 
-	// 마지막 입장 시각 가져오기
-	async getLastJoinedAt(): Promise<number | null> {
+  // 마지막 입장 시각 가져오기
+  async getLastJoinedAt(): Promise<number | null> {
     const queueKey = 'match_queue';
     const value = await this.redis.get(`${queueKey}:lastJoinedAt`);
     if (!value) return null;
     return Number(value);
-	}
+  }
 
-	// 최대 5명까지 꺼냄
-	async extractMatchUpTo(count: number): Promise<string[] | null> {
+  // 최대 5명까지 꺼냄
+  async extractMatchUpTo(count: number): Promise<string[] | null> {
     const queueKey = 'match_queue';
 
     const result = await this.redis.eval(
-    this.EXTRACT_PARTIAL_MATCH_LUA, 
-    1, 
-    queueKey,
-    count.toString(),
-  );
+      this.EXTRACT_PARTIAL_MATCH_LUA,
+      1,
+      queueKey,
+      count.toString(),
+    );
 
-  if (!result) return null;
-  return result as string[];
-}
-
-
+    if (!result) return null;
+    return result as string[];
+  }
 
   // 매칭 취소 메서드
   async cancelQueue(userId: string): Promise<void> {
@@ -132,10 +130,7 @@ export class QueueService implements OnModuleInit {
 
     // 1. 세션 상태 조회
     const currentStatus = await this.redis.hget(sessionKey, 'status');
-    console.log(
-      `Redis 세션 상태 (HGET ${sessionKey} status):`,
-      currentStatus,
-    );
+    console.log(`Redis 세션 상태 (HGET ${sessionKey} status):`, currentStatus);
 
     const result = await this.redis.eval(
       this.CANCEL_MATCH_LUA,
@@ -174,29 +169,158 @@ export class QueueService implements OnModuleInit {
   // 세션 조회 (단일 명령이라 Lua로 감싸지 않아도 됨)
   async getSessionInfo(userId: string): Promise<any> {
     const sessionKey = `session:${userId}`;
-		
+
     return this.redis.hgetall(sessionKey);
   }
 
   // 상태 업데이트 (단일 명령)
-  async updateStatus(
-    userId: string,
-    newStatus: PlayerStatus,
-  ): Promise<void> {
+  async updateStatus(userId: string, newStatus: PlayerStatus): Promise<void> {
     const sessionKey = `session:${userId}`;
     await this.redis.hset(sessionKey, 'status', newStatus);
   }
 
-	// 매칭 실패 시 유저들을 다시 큐 앞쪽에 복구
+  // 매칭 실패 시 유저들을 다시 큐 앞쪽에 복구
   async rollbackParticipants(participants: string[]): Promise<void> {
     const queueKey = 'match_queue';
     if (!participants || participants.length === 0) return;
 
     await this.redis.lpush(queueKey, ...participants);
-    
+
     // 상태도 다시 WAITING으로 변경
     for (const userId of participants) {
-        await this.updateStatus(userId, PlayerStatus.WAITING);
+      await this.updateStatus(userId, PlayerStatus.WAITING);
+    }
+  }
+
+  // ============================================
+  // 보스모드 큐 관련 메서드
+  // ============================================
+
+  // 보스모드 대기열 진입
+  async enterBossQueue(userId: string, nickname: string): Promise<string> {
+    const sessionKey = `session:${userId}`;
+    const queueKey = 'boss_match_queue';
+    const now = Date.now().toString();
+
+    const result = await this.redis.eval(
+      this.ENTER_QUEUE_LUA,
+      2, // KEYS 개수
+      sessionKey, // KEYS[1]
+      queueKey, // KEYS[2]
+      nickname, // ARGV[1]
+      now, // ARGV[2]
+      this.SESSION_TTL.toString(), // ARGV[3]
+      userId, // ARGV[4]
+    );
+    console.log('enterBossQueue result', result);
+    // Lua 스크립트 결과에 따른 예외 처리
+    if (result === 'DUPLICATE_ENTRY') {
+      throw new ConflictException('이미 보스모드 대기열에 참여 중입니다.');
+    }
+    if (result === 'ALREADY_IN_GAME') {
+      throw new ConflictException('이미 게임이 진행 중입니다.');
+    }
+
+    return result as string;
+  }
+
+  // 보스모드 매칭 큐에서 인원 추출
+  async extractBossMatchParticipants(count: number): Promise<string[] | null> {
+    const queueKey = 'boss_match_queue';
+
+    const result = await this.redis.eval(
+      this.EXTRACT_MATCH_LUA,
+      1, // KEYS 개수
+      queueKey, // KEYS[1]
+      count.toString(), // ARGV[1]
+    );
+
+    if (!result) {
+      return null;
+    }
+
+    return result as string[];
+  }
+
+  // 보스모드 마지막 입장 시각 가져오기
+  async getBossLastJoinedAt(): Promise<number | null> {
+    const queueKey = 'boss_match_queue';
+    const value = await this.redis.get(`${queueKey}:lastJoinedAt`);
+    if (!value) return null;
+    return Number(value);
+  }
+
+  // 보스모드 최대 인원까지 꺼냄
+  async extractBossMatchUpTo(count: number): Promise<string[] | null> {
+    const queueKey = 'boss_match_queue';
+
+    const result = await this.redis.eval(
+      this.EXTRACT_PARTIAL_MATCH_LUA,
+      1,
+      queueKey,
+      count.toString(),
+    );
+
+    if (!result) return null;
+    return result as string[];
+  }
+
+  // 보스모드 매칭 취소
+  async cancelBossQueue(userId: string): Promise<void> {
+    const sessionKey = `session:${userId}`;
+    const queueKey = 'boss_match_queue';
+
+    console.log(`\n보스모드 매칭 취소 UserID: ${userId}`);
+
+    const currentStatus = await this.redis.hget(sessionKey, 'status');
+    console.log(`Redis 세션 상태 (HGET ${sessionKey} status):`, currentStatus);
+
+    const result = await this.redis.eval(
+      this.CANCEL_MATCH_LUA,
+      2, // KEYS 개수
+      sessionKey, // KEYS[1]
+      queueKey, // KEYS[2]
+      userId, // ARGV[1]
+    );
+
+    const resultStr = result as string;
+
+    switch (resultStr) {
+      case 'CANCELLED':
+        return;
+
+      case 'ALREADY_IN_GAME':
+      case 'ALREADY_MATCHED_BY_WORKER':
+        throw new ConflictException('이미 매칭이 성사되어 취소할 수 없습니다.');
+
+      case 'NOT_QUEUED':
+        throw new BadRequestException(
+          '보스모드 대기열에 존재하지 않는 유저입니다.',
+        );
+
+      default:
+        throw new InternalServerErrorException(
+          '보스모드 매칭 취소 중 알 수 없는 오류 발생',
+        );
+    }
+  }
+
+  // 보스모드 큐 길이 조회
+  async getBossQueueLength(): Promise<number> {
+    const queueKey = 'boss_match_queue';
+    return this.redis.llen(queueKey);
+  }
+
+  // 보스모드 매칭 실패 시 유저들을 다시 큐 앞쪽에 복구
+  async rollbackBossParticipants(participants: string[]): Promise<void> {
+    const queueKey = 'boss_match_queue';
+    if (!participants || participants.length === 0) return;
+
+    await this.redis.lpush(queueKey, ...participants);
+
+    // 상태도 다시 WAITING으로 변경
+    for (const userId of participants) {
+      await this.updateStatus(userId, PlayerStatus.WAITING);
     }
   }
 }
