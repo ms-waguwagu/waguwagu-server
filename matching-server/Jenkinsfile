@@ -1,0 +1,112 @@
+pipeline {
+  agent any
+
+  environment {
+    AWS_REGION   = "ap-northeast-2"
+
+    // 내 account id 집어넣음
+    ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
+
+    CLUSTER_NAME = "T3-Wagu-Matching-EKS"
+    NAMESPACE    = "matching"
+
+    DEPLOYMENT_NAME = "matching-deploy"
+    CONTAINER_NAME  = "matching"
+  }
+
+  options {
+    skipDefaultCheckout(true)
+    // (옵션) 중복 checkout 방지하고 싶으면 켜도 됨
+    // skipDefaultCheckout(true)
+  }
+
+  stages {
+    stage("Checkout") {
+      steps {
+        checkout scm
+      }
+    }
+
+    // (선택) matching-server 폴더 변경 체크 (하지만 이제 스킵/중단 안 함)
+    stage("Change check") {
+      steps {
+        script {
+          echo "=== MATCHING JENKINSFILE TEST v1 ==="   // <- 이거 한 줄 추가해보기 테스트용도 실제 잘 polling되나
+          def changed = sh(
+            script: "git diff --name-only HEAD~1..HEAD | grep -E '^matching-server/' || true",
+            returnStdout: true
+          ).trim()
+
+          //  변경이 없어도 빌드를 막지 말고 그냥 진행
+          if (!changed) {
+            echo "No changes in matching-server/, but continue (always Build & Push)."
+          } else {
+            echo "Changes detected in matching-server/ -> proceed."
+          }
+        }
+      }
+    }
+
+    stage("ECR Login") {
+      steps {
+        sh '''
+          set -e
+          aws ecr get-login-password --region ${AWS_REGION} \
+            | docker login --username AWS --password-stdin ${ECR_REPO_URI%/*}
+        '''
+      }
+    }
+
+    stage("Build & Push") {
+      steps {
+        script {
+          // 태그 전략: 커밋해시, 빌드번호
+          def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
+          def tag  = "${sha7}-${env.BUILD_NUMBER}"
+          env.IMAGE_TAG = tag
+          env.IMAGE_URI = "${env.ECR_REPO_URI}:${tag}"
+        }
+
+        sh '''
+          set -e
+          cd matching-server
+          docker build -t ${ECR_REPO_URI}:${IMAGE_TAG} .
+          docker push ${ECR_REPO_URI}:${IMAGE_TAG}
+        '''
+      }
+    }
+
+    /*
+    // ===========================
+    // CD 단계 (클러스터 생기면 주석 해제)
+    // ===========================
+
+    stage("Configure kubeconfig") {
+      steps {
+        sh '''
+          set -e
+          aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
+          kubectl get ns ${NAMESPACE}
+        '''
+      }
+    }
+
+    stage("Deploy (Update Deployment image)") {
+      steps {
+        sh '''
+          set -e
+          kubectl -n ${NAMESPACE} set image deploy/${DEPLOYMENT_NAME} ${CONTAINER_NAME}=${IMAGE_URI}
+          kubectl -n ${NAMESPACE} rollout status deploy/${DEPLOYMENT_NAME} --timeout=300s
+          kubectl -n ${NAMESPACE} get deploy ${DEPLOYMENT_NAME} -o wide
+        '''
+      }
+    }
+    */
+  }
+
+  post {
+    always {
+      sh 'docker image prune -f || true'
+    }
+  }
+}

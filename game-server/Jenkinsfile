@@ -1,0 +1,117 @@
+pipeline {
+  agent any
+
+  environment {
+    AWS_REGION   = "ap-northeast-2"
+
+    //game ECR URI 일단 내 계정 accountid / 다시 바꿈 
+    ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
+
+    CLUSTER_NAME = "T3-Wagu-Game-EKS"
+    NAMESPACE    = "game"
+
+    // Agones Fleet
+    FLEET_NAME   = "waguwagu-fleet"
+    CONTAINER_NAME = "game-server"
+  }
+
+  options {
+    skipDefaultCheckout(true)
+    // (옵션) 중복 checkout 방지하고 싶으면 켜도 됨
+    // skipDefaultCheckout(true)
+  }
+
+  stages {
+    stage("Checkout") {
+      steps {
+        checkout scm
+      }
+    }
+
+    // (선택) game-server 폴더 변경 체크 (하지만 이제 스킵/중단 안 함)
+    stage("Change check") {
+      steps {
+        script {
+          def changed = sh(
+            script: "git diff --name-only HEAD~1..HEAD | grep -E '^game-server/' || true",
+            returnStdout: true
+          ).trim()
+
+          // 변경 없어도 빌드를 막지 말고 그냥 진행
+          if (!changed) {
+            echo "No changes in game-server/, but continue (always Build & Push)."
+          } else {
+            echo "Changes detected in game-server/ -> proceed."
+          }
+        }
+      }
+    }
+
+    stage("ECR Login") {
+      steps {
+        sh '''
+          set -e
+          aws ecr get-login-password --region ${AWS_REGION} \
+            | docker login --username AWS --password-stdin ${ECR_REPO_URI%/*}
+        '''
+      }
+    }
+
+    stage("Build & Push") {
+      steps {
+        script {
+          // env.GIT_COMMIT이 null로 들어오는 Jenkins가 있어서 git으로 직접 뽑아 안정화
+          def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
+          def tag = "${sha7}-${env.BUILD_NUMBER}"
+          env.IMAGE_TAG = tag
+          env.IMAGE_URI = "${env.ECR_REPO_URI}:${tag}"
+          echo "IMAGE_URI = ${env.IMAGE_URI}"
+        }
+
+        sh '''
+          set -e
+          cd game-server
+          docker build -t ${ECR_REPO_URI}:${IMAGE_TAG} .
+          docker push ${ECR_REPO_URI}:${IMAGE_TAG}
+        '''
+      }
+    }
+
+    /*
+    // ===========================
+    // CD 단계 (클러스터/Agones 준비되면 주석 해제)
+    // ===========================
+
+    stage("Configure kubeconfig") {
+      steps {
+        sh '''
+          set -e
+          aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
+          kubectl get ns ${NAMESPACE}
+        '''
+      }
+    }
+
+    stage("Deploy (Agones Fleet image update)") {
+      steps {
+        sh '''
+          set -e
+          # CRD(Fleet)는 kubectl set image가  잘 먹지 않아서 patch 추천
+          #  containers 배열이 1개라는 전제로 merge patch 사용
+          kubectl -n ${NAMESPACE} patch fleet ${FLEET_NAME} --type merge \
+            -p "{\"spec\":{\"template\":{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"${CONTAINER_NAME}\",\"image\":\"${IMAGE_URI}\"}]}}}}}}"
+
+          # 반영 확인
+          kubectl -n ${NAMESPACE} get fleet ${FLEET_NAME} -o yaml | grep -n "image:" | head -n 5
+        '''
+      }
+    }
+    */
+  }
+
+  post {
+    always {
+      sh 'docker image prune -f || true'
+    }
+  }
+}
