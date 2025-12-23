@@ -4,11 +4,11 @@ pipeline {
   environment {
     AWS_REGION = "ap-northeast-2"
     S3_BUCKET  = "waguwagu-s3-bucket-061039804626-ap-northeast-2"
-    S3_PREFIX  = ""   // 예: "frontend" (없으면 빈 값)
+    S3_PREFIX  = ""
   }
 
   options {
-    timestamps()
+    skipDefaultCheckout(true)
     disableConcurrentBuilds()
   }
 
@@ -21,23 +21,16 @@ pipeline {
       steps {
         sh '''
           set -eux
-          aws --version
-
           DEST="s3://$S3_BUCKET/"
           if [ -n "$S3_PREFIX" ]; then
             DEST="s3://$S3_BUCKET/$S3_PREFIX/"
           fi
 
-          # 1) 전체 업로드 (src 포함)
           aws s3 sync "frontend/" "$DEST" --delete --region "$AWS_REGION"
-
-          # 2) index.html만 no-cache로 다시 업로드 (브라우저 캐시 완화)
-          if [ -f "frontend/index.html" ]; then
-            aws s3 cp "frontend/index.html" "${DEST}index.html" --region "$AWS_REGION" \
-              --cache-control "no-cache, no-store, must-revalidate" \
-              --content-type "text/html; charset=utf-8" \
-              --metadata-directive REPLACE
-          fi
+          aws s3 cp "frontend/index.html" "${DEST}index.html" --region "$AWS_REGION" \
+            --cache-control "no-cache, no-store, must-revalidate" \
+            --content-type "text/html; charset=utf-8" \
+            --metadata-directive REPLACE
         '''
       }
     }
