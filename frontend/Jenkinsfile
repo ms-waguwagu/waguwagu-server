@@ -4,12 +4,6 @@ pipeline {
   environment {
     AWS_REGION = "ap-northeast-2"
     S3_BUCKET  = "waguwagu-s3-bucket-061039804626-ap-northeast-2"
-    S3_PREFIX  = ""
-  }
-
-  options {
-    skipDefaultCheckout(true)
-    disableConcurrentBuilds()
   }
 
   stages {
@@ -22,11 +16,10 @@ pipeline {
         sh '''
           set -eux
           DEST="s3://$S3_BUCKET/"
-          if [ -n "$S3_PREFIX" ]; then
-            DEST="s3://$S3_BUCKET/$S3_PREFIX/"
-          fi
 
           aws s3 sync "frontend/" "$DEST" --delete --region "$AWS_REGION"
+
+          # index.html만 no-cache로 다시 업로드(브라우저 캐시 완화)
           aws s3 cp "frontend/index.html" "${DEST}index.html" --region "$AWS_REGION" \
             --cache-control "no-cache, no-store, must-revalidate" \
             --content-type "text/html; charset=utf-8" \
