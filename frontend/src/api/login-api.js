@@ -1,4 +1,4 @@
-import { MATCHING_CONFIG } from "../../config.js";
+import { MATCHING_CONFIG } from "../utils/config.js";
 
 // OAuth 이후 닉네임 설정 전용 함수
 export async function setNickname(nickname) {

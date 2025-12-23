@@ -70,7 +70,7 @@ export class GameGateway
     if (!roomWrapper) return;
 
     const room = roomWrapper.engine;
-
+    const MATCHING_SERVER_URL = process.env.MATCHING_SERVER_URL;
     // 플레이어 제거
     room.removePlayer(client.id);
     client.leave(roomId);
@@ -83,9 +83,17 @@ export class GameGateway
       const userIds = roomWrapper.users;
 
       try {
-        await axios.post('http://localhost:3000/internal/game-finished', {
-          userIds,
-        });
+        await axios.post(
+          `${MATCHING_SERVER_URL}/internal/game-finished`,
+          { userIds },
+          {
+            headers: {
+              'x-internal-token': process.env.INTERNAL_TOKEN, // internal API면 권장
+            },
+            timeout: 3000,
+          },
+        );
+
         this.logger.log(`📤 game-finished sent to matching server`, userIds);
       } catch (err) {
         this.logger.error('❌ game-finished notify failed', err);
@@ -302,6 +310,8 @@ export class GameGateway
           room.intervalRunning = false;
         }
 
+        const MATCHING_SERVER_URL = process.env.MATCHING_SERVER_URL;
+
         // ⭐ 1. 게임 결과 생성
         const results = room.getFinalResults();
         // [{ googleSub, score, rank }, ...]
@@ -309,7 +319,7 @@ export class GameGateway
         try {
           // ⭐ 2. 게임 결과 저장 (RDS)
           await axios.post(
-            'http://localhost:3000/internal/game-result',
+            `${MATCHING_SERVER_URL}/internal/game-result`,
             {
               gameId: roomId,
               roomId,
@@ -323,9 +333,9 @@ export class GameGateway
             },
           );
 
-          // ⭐ 3. 세션 종료 알림 (기존 로직 유지)
+          // ⭐ 3. 세션 종료 알림
           await axios.post(
-            'http://localhost:3000/internal/game-finished',
+            `${MATCHING_SERVER_URL}/internal/game-finished`,
             {
               userIds: roomWrapper.users,
             },

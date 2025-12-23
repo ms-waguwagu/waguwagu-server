@@ -59,7 +59,8 @@
     <!-- 🔥 로그인 로직 -->
     <script type="module">
       import { googleLogin } from "../api/google-login-api.js";
-      import { MATCHING_CONFIG } from "../../config.js";
+      import { MATCHING_CONFIG } from "../utils/config.js";
+
 
       //이미 로그인 한 사용자라면, home으로 리다이렉션
       const token = localStorage.getItem("accessToken");

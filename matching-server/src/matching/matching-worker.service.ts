@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import { QueueService } from '../queue/queue.service';
 import { QueueGateway } from '../queue/queue.gateway';
-import { v4 as uuidv4 } from 'uuid'; //방 ID 생성용 
+import { v4 as uuidv4 } from 'uuid'; //방 ID 생성용
 import axios from 'axios';
 import { PlayerStatus } from '../common/constants';
 
@@ -11,11 +11,11 @@ import { PlayerStatus } from '../common/constants';
 export class MatchingWorker {
   private readonly logger = new Logger(MatchingWorker.name);
   private isProcessing = false; // 중복 실행 방지용 플래그
-	private readonly TIMEOUT_MS = 7000; // 마지막 유저 기준 7초 ‼️테스트용‼️
+  private readonly TIMEOUT_MS = 7000; // 마지막 유저 기준 7초 ‼️테스트용‼️
 
   constructor(
-		private readonly queueService: QueueService, 
-		private readonly queueGateway: QueueGateway,
+    private readonly queueService: QueueService,
+    private readonly queueGateway: QueueGateway,
     private readonly configService: ConfigService,
   ) {}
 
@@ -28,17 +28,15 @@ export class MatchingWorker {
     }
     this.isProcessing = true;
 
-    let participants: string[]  | null = null;
+    let participants: string[] | null = null;
 
     try {
-			
-       const maxPlayers =
-        this.configService.get<number>('MATCH_PLAYER_COUNT') ?? 5; 
-			
-				// 1. 먼저 5인 매칭 시도
-      participants = await this.queueService.extractMatchParticipants(
-        maxPlayers,
-      );
+      const maxPlayers =
+        this.configService.get<number>('MATCH_PLAYER_COUNT') ?? 5;
+
+      // 1. 먼저 5인 매칭 시도
+      participants =
+        await this.queueService.extractMatchParticipants(maxPlayers);
 
       if (participants && participants.length === maxPlayers) {
         this.logger.log(
@@ -92,24 +90,21 @@ export class MatchingWorker {
 
       // 실패 시 롤백 -> 추출된 유저들을 다시 큐에 복구
       if (participants && participants.length > 0) {
-        this.logger.warn(
-          `롤백 실행: 유저 [${participants.join(', ')}] 재삽입`,
-        );
+        this.logger.warn(`롤백 실행: 유저 [${participants.join(', ')}] 재삽입`);
         await this.queueService.rollbackParticipants(participants);
       }
     } finally {
       this.isProcessing = false;
     }
-	}
-
+  }
 
   // 공통: 방 생성 + 상태 변경 + 웹소켓 통지
   private async createRoomAndNotify(participants: string[]): Promise<void> {
     const newRoomId = uuidv4();
-		const maxPlayers =
-        this.configService.get<number>('MATCH_PLAYER_COUNT') ?? 5; 
-		const humanCount = participants.length;
-		const botsToAdd = Math.max(0, maxPlayers - humanCount);
+    const maxPlayers =
+      this.configService.get<number>('MATCH_PLAYER_COUNT') ?? 5;
+    const humanCount = participants.length;
+    const botsToAdd = Math.max(0, maxPlayers - humanCount);
 
     // 1. 상태를 IN_GAME 으로 변경
     for (const userId of participants) {
@@ -117,26 +112,18 @@ export class MatchingWorker {
     }
 
     // 2. 게임 룸 생성 요청
-    const gameServerUrl = this.configService.get<string>('GAME_SERVER_URL');
+    const gameServerPublicUrl = this.configService.get<string>(
+      'GAME_SERVER_PUBLIC_URL',
+    );
 
-    const response = await axios.post(`${gameServerUrl}/internal/room`, {
-      roomId: newRoomId,
-      users: participants,
-			botCount: botsToAdd,
-			maxPlayers,
-    });
+    if (!gameServerPublicUrl) {
+      this.logger.error('GAME_SERVER_PUBLIC_URL is not set');
+      throw new Error('Game server public url not configured');
+    }
 
-		//디버깅용 
-		this.logger.log(`목표 인원: ${maxPlayers}, 매칭 된 유저 수: ${humanCount}, 봇 추가: ${botsToAdd}`);
-    const roomInfo = response.data;
-
-    this.logger.log(`게임 룸 생성 완료: ${newRoomId}`);
-
-    // 3. 매칭된 유저들에게 웹소켓으로 접속 정보 전송
     this.queueGateway.broadcastMatchFound(participants, {
       roomId: newRoomId,
-      gameServerIp: roomInfo.ip || 'localhost',
-      port: roomInfo.port || 3001,
+      gameServerUrl: gameServerPublicUrl,
     });
   }
 }

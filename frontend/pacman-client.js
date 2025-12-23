@@ -1,4 +1,4 @@
-import { CONFIG } from "./config.js";
+import { CONFIG } from "./src/utils/config.js";
 import { GameManager } from "./src/js/game.js";
 
 // ====== 초기화 및 인증 체크 ======

@@ -1,6 +1,6 @@
 import { Renderer } from "../game/renderer.js";
 import { io } from "https://cdn.socket.io/4.5.4/socket.io.esm.min.js";
-import { CONFIG } from "../../config.js";
+import { CONFIG } from "../utils/config.js";;
 
 export class GameManager {
   constructor({
@@ -102,14 +102,16 @@ export class GameManager {
     this.keys[e.code] = false;
   }
 
-  sendGameLeave() {
-    localStorage.removeItem("waguwagu_room_id");
+sendGameLeave() {
+  localStorage.removeItem("waguwagu_room_id");
 
-    navigator.sendBeacon(
-      "http://localhost:3001/api/game/leave",
-      new Blob(
-        [JSON.stringify({ reason: "UNLOAD" })],
-        { type: "application/json" }
+  const GAME_SERVER_URL = window.__ENV__.GAME_SOCKET_URL;
+
+  navigator.sendBeacon(
+    `${GAME_SERVER_URL}/api/game/leave`,
+    new Blob(
+      [JSON.stringify({ reason: "UNLOAD" })],
+      { type: "application/json" }
       )
     );
 

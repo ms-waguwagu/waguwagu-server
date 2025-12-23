@@ -1,5 +1,6 @@
 import { setNickname } from "../api/login-api.js";
-import { CONFIG } from "../../config.js";
+import { CONFIG } from "../utils/config.js";
+console.log("API_URL =", CONFIG.API_URL);
 // import { matchingQueue } from "../api/queue-api.js";
 
 const nicknameInput = document.getElementById("nickname-input");

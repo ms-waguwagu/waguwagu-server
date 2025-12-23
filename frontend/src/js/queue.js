@@ -135,9 +135,10 @@ if (document.getElementById("queue-screen")) {
   const token = localStorage.getItem("accessToken");
 
   if (token) {
-    // socket.io-client가 로드되어 있어야 함 (CDN)
     if (typeof io !== "undefined") {
-      const socket = io("http://localhost:3000/queue", {
+      const MATCHING_SERVER_URL = window.__ENV__.API_BASE_URL;
+
+      const socket = io(`${MATCHING_SERVER_URL}/queue`, {
         auth: { token },
       });      
 

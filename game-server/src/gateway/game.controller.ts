@@ -43,8 +43,6 @@ export class GameController {
       message: '게임룸이 생성되었습니다.',
       roomId: result.roomId,
       botsAdded: result.botsToAdd,
-      ip: 'localhost',
-      port: 3001,
     };
   }
 

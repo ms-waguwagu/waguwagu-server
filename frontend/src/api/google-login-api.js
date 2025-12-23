@@ -1,4 +1,4 @@
-import { MATCHING_CONFIG } from "../../config.js";
+import { MATCHING_CONFIG } from "../utils/config.js";
 
 export async function googleLogin(idToken) {
   const res = await fetch(
