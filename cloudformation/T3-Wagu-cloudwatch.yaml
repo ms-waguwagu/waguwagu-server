@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "WAGUWAGU CloudWatch Dashboard - Service Infra Monitoring"
+
+Parameters:
+  ProjectPrefix:
+    Type: String
+    Default: T3-Wagu
+
+  GameNodeASG:
+    Type: String
+    Description: AutoScalingGroupName for Game EKS nodes
+
+  NatGatewayId:
+    Type: String
+    Description: NAT Gateway ID (e.g. nat-xxxxxxxx)
+
+Resources:
+  ############################################################
+  # CloudWatch Dashboard
+  ############################################################
+  InfraDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub "${ProjectPrefix}-Infra-Dashboard"
+      DashboardBody:
+        Fn::Sub:
+          - |
+            {
+              "widgets": [
+                {
+                  "type": "metric",
+                  "x": 0,
+                  "y": 0,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "EKS Node Group CPU (Game)",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [
+                        "AWS/EC2",
+                        "CPUUtilization",
+                        "AutoScalingGroupName",
+                        "${GameASG}",
+                        {
+                          "stat": "Average",
+                          "period": 300,
+                          "label": "Game Node CPU Avg"
+                        }
+                      ]
+                    ]
+                  }
+                },
+                {
+                  "type": "metric",
+                  "x": 12,
+                  "y": 0,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "NAT Gateway Outbound Traffic",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [
+                        "AWS/NATGateway",
+                        "BytesOutToDestination",
+                        "NatGatewayId",
+                        "${NatId}",
+                        {
+                          "stat": "Sum",
+                          "period": 300,
+                          "label": "Outbound Bytes"
+                        }
+                      ]
+                    ]
+                  }
+                }
+              ]
+            }
+          - GameASG: !Ref GameNodeASG
+            NatId: !Ref NatGatewayId
+
+Outputs:
+  DashboardName:
+    Description: Infra CloudWatch Dashboard
+    Value: !Ref InfraDashboard

@@ -1,11 +1,11 @@
-AWSTemplateFormatVersion: '2010-09-09'
-Description: 'WaguWagu Project: S3 Bucket Setup'
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "WaguWagu Project: S3 Bucket Setup"
 
 Resources:
   WaguWaguBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub 'waguwagu-s3-bucket-${AWS::AccountId}-${AWS::Region}'
+      BucketName: !Sub "waguwagu-s3-bucket-${AWS::AccountId}-${AWS::Region}"
       AccessControl: Private
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
@@ -28,7 +28,7 @@ Outputs:
     Value: !Ref WaguWaguBucket
     Export:
       Name: waguwagu-s3-bucket
-  
+
   BucketArn:
     Description: S3 Bucket ARN
     Value: !GetAtt WaguWaguBucket.Arn

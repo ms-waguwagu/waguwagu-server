@@ -1,5 +1,5 @@
-AWSTemplateFormatVersion: '2010-09-09'
-Description: 'WaguWagu Project: CloudFront Distribution for S3 Frontend (OAC)'
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "WaguWagu Project: CloudFront Distribution for S3 Frontend (OAC)"
 
 Parameters:
   MatchingAlbDns:
@@ -29,14 +29,14 @@ Resources:
         Enabled: true
         DefaultRootObject: index.html
         Comment: "WaguWagu Frontend Distribution"
-        
+
         Origins:
           - Id: WaguWaguFrontendOrigin
-            DomainName: !Sub 
+            DomainName: !Sub
               - "${BucketName}.s3.${AWS::Region}.amazonaws.com"
               - BucketName: !ImportValue waguwagu-s3-bucket
             S3OriginConfig:
-              OriginAccessIdentity: "" # OAC ì‚¬ìš© ì‹œ ë¹„ì›Œë‘ 
+              OriginAccessIdentity: "" # OAC »ç¿ë ½Ã ºñ¿öµÒ
             OriginAccessControlId: !GetAtt TWCloudFrontOAC.Id
 
           - Id: WaguWaguMatchingOrigin
@@ -47,7 +47,7 @@ Resources:
               OriginProtocolPolicy: http-only
               OriginSSLProtocols:
                 - TLSv1.2
-            
+
         DefaultCacheBehavior:
           TargetOriginId: WaguWaguFrontendOrigin
           ViewerProtocolPolicy: redirect-to-https
@@ -79,12 +79,12 @@ Resources:
               - HEAD
               - OPTIONS
             Compress: true
-            # CachingDisabled Managed Policy ID (APIëŠ” ìºì‹±í•˜ë©´ ì•ˆë¨)
+            # CachingDisabled Managed Policy ID (API´Â Ä³½ÌÇÏ¸é ¾ÈµÊ)
             CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
-            # AllViewer Origin Request Policy ID (í—¤ë”, ì¿ í‚¤, ì¿¼ë¦¬ìŠ¤íŠ¸ë§ ëª¨ë‘ ì „ë‹¬)
+            # AllViewer Origin Request Policy ID (Çì´õ, ÄíÅ°, Äõ¸®½ºÆ®¸µ ¸ğµÎ Àü´Ş)
             OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
-          
-        # SPA(Single Page Application)ë¥¼ ìœ„í•œ ì—ëŸ¬ í˜ì´ì§€ ì„¤ì • (React/Vue ë“± ì‚¬ìš© ì‹œ í•„ìˆ˜)
+
+        # SPA(Single Page Application)¸¦ À§ÇÑ ¿¡·¯ ÆäÀÌÁö ¼³Á¤ (React/Vue µî »ç¿ë ½Ã ÇÊ¼ö)
         CustomErrorResponses:
           - ErrorCode: 403
             ResponseCode: 200
@@ -92,7 +92,7 @@ Resources:
           - ErrorCode: 404
             ResponseCode: 200
             ResponsePagePath: /index.html
-            
+
   # ------------------------------------------------------------
   # 3. S3 Bucket Policy
   # ------------------------------------------------------------
@@ -101,14 +101,14 @@ Resources:
     Properties:
       Bucket: !ImportValue waguwagu-s3-bucket
       PolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Sid: AllowCloudFrontServicePrincipal
             Effect: Allow
             Principal:
               Service: cloudfront.amazonaws.com
             Action: s3:GetObject
-            Resource: !Sub 
+            Resource: !Sub
               - "${BucketArn}/*"
               - BucketArn: !ImportValue waguwagu-s3-bucket-arn
             Condition:
@@ -121,7 +121,7 @@ Outputs:
     Value: !Ref TWCloudFrontDistribution
     Export:
       Name: WaguWagu-CloudFront-Distribution-ID
-  
+
   DistributionDomainName:
     Description: CloudFront Domain Name
     Value: !GetAtt TWCloudFrontDistribution.DomainName
