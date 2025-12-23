@@ -3,7 +3,7 @@ import { Controller, Post } from "@nestjs/common";
 import { AgonesTestService } from "./agones-test.service";
 
 @Controller('agones')
-export class AgonesController {
+export class AgonesTestController {
 	constructor(private readonly agonesTestService: AgonesTestService) {}
 
 @Post('/test/allocator')

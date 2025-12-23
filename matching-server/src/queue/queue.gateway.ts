@@ -13,7 +13,10 @@ import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 import { PlayerStatus } from '../common/constants';
 
-@WebSocketGateway({ namespace: 'queue', cors: { origin: '*' } })
+@WebSocketGateway({ 
+	namespace: '/queue', 
+	path: '/socket.io',
+	cors: { origin: '*' } })
 export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
@@ -31,6 +34,7 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(client: Socket) {
     try {
+      this.logger.log('WS CONNECT 시도');
       const token = client.handshake.auth?.token;
       if (!token) throw new Error('토큰 없음');
 
@@ -48,6 +52,7 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
     } catch (error) {
       this.logger.warn(`클라이언트 연결 실패: ${error.message}`);
+      client.emit('error', { message: error.message });
       client.disconnect();
     }
   }

@@ -6,6 +6,7 @@ import { QueueGateway } from '../queue/queue.gateway';
 import { v4 as uuidv4 } from 'uuid'; //방 ID 생성용
 import axios from 'axios';
 import { PlayerStatus } from '../common/constants';
+import { AgonesAllocatorService } from '../agones-allocator/agoness-allocator.service';
 
 @Injectable()
 export class MatchingWorker {
@@ -18,6 +19,7 @@ export class MatchingWorker {
     private readonly queueService: QueueService,
     private readonly queueGateway: QueueGateway,
     private readonly configService: ConfigService,
+    private readonly agonesAllocatorService: AgonesAllocatorService,
   ) {}
 
   // 1초마다 실행
@@ -112,7 +114,14 @@ export class MatchingWorker {
       await this.queueService.updateStatus(userId, PlayerStatus.IN_GAME);
     }
 
-    // 2. 게임 룸 생성 요청
+		// ‼️Agones Allocator 호출 (현재는 검증용)‼️
+		// 실제 접속에는 아직 사용하지 않음!
+		const { address, port } = await this.agonesAllocatorService.allocate();
+    this.logger.log(
+      `[DEBUG] Allocator가 GameServer ${address}:${port}를 할당했습니다`,
+    );
+
+    // 2. 게임 룸 생성 요청 (기존 API 호출 일단 유지)
     const gameServerUrl = this.configService.get<string>('GAME_SERVER_URL');
 
     const response = await axios.post(`${gameServerUrl}/internal/room`, {
