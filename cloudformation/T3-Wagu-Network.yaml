@@ -156,7 +156,7 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref MatchingIGW
 
-  # 추가: Matching -> Game (Peering)
+  # ???: Matching -> Game (Peering)
   MatchingPublicRouteToGameVpc:
     Type: AWS::EC2::Route
     DependsOn: MatchingToGamePeering
@@ -375,7 +375,7 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref GameInternetGateway
 
-  # 추가: Game -> Matching (Peering)
+  # ???: Game -> Matching (Peering)
   GamePublicRouteToMatchingVpc:
     Type: AWS::EC2::Route
     DependsOn: MatchingToGamePeering

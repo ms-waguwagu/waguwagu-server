@@ -1,6 +1,11 @@
 server:
   persistentVolume:
     enabled: false
+  service:
+    type: LoadBalancer
+    port: 9090
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-internal: "true"
 
 alertmanager:
   enabled: false
