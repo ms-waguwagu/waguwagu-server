@@ -125,7 +125,7 @@ Resources:
           Value: WAGUWAGU
 
   ############################################################
-  # 6) Jenkins Matching SG 
+  # 6) Jenkins Matching SG
   ############################################################
   JenkinsMatchingSG:
     Type: AWS::EC2::SecurityGroup
@@ -134,39 +134,7 @@ Resources:
       VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
 
       SecurityGroupIngress:
-      # GitHub Webhook ‚Üí Jenkins (HTTP 8080)
-      - IpProtocol: tcp
-        FromPort: 8080
-        ToPort: 8080
-        CidrIp: 140.82.112.0/20
-
-      - IpProtocol: tcp
-        FromPort: 8080
-        ToPort: 8080
-        CidrIp: 192.30.252.0/22
-
-      # ÏïÑÏõÉÎ∞îÏö¥ÎìúÎäî Ï†ÑÏ≤¥ ÌóàÏö© (SSM, GitHub, ECR, EKS Ï†ëÍ∑ºÏö©)
-      SecurityGroupEgress:
-      - IpProtocol: -1
-        CidrIp: 0.0.0.0/0
-    
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectPrefix}-Jenkins-Matching-SG"
-        - Key: Project
-          Value: WAGUWAGU
-
-  ############################################################
-  # 7) Jenkins Game SG 
-  ############################################################
-  JenkinsGameSG:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security Group for Jenkins Game Server (SSM-only)
-      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
-      # Ïù∏Î∞îÏö¥Îìú(22/8080) ÏôÑÏ†Ñ Ï†úÍ±∞ -> SSMÏúºÎ°úÎßå Ï†ëÏÜçÌïòÍ≥†, UIÎäî SSM Ìè¨Ìä∏Ìè¨ÏõåÎî©ÏúºÎ°ú Ï†ëÏÜç
-      SecurityGroupIngress: 
-        # GitHub Webhook ‚Üí Jenkins (HTTP 8080)
+        # GitHub Webhook ?Üí Jenkins (HTTP 8080)
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
@@ -177,10 +145,42 @@ Resources:
           ToPort: 8080
           CidrIp: 192.30.252.0/22
 
-      # ÏïÑÏõÉÎ∞îÏö¥ÎìúÎäî Ï†ÑÏ≤¥ ÌóàÏö© (SSM, GitHub, ECR, EKS Ï†ëÍ∑ºÏö©)
+      # ?ïÑ?õÉÎ∞îÏö¥?ìú?äî ?†ÑÏ≤? ?óà?ö© (SSM, GitHub, ECR, EKS ?†ëÍ∑ºÏö©)
       SecurityGroupEgress:
-      - IpProtocol: -1
-        CidrIp: 0.0.0.0/0
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Jenkins-Matching-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # 7) Jenkins Game SG
+  ############################################################
+  JenkinsGameSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Jenkins Game Server (SSM-only)
+      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
+      # ?ù∏Î∞îÏö¥?ìú(22/8080) ?ôÑ?†Ñ ?†úÍ±? -> SSM?úºÎ°úÎßå ?†ë?Üç?ïòÍ≥?, UI?äî SSM ?è¨?ä∏?è¨?õå?î©?úºÎ°? ?†ë?Üç
+      SecurityGroupIngress:
+        # GitHub Webhook ?Üí Jenkins (HTTP 8080)
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 140.82.112.0/20
+
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 192.30.252.0/22
+
+      # ?ïÑ?õÉÎ∞îÏö¥?ìú?äî ?†ÑÏ≤? ?óà?ö© (SSM, GitHub, ECR, EKS ?†ëÍ∑ºÏö©)
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
 
       Tags:
         - Key: Name

@@ -311,7 +311,7 @@ Resources:
             job.definition = new CpsScmFlowDefinition(scm, scriptPath)
 
             // Poll SCM: 5분마다 변경 감지
-            job.addTrigger(new SCMTrigger("H/5 * * * *"))
+            job.addTrigger(new SCMTrigger("H/2 * * * *"))
 
             job.save()
           }
@@ -499,7 +499,7 @@ Resources:
             job.definition = new CpsScmFlowDefinition(scm, scriptPath)
 
             // Poll SCM: 5분마다 변경 감지
-            job.addTrigger(new SCMTrigger("H/5 * * * *"))
+            job.addTrigger(new SCMTrigger("H/2 * * * *"))
 
             job.save()
           }
