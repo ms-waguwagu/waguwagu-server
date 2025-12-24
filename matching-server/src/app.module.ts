@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+<<<<<<< HEAD
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -16,6 +17,11 @@ import { GameEntity } from './entities/game.entity';
 import { GameResultEntity } from './entities/game-result.entity';
 
 const isLocal = process.env.NODE_ENV === 'local';
+=======
+import { AgonesTestModule } from './agones-test/agones-test.module';
+import { AgonesAllocatorModule } from './agones-allocator/agoness-allocator.module';
+import { QueueModule } from './queue/queue.module';
+>>>>>>> main
 
 @Module({
   imports: [
@@ -73,6 +79,30 @@ const isLocal = process.env.NODE_ENV === 'local';
     AuthModule,
     MatchingModule,
     GameResultModule,
+		AgonesTestModule,
+		AgonesAllocatorModule,
+		QueueModule,
+    RedisModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => {
+        const host = configService.get<string>('REDIS_HOST');
+        const port = configService.get<number>('REDIS_PORT');
+        console.log('[BOOT] Redis config:', host, port);
+        return {
+          isGlobal: true,
+          type: 'single',
+          options: {
+            host,
+            port,
+            tls: {
+              servername: host,
+              rejectUnauthorized: true,
+            },
+          },
+        };
+      },
+      inject: [ConfigService],
+    }),
   ],
   controllers: [AppController],
   providers: [AppService],

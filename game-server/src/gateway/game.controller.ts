@@ -23,20 +23,25 @@ export class GameController {
       roomId: string;
       users: string[];
       maxPlayers?: number;
+      mode?: 'NORMAL' | 'BOSS';
     },
   ) {
-    const { roomId, users, maxPlayers } = body;
+    const { roomId, users, maxPlayers, mode } = body;
 
     if (!roomId || !users) {
       throw new BadRequestException('roomId와 users는 필수입니다.');
     }
 
-    console.log(`🏠 [ROOM CREATE] ${roomId}, users=${users.join(',')}`);
+    const gameMode = mode || 'NORMAL';
+    console.log(
+      `🏠 [ROOM CREATE] ${roomId}, users=${users.join(',')}, mode=${gameMode}`,
+    );
 
     const result = this.gameService.createRoomWithBots(
       roomId,
       users,
       maxPlayers,
+      gameMode,
     );
 
     return {

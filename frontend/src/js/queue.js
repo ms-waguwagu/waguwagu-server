@@ -1,3 +1,5 @@
+import { MATCHING_CONFIG } from "../../config.js";
+
 // DOM 요소 가져오기
 const timerEl = document.getElementById("queue-timer");
 const cancelBtn = document.getElementById("cancel-queue-btn");
@@ -34,7 +36,8 @@ function stopTimer() {
   }
 }
 
-export function initQueueScreen(socket, onMatchFound) {
+export function initQueueScreen(socket, onMatchFound, isBossMode = false) {
+  console.log("🔥 initQueueScreen", isBossMode);
   if (!socket) {
     console.error("소켓이 연결되지 않았습니다.");
     return;
@@ -44,7 +47,11 @@ export function initQueueScreen(socket, onMatchFound) {
   startTimer();
 
   // 2. 초기 대기열 상태 요청 (화면 켜지자마자 1회 조회)
-  socket.emit("request_queue_status");
+  if (isBossMode) {
+    socket.emit("request_boss_queue_status");
+  } else {
+    socket.emit("request_queue_status");
+  }
 
   // ========== 소켓 이벤트 핸들러 함수 정의 ==========
 
@@ -59,8 +66,12 @@ export function initQueueScreen(socket, onMatchFound) {
       void currentQueueCountEl.offsetWidth; // trigger reflow
       currentQueueCountEl.classList.add("pop");
     }
-    //‼️테스트 용‼️
-    console.log(`현재 인원: ${data.currentCount}/5`);
+    // 테스트 용
+    if (isBossMode) {
+      console.log(`[보스 큐] 현재 인원: ${data.currentCount}/5`);
+    } else {
+      console.log(`[일반 큐] 현재 인원: ${data.currentCount}/5`);
+    }
   };
 
   // B. 대기열 취소 성공 응답
@@ -81,7 +92,7 @@ export function initQueueScreen(socket, onMatchFound) {
 
   // D. 매칭 성사
   const onMatchFoundEvent = (data) => {
-    console.log("🎉 매칭 성공!", data);
+    console.log("매칭 성공!", data);
     stopTimer();
     removeListeners(); // 대기열 관련 리스너 정리
 
@@ -92,8 +103,13 @@ export function initQueueScreen(socket, onMatchFound) {
   };
 
   // -------- 소켓 이벤트 리스너 등록 --------
-  socket.on("queue_status", onQueueStatus);
-  socket.on("queue_cancelled", onQueueCancelled);
+  if (isBossMode) {
+    socket.on("boss_queue_status", onQueueStatus);
+    socket.on("boss_queue_cancelled", onQueueCancelled);
+  } else {
+    socket.on("queue_status", onQueueStatus);
+    socket.on("queue_cancelled", onQueueCancelled);
+  }
   socket.on("error", onError);
   socket.on("match_found", onMatchFoundEvent);
 
@@ -104,7 +120,11 @@ export function initQueueScreen(socket, onMatchFound) {
       cancelBtn.disabled = true;
       cancelBtn.textContent = "취소 중...";
     }
-    socket.emit("cancel_queue");
+    if (isBossMode) {
+      socket.emit("cancel_boss_queue");
+    } else {
+      socket.emit("cancel_queue");
+    }
     // 실제 이동은 'queue_cancelled' 이벤트를 수신했을 때 수행
   };
 
@@ -114,8 +134,13 @@ export function initQueueScreen(socket, onMatchFound) {
 
   // 리스너 정리 함수 (화면을 떠날 때 / 매칭 완료 시 호출)
   function removeListeners() {
-    socket.off("queue_status", onQueueStatus);
-    socket.off("queue_cancelled", onQueueCancelled);
+    if (isBossMode) {
+      socket.off("boss_queue_status", onQueueStatus);
+      socket.off("boss_queue_cancelled", onQueueCancelled);
+    } else {
+      socket.off("queue_status", onQueueStatus);
+      socket.off("queue_cancelled", onQueueCancelled);
+    }
     socket.off("error", onError);
     socket.off("match_found", onMatchFoundEvent);
 
@@ -135,24 +160,52 @@ if (document.getElementById("queue-screen")) {
   const token = localStorage.getItem("accessToken");
 
   if (token) {
-    if (typeof io !== "undefined") {
-      const MATCHING_SERVER_URL = window.__ENV__.API_BASE_URL;
+    // URL 파라미터로 모드 확인
+    const urlParams = new URLSearchParams(window.location.search);
+    console.log("🔍 urlParams:", urlParams);
+    const mode = urlParams.get("mode");
+    const isBossMode = mode === "boss";
 
-      const socket = io(`${MATCHING_SERVER_URL}/queue`, {
+    console.log("🔍 URL 파라미터 확인:", {
+      전체URL: window.location.href,
+      mode파라미터: mode,
+      isBossMode: isBossMode,
+    });
+
+    // socket.io-client가 로드되어 있어야 함 (CDN)
+    if (typeof io !== "undefined") {
+      const socket = io(MATCHING_CONFIG.WS_MATCHING_URL,{
+        path: "/socket.io",
         auth: { token },
-      });      
+        transports: ["websocket"],
+      });
 
       // 소켓 연결되면 대기열 진입
       socket.on("connect", () => {
         console.log("queue socket connected:", socket.id);
-        socket.emit("join_queue"); // 여기서 서버로 대기열 입장 요청
+        console.log("isBossMode:", isBossMode);
+        if (isBossMode) {
+          console.log("[보스 큐] 진입 요청 전송: join_boss_queue");
+          socket.emit("join_boss_queue"); // 보스 모드 큐 진입
+        } else {
+          console.log("[일반 큐] 진입 요청 전송: join_queue");
+          socket.emit("join_queue"); // 일반 모드 큐 진입
+        }
       });
 
-      initQueueScreen(socket, (matchData) => {
-        // 서버에서 만든 room_id를 localStorage에 저장
-        localStorage.setItem("waguwagu_room_id", matchData.roomId);
-        window.location.href = "game.html";
-      });
+      initQueueScreen(
+        socket,
+        (matchData) => {
+          // 서버에서 만든 room_id를 localStorage에 저장
+          localStorage.setItem("waguwagu_room_id", matchData.roomId);
+          if (matchData.mode === "BOSS" || isBossMode) {
+            window.location.href = `boss-game.html?roomId=${matchData.roomId}`;
+          } else {
+            window.location.href = "game.html";
+          }
+        },
+        isBossMode
+      );
     } else {
       console.error("Socket.io 라이브러리가 로드되지 않았습니다.");
     }

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Body, Controller, Post, UseGuards, Req, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
@@ -10,7 +8,7 @@ import { JwtGuard } from './jwt/jwt.guard';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // 🔥 구글 OAuth 로그인
+  // 구글 OAuth 로그인
   @Post('google')
   async googleLogin(@Body() body: { idToken: string }) {
     const { idToken } = body;
@@ -19,7 +17,7 @@ export class AuthController {
     // return { accessToken, isNewUser }
   }
 
-  // 🔥 로그인 이후 닉네임 설정 (JWT 필수)
+  // 로그인 이후 닉네임 설정 (JWT 필수)
   @UseGuards(JwtGuard)
   @Post('nickname')
   async nickname(
@@ -35,7 +33,7 @@ export class AuthController {
       nickname,
     );
 
-    // ⭐ 핵심: accessToken을 쿠키에 저장
+    // accessToken을 쿠키에 저장
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
       sameSite: 'lax',

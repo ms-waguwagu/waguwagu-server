@@ -4,18 +4,22 @@ import { Interval } from '@nestjs/schedule';
 import { QueueService } from '../queue/queue.service';
 import { QueueGateway } from '../queue/queue.gateway';
 import { v4 as uuidv4 } from 'uuid'; //방 ID 생성용
+import axios from 'axios';
 import { PlayerStatus } from '../common/constants';
+import { AgonesAllocatorService } from '../agones-allocator/agoness-allocator.service';
 
 @Injectable()
 export class MatchingWorker {
   private readonly logger = new Logger(MatchingWorker.name);
   private isProcessing = false; // 중복 실행 방지용 플래그
+  private isBossProcessing = false; // 보스모드 중복 실행 방지용 플래그
   private readonly TIMEOUT_MS = 7000; // 마지막 유저 기준 7초 ‼️테스트용‼️
 
   constructor(
     private readonly queueService: QueueService,
     private readonly queueGateway: QueueGateway,
     private readonly configService: ConfigService,
+    private readonly agonesAllocatorService: AgonesAllocatorService,
   ) {}
 
   // 1초마다 실행
@@ -104,6 +108,139 @@ export class MatchingWorker {
       this.configService.get<number>('MATCH_PLAYER_COUNT') ?? 5;
     const humanCount = participants.length;
     const botsToAdd = Math.max(0, maxPlayers - humanCount);
+<<<<<<< HEAD
+=======
+
+    // 1. 상태를 IN_GAME 으로 변경
+    for (const userId of participants) {
+      await this.queueService.updateStatus(userId, PlayerStatus.IN_GAME);
+    }
+
+		// ‼️Agones Allocator 호출 (현재는 검증용)‼️
+		// 실제 접속에는 아직 사용하지 않음!
+		const { address, port } = await this.agonesAllocatorService.allocate();
+    this.logger.log(
+      `[DEBUG] Allocator가 GameServer ${address}:${port}를 할당했습니다`,
+    );
+
+    // 2. 게임 룸 생성 요청 (기존 API 호출 일단 유지)
+    const gameServerUrl = this.configService.get<string>('GAME_SERVER_URL');
+
+    const response = await axios.post(`${gameServerUrl}/internal/room`, {
+      roomId: newRoomId,
+      users: participants,
+      botCount: botsToAdd,
+      maxPlayers,
+    });
+
+    //디버깅용
+    this.logger.log(
+      `목표 인원: ${maxPlayers}, 매칭 된 유저 수: ${humanCount}, 봇 추가: ${botsToAdd}`,
+    );
+    const roomInfo = response.data;
+
+    this.logger.log(`게임 룸 생성 완료: ${newRoomId}`);
+
+    // 3. 매칭된 유저들에게 웹소켓으로 접속 정보 전송
+    this.queueGateway.broadcastMatchFound(participants, {
+      roomId: newRoomId,
+      gameServerIp: roomInfo.ip || 'localhost',
+      port: roomInfo.port || 3001,
+    });
+  }
+
+  // ============================================
+  // 보스모드 매칭 워커
+  // ============================================
+
+  // 보스모드 매칭 워커 (1초마다 실행)
+  @Interval(1000)
+  async handleBossMatchmaking() {
+    // 이전 작업이 아직 안 끝났으면 스킵 (오버랩 방지)
+    if (this.isBossProcessing) {
+      return;
+    }
+    this.isBossProcessing = true;
+
+    let participants: string[] | null = null;
+
+    try {
+      const maxPlayers =
+        this.configService.get<number>('BOSS_MATCH_PLAYER_COUNT') ?? 5;
+
+      // 1. 먼저 풀 매칭 시도
+      participants =
+        await this.queueService.extractBossMatchParticipants(maxPlayers);
+
+      if (participants && participants.length === maxPlayers) {
+        this.logger.log(
+          `[보스모드] ${maxPlayers}명 풀 매칭 ${participants.join(', ')} (인원: ${participants.length})`,
+        );
+
+        await this.createBossRoomAndNotify(participants);
+        return;
+      }
+
+      // 2. 큐가 비었으면 아무 것도 안 함
+      const queueLen = await this.queueService.getBossQueueLength();
+      if (queueLen === 0) {
+        return;
+      }
+
+      // 3. 마지막 유저 입장 시각 확인
+      const lastJoinedAt = await this.queueService.getBossLastJoinedAt();
+      if (!lastJoinedAt) {
+        return;
+      }
+
+      const now = Date.now();
+      const diff = now - lastJoinedAt;
+
+      // 타임아웃 전이면 기다리기만 함
+      if (diff < this.TIMEOUT_MS) {
+        this.logger.debug(
+          `[보스모드] 대기열 인원=${queueLen}, 마지막 입장 이후 ${diff}ms 경과 (타임아웃 전)`,
+        );
+        return;
+      }
+
+      // 4. 타임아웃 후 부분 매칭 실행
+      participants = await this.queueService.extractBossMatchUpTo(maxPlayers);
+
+      if (!participants || participants.length === 0) {
+        return;
+      }
+
+      this.logger.log(
+        `[보스모드 부분 매칭] 타임아웃 후 매칭: ${participants.join(
+          ', ',
+        )} (인원: ${participants.length})`,
+      );
+
+      await this.createBossRoomAndNotify(participants);
+    } catch (error) {
+      this.logger.error('[보스모드] 매칭 처리 중 에러 발생', error);
+
+      // 실패 시 롤백 -> 추출된 유저들을 다시 큐에 복구
+      if (participants && participants.length > 0) {
+        this.logger.warn(
+          `[보스모드] 롤백 실행: 유저 [${participants.join(', ')}] 재삽입`,
+        );
+        await this.queueService.rollbackBossParticipants(participants);
+      }
+    } finally {
+      this.isBossProcessing = false;
+    }
+  }
+
+  // 보스모드: 방 생성 + 상태 변경 + 웹소켓 통지
+  private async createBossRoomAndNotify(participants: string[]): Promise<void> {
+    const newRoomId = uuidv4();
+    const maxPlayers =
+      this.configService.get<number>('BOSS_MATCH_PLAYER_COUNT') ?? 5;
+    const humanCount = participants.length;
+    const botsToAdd = Math.max(0, maxPlayers - humanCount);
+>>>>>>> main
 
     // 1. 상태를 IN_GAME 으로 변경
     for (const userId of participants) {
@@ -115,6 +252,7 @@ export class MatchingWorker {
       'GAME_SERVER_PUBLIC_URL',
     );
 
+<<<<<<< HEAD
     if (!gameServerPublicUrl) {
       this.logger.error('GAME_SERVER_PUBLIC_URL is not set');
       throw new Error('Game server public url not configured');
@@ -123,6 +261,29 @@ export class MatchingWorker {
     this.queueGateway.broadcastMatchFound(participants, {
       roomId: newRoomId,
       gameServerUrl: gameServerPublicUrl,
+=======
+    const response = await axios.post(`${gameServerUrl}/internal/room`, {
+      roomId: newRoomId,
+      users: participants,
+      botCount: botsToAdd,
+      maxPlayers,
+      mode: 'BOSS',
+    });
+
+    this.logger.log(
+      `[보스모드] 목표 인원: ${maxPlayers}, 매칭 된 유저 수: ${humanCount}, 봇 추가: ${botsToAdd}`,
+    );
+    const roomInfo = response.data;
+
+    this.logger.log(`[보스모드] 게임 룸 생성 완료: ${newRoomId}`);
+
+    // 3. 매칭된 유저들에게 웹소켓으로 접속 정보 전송
+    this.queueGateway.broadcastMatchFound(participants, {
+      roomId: newRoomId,
+      mode: 'BOSS',
+      gameServerIp: roomInfo.ip || 'localhost',
+      port: roomInfo.port || 3001,
+>>>>>>> main
     });
   }
 }

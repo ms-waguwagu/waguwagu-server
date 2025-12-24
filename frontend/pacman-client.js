@@ -24,6 +24,8 @@ const roomId = localStorage.getItem("waguwagu_room_id");
 roomIdLabel.textContent = roomId;
 
 // ====== 게임 매니저 시작 ======
+// localStorage에서 mode 가져오기 (없으면 기본값 'NORMAL')
+const gameMode = localStorage.getItem("waguwagu_game_mode") || "NORMAL";
 const gameManager = new GameManager({
   nickname,
   roomId,
@@ -33,7 +35,7 @@ const gameManager = new GameManager({
   gameEndModal,
   homeButton,
   finalScoreList,
-  mode: "NORMAL",
+  mode: gameMode,
 });
 
 gameManager.start();

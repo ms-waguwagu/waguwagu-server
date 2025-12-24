@@ -1,3 +1,4 @@
+
 pipeline {
   agent any
 
@@ -77,36 +78,6 @@ pipeline {
       }
     }
 
-    /*
-    // ===========================
-    // CD 단계 (클러스터/Agones 준비되면 주석 해제)
-    // ===========================
-
-    stage("Configure kubeconfig") {
-      steps {
-        sh '''
-          set -e
-          aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
-          kubectl get ns ${NAMESPACE}
-        '''
-      }
-    }
-
-    stage("Deploy (Agones Fleet image update)") {
-      steps {
-        sh '''
-          set -e
-          # CRD(Fleet)는 kubectl set image가  잘 먹지 않아서 patch 추천
-          #  containers 배열이 1개라는 전제로 merge patch 사용
-          kubectl -n ${NAMESPACE} patch fleet ${FLEET_NAME} --type merge \
-            -p "{\"spec\":{\"template\":{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"${CONTAINER_NAME}\",\"image\":\"${IMAGE_URI}\"}]}}}}}}"
-
-          # 반영 확인
-          kubectl -n ${NAMESPACE} get fleet ${FLEET_NAME} -o yaml | grep -n "image:" | head -n 5
-        '''
-      }
-    }
-    */
   }
 
   post {
@@ -115,3 +86,78 @@ pipeline {
     }
   }
 }
+
+
+
+/*
+pipeline {
+  agent any
+
+  environment {
+    AWS_REGION   = "ap-northeast-2"
+    ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
+    APP_DIR      = "game-server"
+  }
+
+  options {
+    skipDefaultCheckout(true)
+    disableConcurrentBuilds()
+  }
+
+  stages {
+    stage("Checkout") { steps { checkout scm } }
+
+    stage("Change check") {
+      steps {
+        script {
+          def prev = (env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: "").trim()
+          def curr = (env.GIT_COMMIT ?: "").trim()
+
+          if (!prev) {
+            env.RUN_PIPELINE = "true"
+            echo "[CHANGE] First build -> RUN"
+          } else {
+            def range = curr ? "${prev}..${curr}" : "${prev}..HEAD"
+            def changed = sh(
+              script: "git diff --name-only ${range} | grep -E '^${APP_DIR}/' || true",
+              returnStdout: true
+            ).trim()
+
+            env.RUN_PIPELINE = changed ? "true" : "false"
+            echo changed ? "[CHANGE] Detected:\n${changed}" : "[CHANGE] No ${APP_DIR}/ changes -> SKIP"
+          }
+        }
+      }
+    }
+
+    stage("ECR Login") {
+      when { expression { env.RUN_PIPELINE == "true" } }
+      steps {
+        sh '''
+          set -e
+          aws ecr get-login-password --region ${AWS_REGION} \
+            | docker login --username AWS --password-stdin ${ECR_REPO_URI%/*}
+        '''
+      }
+    }
+
+    stage("Build & Push") {
+      when { expression { env.RUN_PIPELINE == "true" } }
+      steps {
+        script {
+          def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
+          env.IMAGE_TAG = "${sha7}-${env.BUILD_NUMBER}"
+        }
+        sh '''
+          set -e
+          cd ${APP_DIR}
+          docker build -t ${ECR_REPO_URI}:${IMAGE_TAG} .
+          docker push ${ECR_REPO_URI}:${IMAGE_TAG}
+        '''
+      }
+    }
+  }
+
+  post { always { sh 'docker image prune -f || true' } }
+}
+*/
