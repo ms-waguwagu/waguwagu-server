@@ -34,6 +34,27 @@ Parameters:
     Default: ""
     Description: "Optional. Example: http://your-domain-or-ip:8080 (leave blank if not used)"
 
+  #  Frontend S3 ������ ��Ŷ�� (IAM ��å���� ���)
+  #  frontend/Jenkinsfile�� S3_BUCKET ���� �����ؾ� ��
+  FrontendBucketName:
+    Type: String
+    Default: waguwagu-s3-bucket-061039804626-ap-northeast-2
+
+  ############################################################
+  # CloudFront Distribution ID�� �����ص� Secrets Manager Secret ����
+  # - Jenkinsfile���� aws secretsmanager get-secret-value �� ���� ������
+  # - SecretString(JSON) �ȿ� �Ʒ� Key�� Distribution ID�� �־��ָ� ��
+  ############################################################
+  CloudFrontSecretName:
+    Type: String
+    Default: "T3-Wagu-Secrets"
+    Description: "Secrets Manager secret name that contains CloudFront Distribution ID"
+
+  CloudFrontSecretKey:
+    Type: String
+    Default: "CLOUDFRONT_DISTRIBUTION_ID"
+    Description: "Key inside SecretString JSON for CloudFront Distribution ID"
+
 Resources:
   ############################################################
   # IAM Role for Jenkins EC2
@@ -77,6 +98,49 @@ Resources:
                   - ecr:UploadLayerPart
                   - ecr:CompleteLayerUpload
                   - ecr:PutImage
+                Resource: "*"
+
+        # Frontend ����(S3 sync) ���� �߰�
+        - PolicyName: JenkinsFrontendS3Policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                Resource: !Sub "arn:aws:s3:::${FrontendBucketName}"
+
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub "arn:aws:s3:::${FrontendBucketName}/*"
+
+        ############################################################
+        #  CloudFront ĳ�� ��ȿȭ(Invalidation) + Secrets Manager���� Distribution ID �б�
+        # - Jenkinsfile���� aws secretsmanager get-secret-value �� ���� �а�
+        # - aws cloudfront create-invalidation ���� ��ȿȭ ����
+        ############################################################
+        - PolicyName: JenkinsCloudFrontInvalidationPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Secrets Manager �б� ����
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                # Secret ARN�� �ڿ� ���� suffix�� �پ * ó�� �ʿ�
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${CloudFrontSecretName}-*"
+
+              # CloudFront ��ȿȭ ����
+              # CloudFront�� ���ҽ� ���� ARN �������� ���ŷο� �ǹ������� Resource:"*"�� �δ� ��� ����
+              - Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                  - cloudfront:GetDistribution
                 Resource: "*"
 
   JenkinsInstanceProfile:
@@ -135,6 +199,12 @@ Resources:
       GroupDescription: Security Group for Jenkins Game Server (SSM-only, no inbound)
       VpcId: !ImportValue T3-Wagu-Game-VPC-Id
       SecurityGroupIngress: []
+
+      # (���� ����) �ƿ��ٿ�� ��ü ��� (SSM/GitHub/ECR/S3/CloudFront ���� ����)
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
       Tags:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Jenkins-Game-SG"
@@ -232,7 +302,7 @@ Resources:
           # Setup Wizard 스킵 시도 (환경에 따라 완전히 안 먹을 수도 있음)
           mkdir -p /etc/sysconfig
           if [ -f /etc/sysconfig/jenkins ] && grep -q '^JENKINS_JAVA_OPTIONS=' /etc/sysconfig/jenkins; then
-            sed -i 's#^JENKINS_JAVA_OPTIONS="\(.*\)"#JENKINS_JAVA_OPTIONS="\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
+            sed -i 's#^JENKINS_JAVA_OPTIONS="\\(.*\\)"#JENKINS_JAVA_OPTIONS="\\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
           else
             echo 'JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"' >> /etc/sysconfig/jenkins
           fi
@@ -317,6 +387,7 @@ Resources:
           }
 
           ensurePipelineJob("matching-ci", "matching-server/Jenkinsfile")
+          ensurePipelineJob("frontend-ci", "frontend/Jenkinsfile")
           j.save()
           GROOVY
 
@@ -420,7 +491,7 @@ Resources:
           # Setup Wizard 스킵 시도
           mkdir -p /etc/sysconfig
           if [ -f /etc/sysconfig/jenkins ] && grep -q '^JENKINS_JAVA_OPTIONS=' /etc/sysconfig/jenkins; then
-            sed -i 's#^JENKINS_JAVA_OPTIONS="\(.*\)"#JENKINS_JAVA_OPTIONS="\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
+            sed -i 's#^JENKINS_JAVA_OPTIONS="\\(.*\\)"#JENKINS_JAVA_OPTIONS="\\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
           else
             echo 'JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"' >> /etc/sysconfig/jenkins
           fi

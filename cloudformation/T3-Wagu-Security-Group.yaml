@@ -80,19 +80,25 @@ Resources:
           ToPort: 3001
           SourceSecurityGroupId: !Ref GameAlbSG
 
-        # (??????) Matching -> Agones allocator (VPC Peering)
-        # allocator ????????? 443??? ?????? ?????? ??????. ?????? 443 ?????? 8443 ??? ??????
+        # (추�??) Matching -> Agones allocator (VPC Peering)
+        # allocator ?��?���? 443?�� ?��?�� ?��?�� ?��?��. 보통 443 ?��?�� 8443 �? ?��?��
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
           CidrIp: 10.0.0.0/16 # Matching VPC CIDR
 
-        # (??????) User -> GameServer (Agones Dynamic Ports)
-        # TCP ?????? ???????????? TCP???.
+        # (추�??) User -> GameServer (Agones Dynamic Ports)
+        # TCP 기반 게임?���? TCP�?.
         - IpProtocol: tcp
           FromPort: 30000
           ToPort: 32767
           CidrIp: 0.0.0.0/0
+
+        # Prometheus -> Game EKS Node
+        - IpProtocol: tcp
+          FromPort: 9090
+          ToPort: 9090
+          CidrIp: 10.0.0.0/16
 
         # Matching -> Game (VPC Peering)
         - IpProtocol: tcp
@@ -125,7 +131,7 @@ Resources:
           Value: WAGUWAGU
 
   ############################################################
-  # 6) Jenkins Matching SG 
+  # 6) Jenkins Matching SG
   ############################################################
   JenkinsMatchingSG:
     Type: AWS::EC2::SecurityGroup
@@ -134,39 +140,7 @@ Resources:
       VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
 
       SecurityGroupIngress:
-      # GitHub Webhook ??? Jenkins (HTTP 8080)
-      - IpProtocol: tcp
-        FromPort: 8080
-        ToPort: 8080
-        CidrIp: 140.82.112.0/20
-
-      - IpProtocol: tcp
-        FromPort: 8080
-        ToPort: 8080
-        CidrIp: 192.30.252.0/22
-
-      # ?????????????????? ?????? ?????? (SSM, GitHub, ECR, EKS ?????????)
-      SecurityGroupEgress:
-      - IpProtocol: -1
-        CidrIp: 0.0.0.0/0
-    
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectPrefix}-Jenkins-Matching-SG"
-        - Key: Project
-          Value: WAGUWAGU
-
-  ############################################################
-  # 7) Jenkins Game SG 
-  ############################################################
-  JenkinsGameSG:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security Group for Jenkins Game Server (SSM-only)
-      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
-      # Remove inbound (22/8080) -> Use SSM and SSM Port Forwarding for UI
-      SecurityGroupIngress: 
-        # GitHub Webhook ??? Jenkins (HTTP 8080)
+        # GitHub Webhook ?�� Jenkins (HTTP 8080)
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
@@ -177,10 +151,42 @@ Resources:
           ToPort: 8080
           CidrIp: 192.30.252.0/22
 
-      # Allow all outbound traffic (SSM, GitHub, ECR, EKS access)
+      # ?��?��바운?��?�� ?���? ?��?�� (SSM, GitHub, ECR, EKS ?��근용)
       SecurityGroupEgress:
-      - IpProtocol: -1
-        CidrIp: 0.0.0.0/0
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Jenkins-Matching-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # 7) Jenkins Game SG
+  ############################################################
+  JenkinsGameSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Jenkins Game Server (SSM-only)
+      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
+      # ?��바운?��(22/8080) ?��?�� ?���? -> SSM?��로만 ?��?��?���?, UI?�� SSM ?��?��?��?��?��?���? ?��?��
+      SecurityGroupIngress:
+        # GitHub Webhook ?�� Jenkins (HTTP 8080)
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 140.82.112.0/20
+
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 192.30.252.0/22
+
+      # ?��?��바운?��?�� ?���? ?��?�� (SSM, GitHub, ECR, EKS ?��근용)
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
 
       Tags:
         - Key: Name

@@ -8,7 +8,7 @@ Parameters:
 
   DBInstanceClass:
     Type: String
-    Default: db.m5.large   # 운영 기준
+    Default: db.m5.large # 운영 기준
 
   AllocatedStorage:
     Type: Number
@@ -41,8 +41,8 @@ Resources:
 
   WaguProdDBInstance:
     Type: AWS::RDS::DBInstance
-    DeletionPolicy: Snapshot            # 삭제 시 스냅샷 남김
-    UpdateReplacePolicy: Snapshot       # 교체 시 스냅샷
+    DeletionPolicy: Snapshot # 삭제 시 스냅샷 남김
+    UpdateReplacePolicy: Snapshot # 교체 시 스냅샷
     Properties:
       DBInstanceIdentifier: t3-wagu-prod-db
       Engine: mysql
@@ -51,22 +51,22 @@ Resources:
 
       DBInstanceClass: !Ref DBInstanceClass
       AllocatedStorage: !Ref AllocatedStorage
-      StorageType: gp3
+      StorageType: gp2
       StorageEncrypted: true
 
       MasterUsername: !Ref MasterUsername
       MasterUserPassword: !Ref MasterPassword
 
-      PubliclyAccessible: false         # 내부 접근만
-      MultiAZ: true                     # 고가용성
-      BackupRetentionPeriod: 14         # 운영 백업
+      PubliclyAccessible: false # 내부 접근만
+      MultiAZ: true # 고가용성
+      BackupRetentionPeriod: 14 # 운영 백업
       PreferredBackupWindow: 02:00-03:00
 
       VPCSecurityGroups:
         - !Ref WaguProdDBSecurityGroup
       DBSubnetGroupName: !Ref WaguProdDBSubnetGroup
 
-      DeletionProtection: true      
+      DeletionProtection: true
       EnableCloudwatchLogsExports:
         - error
         - general
