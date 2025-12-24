@@ -1,3 +1,4 @@
+/*
 pipeline {
   agent any
 
@@ -85,9 +86,9 @@ pipeline {
     }
   }
 }
+*/
 
 
-/* 내일 이걸로 한번 돌려봐라...
 
 pipeline {
   agent any
@@ -164,7 +165,3 @@ pipeline {
     always { sh 'docker image prune -f || true' }
   }
 }
-
-
-
-*/
