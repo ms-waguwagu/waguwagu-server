@@ -1,36 +1,42 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: T3-Wagu Production RDS MySQL Stack
+Description: T3-Wagu Production RDS MySQL Stack with Secrets Manager
 
 Parameters:
   DBName:
     Type: String
     Default: wagudb
-
   DBInstanceClass:
     Type: String
-    Default: db.m5.large   # 운영 기준
-
+    Default: db.m5.large
   AllocatedStorage:
     Type: Number
     Default: 50
-
   MasterUsername:
     Type: String
     Default: wagu_admin
     AllowedPattern: "[a-zA-Z0-9_]+"
-
-  MasterPassword:
-    Type: String
-    NoEcho: true
-    MinLength: 12
+  
+  # ❌ [삭제됨] MasterPassword는 이제 AWS가 알아서 만드니까 필요 없습니다!
+  # MasterPassword: 
+  #   Type: String
+  #   NoEcho: true
+  #   MinLength: 12
 
 Resources:
+  # [1. 보안 그룹] (기존 동일)
   WaguProdDBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Allow MySQL from App VPC
       VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 10.0.0.0/16 
+          Description: "Allow MySQL Access from VPC"
 
+  # [2. 서브넷 그룹] (기존 동일)
   WaguProdDBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
@@ -39,44 +45,76 @@ Resources:
         - ","
         - !ImportValue T3-Wagu-Matching-Private-Db-Subnet-Ids
 
+  # [3. 파라미터 그룹] (기존 동일 - 한글 지원)
+  WaguProdDBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Family: "mysql8.0"
+      Description: "Parameter group for utf8mb4 support"
+      Parameters:
+        character_set_server: "utf8mb4"
+        character_set_database: "utf8mb4"
+        character_set_client: "utf8mb4"
+        character_set_connection: "utf8mb4"
+        collation_server: "utf8mb4_unicode_ci"
+        time_zone: "Asia/Seoul"
+
+  # [4. DB 인스턴스]
   WaguProdDBInstance:
     Type: AWS::RDS::DBInstance
-    DeletionPolicy: Snapshot            # 삭제 시 스냅샷 남김
-    UpdateReplacePolicy: Snapshot       # 교체 시 스냅샷
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
     Properties:
       DBInstanceIdentifier: t3-wagu-prod-db
       Engine: mysql
       EngineVersion: "8.0.34"
       DBName: !Ref DBName
-
       DBInstanceClass: !Ref DBInstanceClass
       AllocatedStorage: !Ref AllocatedStorage
       StorageType: gp3
       StorageEncrypted: true
-
+      
       MasterUsername: !Ref MasterUsername
-      MasterUserPassword: !Ref MasterPassword
+      # ❌ [삭제됨] MasterUserPassword: !Ref MasterPassword
+      
+      # ✅ [새로 추가됨] 이 한 줄이 핵심입니다!
+      # AWS가 Secrets Manager에 비밀번호를 만들고 자동으로 연동합니다.
+      ManageMasterUserPassword: true 
+      # (옵션) 사용할 KMS 키가 있다면 MasterUserSecretKmsKeyId 지정 가능 (생략 시 기본 키 사용)
 
-      PubliclyAccessible: false         # 내부 접근만
-      MultiAZ: true                     # 고가용성
-      BackupRetentionPeriod: 14         # 운영 백업
+      PubliclyAccessible: false
+      MultiAZ: true
+      BackupRetentionPeriod: 14
       PreferredBackupWindow: 02:00-03:00
 
       VPCSecurityGroups:
         - !Ref WaguProdDBSecurityGroup
       DBSubnetGroupName: !Ref WaguProdDBSubnetGroup
+      DBParameterGroupName: !Ref WaguProdDBParameterGroup
 
-      DeletionProtection: true      
+      DeletionProtection: true
       EnableCloudwatchLogsExports:
         - error
         - general
         - slowquery
+      
+      EnablePerformanceInsights: true
+      PerformanceInsightsRetentionPeriod: 7
 
 Outputs:
   ProdDBEndpoint:
     Description: Production RDS Endpoint
     Value: !GetAtt WaguProdDBInstance.Endpoint.Address
+    Export:
+      Name: T3-Wagu-Prod-DB-Endpoint
 
   ProdDBPort:
     Description: Production RDS Port
     Value: !GetAtt WaguProdDBInstance.Endpoint.Port
+
+  # ✅ [새로 추가됨] 생성된 시크릿의 ARN(주소)을 내보내서 앱에서 쓸 수 있게 함
+  ProdDBSecretArn:
+    Description: The ARN of the Secrets Manager secret storing the DB credentials
+    Value: !GetAtt WaguProdDBInstance.MasterUserSecret.SecretArn
+    Export:
+      Name: T3-Wagu-Prod-DB-Secret-Arn

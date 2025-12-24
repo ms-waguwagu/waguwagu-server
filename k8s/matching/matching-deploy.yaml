@@ -42,7 +42,31 @@ spec:
                 secretKeyRef:
                   name: matching-secret
                   key: REDIS_PASSWORD
-
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: matching-secret
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: matching-secret
+                  key: DB_PORT
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: matching-secret
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: matching-secret
+                  key: DB_PASSWORD
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: matching-secret
+                  key: DB_NAME
             - name: MODE
               value: "normal"
             - name: MAX_PLAYERS

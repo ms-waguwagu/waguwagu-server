@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Wagu Game Result SQS Stack
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - prod
+    Default: prod
+
+Resources:
+  GameResultDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub wagu-${Environment}-game-result-dlq
+      MessageRetentionPeriod: 1209600 # 14 days
+
+  GameResultQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub wagu-${Environment}-game-result-queue
+      VisibilityTimeout: 60
+      MessageRetentionPeriod: 345600 # 4 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt GameResultDLQ.Arn
+        maxReceiveCount: 5
+
+  GameResultQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref GameResultQueue
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: sqs:SendMessage
+            Resource: !GetAtt GameResultQueue.Arn
+
+Outputs:
+  GameResultQueueUrl:
+    Description: Game Result Queue URL
+    Value: !Ref GameResultQueue
+    Export:
+      Name: !Sub Wagu-${Environment}-GameResult-Queue-Url
+
+  GameResultQueueArn:
+    Description: Game Result Queue ARN
+    Value: !GetAtt GameResultQueue.Arn
+    Export:
+      Name: !Sub Wagu-${Environment}-GameResult-Queue-Arn
