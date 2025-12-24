@@ -11,7 +11,6 @@ jest.mock('axios', () => ({
   post: jest.fn().mockResolvedValue({ data: {} }),
 }));
 
-
 describe('MatchingWorkerService', () => {
   let worker: MatchingWorker;
   let queueService: jest.Mocked<QueueService>;
@@ -26,7 +25,7 @@ describe('MatchingWorkerService', () => {
           useValue: {
             extractMatchParticipants: jest.fn(),
             updateStatus: jest.fn(),
-            rollbackParticipants: jest.fn(),  
+            rollbackParticipants: jest.fn(),
           },
         },
         {
@@ -49,7 +48,11 @@ describe('MatchingWorkerService', () => {
 
   it('5명 매칭되면 broadcastMatchFound 호출', async () => {
     queueService.extractMatchParticipants.mockResolvedValue([
-      'u1', 'u2', 'u3', 'u4', 'u5',
+      'u1',
+      'u2',
+      'u3',
+      'u4',
+      'u5',
     ]);
 
     await worker.handleMatchmaking();

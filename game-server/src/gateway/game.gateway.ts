@@ -146,6 +146,35 @@ export class GameGateway
     delete this.rooms[roomId];
   }
 
+  // ⭐ GameEngineService가 호출하는 콜백
+  async onGameFinished(payload: {
+    roomId: string;
+    results: { googleSub: string; score: number; rank: number }[];
+  }) {
+    const MATCHING_SERVER_URL = process.env.MATCHING_SERVER_URL;
+
+    try {
+      await axios.post(
+        `${MATCHING_SERVER_URL}/internal/game-result`,
+        {
+          roomId: payload.roomId,
+          gameId: payload.roomId,
+          results: payload.results,
+        },
+        {
+          headers: {
+            'x-internal-token': process.env.INTERNAL_TOKEN,
+          },
+          timeout: 3000,
+        },
+      );
+
+      this.logger.log(`📤 game-result sent (roomId=${payload.roomId})`);
+    } catch (e) {
+      this.logger.error('❌ game-result notify failed', e);
+    }
+  }
+
   // ============================
   // 1) 클라이언트가 방 입장 요청
   // ============================
@@ -311,46 +340,6 @@ export class GameGateway
         }
 
         const MATCHING_SERVER_URL = process.env.MATCHING_SERVER_URL;
-
-        // ⭐ 1. 게임 결과 생성
-        const results = room.getFinalResults();
-        // [{ googleSub, score, rank }, ...]
-
-        try {
-          // ⭐ 2. 게임 결과 저장 (RDS)
-          await axios.post(
-            `${MATCHING_SERVER_URL}/internal/game-result`,
-            {
-              gameId: roomId,
-              roomId,
-              results,
-            },
-            {
-              headers: {
-                'x-internal-token': process.env.INTERNAL_TOKEN, // ⭐ 필수
-              },
-              timeout: 3000,
-            },
-          );
-
-          // ⭐ 3. 세션 종료 알림
-          await axios.post(
-            `${MATCHING_SERVER_URL}/internal/game-finished`,
-            {
-              userIds: roomWrapper.users,
-            },
-            {
-              headers: {
-                'x-internal-token': process.env.INTERNAL_TOKEN,
-              },
-              timeout: 3000,
-            },
-          );
-
-          this.logger.log(`🔥 game-result + game-finished sent`);
-        } catch (e) {
-          this.logger.error('❌ failed to notify matching server', e);
-        }
 
         room.stopInterval();
         delete this.rooms[roomId];

@@ -4,7 +4,6 @@ import { Interval } from '@nestjs/schedule';
 import { QueueService } from '../queue/queue.service';
 import { QueueGateway } from '../queue/queue.gateway';
 import { v4 as uuidv4 } from 'uuid'; //방 ID 생성용
-import axios from 'axios';
 import { PlayerStatus } from '../common/constants';
 
 @Injectable()

@@ -7,7 +7,9 @@ import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
   const configService = app.get(ConfigService);
+  const port = Number(configService.get('MATCHING_PORT')) || 3000;
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -24,9 +26,9 @@ async function bootstrap() {
     credentials: false,
   });
 
-  await app.listen(
-    configService.get<string>('MATCHING_PORT') || 3000,
-    '0.0.0.0',
-  );
+  await app.listen(port, '0.0.0.0');
+
+  console.log(`🚀 Matching server listening on port ${port}`);
 }
+
 bootstrap();

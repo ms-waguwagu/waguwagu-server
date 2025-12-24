@@ -178,6 +178,7 @@ export class GameEngineService {
       console.log(`[BossMode] Room ${this.roomId} 이미 실행 중`);
       return;
     }
+    const results = this.getFinalResults();
 
     console.log(`[BossMode] Room ${this.roomId} 보스 모드 시작`);
     this.intervalRunning = true;
@@ -190,7 +191,16 @@ export class GameEngineService {
       }
 
       if (this.gameOver) {
-        console.log(`[BossMode] 게임 종료`);
+        console.log(`[Game] Room ${this.roomId} 게임 종료`);
+
+        const results = this.getFinalResults();
+
+        // ⭐ Matching Server에 "게임 종료" 알림
+        this.roomManager?.onGameFinished({
+          roomId: this.roomId,
+          results,
+        });
+
         this.stopInterval();
       }
     }, 1000 / 30);
