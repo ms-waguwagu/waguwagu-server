@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Jenkins Server for WAGUWAGU (Matching/Game ∫–∏Æ)
+Description: Jenkins Server for WAGUWAGU (Matching/Game Î∂ÑÎ¶¨)
 
 Parameters:
   ProjectPrefix:
@@ -27,19 +27,40 @@ Parameters:
     Type: String
     NoEcho: true
 
-  # (º±≈√) Jenkins URL º≥¡§
-  # ∫ÒøˆµŒ∏È Jenkins Location URL¿∫ µ˚∑Œ º≥¡§«œ¡ˆ æ ¿Ω
+  # (ÏÑ†ÌÉù) Jenkins URL ÏÑ§Ï†ï
+  # ÎπÑÏõåÎëêÎ©¥ Jenkins Location URLÏùÄ Îî∞Î°ú ÏÑ§Ï†ïÌïòÏßÄ ÏïäÏùå
   JenkinsBaseUrl:
     Type: String
     Default: ""
     Description: "Optional. Example: http://your-domain-or-ip:8080 (leave blank if not used)"
 
+  #  Frontend S3 ÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩ ÔøΩÔøΩ≈∂ÔøΩÔøΩ (IAM ÔøΩÔøΩ√•ÔøΩÔøΩÔøΩÔøΩ ÔøΩÔøΩÔøΩ)
+  #  frontend/JenkinsfileÔøΩÔøΩ S3_BUCKET ÔøΩÔøΩÔøΩÔøΩ ÔøΩÔøΩÔøΩÔøΩÔøΩÿæÔøΩ ÔøΩÔøΩ
+  FrontendBucketName:
+    Type: String
+    Default: waguwagu-s3-bucket-061039804626-ap-northeast-2
+
+  ############################################################
+  # CloudFront Distribution IDÔøΩÔøΩ ÔøΩÔøΩÔøΩÔøΩÔøΩÿµÔøΩ Secrets Manager Secret ÔøΩÔøΩÔøΩÔøΩ
+  # - JenkinsfileÔøΩÔøΩÔøΩÔøΩ aws secretsmanager get-secret-value ÔøΩÔøΩ ÔøΩÔøΩÔøΩÔøΩ ÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩ
+  # - SecretString(JSON) ÔøΩ»øÔøΩ ÔøΩ∆∑ÔøΩ KeyÔøΩÔøΩ Distribution IDÔøΩÔøΩ ÔøΩ÷æÔøΩÔøΩ÷∏ÔøΩ ÔøΩÔøΩ
+  ############################################################
+  CloudFrontSecretName:
+    Type: String
+    Default: "T3-Wagu-Secrets"
+    Description: "Secrets Manager secret name that contains CloudFront Distribution ID"
+
+  CloudFrontSecretKey:
+    Type: String
+    Default: "CLOUDFRONT_DISTRIBUTION_ID"
+    Description: "Key inside SecretString JSON for CloudFront Distribution ID"
+
 Resources:
   ############################################################
   # IAM Role for Jenkins EC2
-  # -SSM ¡¢º”(ººº« ∏≈¥œ¿˙)
+  # -SSM Ï†ëÏÜç(ÏÑ∏ÏÖò Îß§ÎãàÏ†Ä)
   # -ECR push/pull
-  # - (º±≈√) EKS ¡¢±Ÿ/πË∆˜( CD »Æ¿Â Ω√ø°)
+  # - (ÏÑ†ÌÉù) EKS Ï†ëÍ∑º/Î∞∞Ìè¨( CD ÌôïÏû• ÏãúÏóê)
   ############################################################
   JenkinsRole:
     Type: AWS::IAM::Role
@@ -79,6 +100,49 @@ Resources:
                   - ecr:PutImage
                 Resource: "*"
 
+        # Frontend ÔøΩÔøΩÔøΩÔøΩ(S3 sync) ÔøΩÔøΩÔøΩÔøΩ ÔøΩﬂ∞ÔøΩ
+        - PolicyName: JenkinsFrontendS3Policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                Resource: !Sub "arn:aws:s3:::${FrontendBucketName}"
+
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub "arn:aws:s3:::${FrontendBucketName}/*"
+
+        ############################################################
+        #  CloudFront ƒ≥ÔøΩÔøΩ ÔøΩÔøΩ»ø»≠(Invalidation) + Secrets ManagerÔøΩÔøΩÔøΩÔøΩ Distribution ID ÔøΩ–±ÔøΩ
+        # - JenkinsfileÔøΩÔøΩÔøΩÔøΩ aws secretsmanager get-secret-value ÔøΩÔøΩ ÔøΩÔøΩÔøΩÔøΩ ÔøΩ–∞ÔøΩ
+        # - aws cloudfront create-invalidation ÔøΩÔøΩÔøΩÔøΩ ÔøΩÔøΩ»ø»≠ ÔøΩÔøΩÔøΩÔøΩ
+        ############################################################
+        - PolicyName: JenkinsCloudFrontInvalidationPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Secrets Manager ÔøΩ–±ÔøΩ ÔøΩÔøΩÔøΩÔøΩ
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                # Secret ARNÔøΩÔøΩ ÔøΩ⁄øÔøΩ ÔøΩÔøΩÔøΩÔøΩ suffixÔøΩÔøΩ ÔøΩŸæÓº≠ * √≥ÔøΩÔøΩ ÔøΩ øÔøΩ
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${CloudFrontSecretName}-*"
+
+              # CloudFront ÔøΩÔøΩ»ø»≠ ÔøΩÔøΩÔøΩÔøΩ
+              # CloudFrontÔøΩÔøΩ ÔøΩÔøΩÔøΩ“ΩÔøΩ ÔøΩÔøΩÔøΩÔøΩ ARN ÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩ ÔøΩÔøΩÔøΩ≈∑ŒøÔøΩ ÔøΩ«πÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩ Resource:"*"ÔøΩÔøΩ ÔøΩŒ¥ÔøΩ ÔøΩÔøΩÔøΩ ÔøΩÔøΩÔøΩÔøΩ
+              - Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                  - cloudfront:GetDistribution
+                Resource: "*"
+
   JenkinsInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
@@ -88,9 +152,9 @@ Resources:
 
   ############################################################
   # Security Group (Matching Jenkins)
-  # ¡ˆ±›¿∫ Github Webhook πÊΩƒ¿Ã æ∆¥œ∂Û, Poll SCM(≥ª∫Œø°º≠ GitHub »Æ¿Œ) πÊΩƒ¿ª ªÁøÎ«œ∞Ì ¿÷æÓº≠
-  # 8080 ¿ŒπŸøÓµÂ∞° æ¯æÓµµ µ (SSM ∆˜∆Æ∆˜øˆµ˘¿∏∑Œ ¡¢º”)
-  # ≥™¡ﬂø° GitHub Webhook¿ª ≥™¡ﬂø° æ¥¥Ÿ∞Ì «œ∏È « ø‰«“ ºˆ¥¬ ¿÷¥Ÿ (GitHub IP ¥Îø™ø°º≠ 8080 «„øÎ¿Ã « ø‰«“ ºˆ ¿÷¿Ω)
+  # ÏßÄÍ∏àÏùÄ Github Webhook Î∞©ÏãùÏù¥ ÏïÑÎãàÎùº, Poll SCM(ÎÇ¥Î∂ÄÏóêÏÑú GitHub ÌôïÏù∏) Î∞©ÏãùÏùÑ ÏÇ¨Ïö©ÌïòÍ≥† ÏûàÏñ¥ÏÑú
+  # 8080 Ïù∏Î∞îÏö¥ÎìúÍ∞Ä ÏóÜÏñ¥ÎèÑ Îê®(SSM Ìè¨Ìä∏Ìè¨ÏõåÎî©ÏúºÎ°ú Ï†ëÏÜç)
+  # ÎÇòÏ§ëÏóê GitHub WebhookÏùÑ ÎÇòÏ§ëÏóê Ïì¥Îã§Í≥† ÌïòÎ©¥ ÌïÑÏöîÌï† ÏàòÎäî ÏûàÎã§ (GitHub IP ÎåÄÏó≠ÏóêÏÑú 8080 ÌóàÏö©Ïù¥ ÌïÑÏöîÌï† Ïàò ÏûàÏùå)
   ############################################################
   JenkinsMatchingSG:
     Type: AWS::EC2::SecurityGroup
@@ -99,9 +163,9 @@ Resources:
       VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
 
       SecurityGroupIngress:
-        # (º±≈√) GitHub Webhook -> Jenkins (HTTP 8080)
-        # GitHub IP ¥Îø™¿∫ ∫Ø∞Êµ… ºˆ ¿÷¿∏π«∑Œ øÓøµ Ω√ √÷Ω≈ »Æ¿Œ¿Ã « ø‰
-        # ¡Ô, ¿Ã æ∆∑°¿« ƒ⁄µÂ¥¬ polling πÊΩƒ¿Ã æ∆¥œ∂Û webhookπÊΩƒ¿ª æ¥¥Ÿ¥¬ ∞°¡§«œø° ¡∏¿Á«œ¥¬ ƒ⁄µÂ¿Œ∞≈¿”
+        # (ÏÑ†ÌÉù) GitHub Webhook -> Jenkins (HTTP 8080)
+        # GitHub IP ÎåÄÏó≠ÏùÄ Î≥ÄÍ≤ΩÎê† Ïàò ÏûàÏúºÎØÄÎ°ú Ïö¥ÏòÅ Ïãú ÏµúÏã† ÌôïÏù∏Ïù¥ ÌïÑÏöî
+        # Ï¶â, Ïù¥ ÏïÑÎûòÏùò ÏΩîÎìúÎäî polling Î∞©ÏãùÏù¥ ÏïÑÎãàÎùº webhookÎ∞©ÏãùÏùÑ Ïì¥Îã§Îäî Í∞ÄÏ†ïÌïòÏóê Ï°¥Ïû¨ÌïòÎäî ÏΩîÎìúÏù∏Í±∞ÏûÑ
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
@@ -112,7 +176,7 @@ Resources:
           ToPort: 8080
           CidrIp: 192.30.252.0/22
 
-      # æ∆øÙπŸøÓµÂ¥¬ ¿¸√º «„øÎ(SSM, GitHub, ECR, EKS µÓ ¡¢±Ÿ ∏Ò¿˚)
+      # ÏïÑÏõÉÎ∞îÏö¥ÎìúÎäî Ï†ÑÏ≤¥ ÌóàÏö©(SSM, GitHub, ECR, EKS Îì± Ï†ëÍ∑º Î™©Ï†Å)
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
@@ -125,9 +189,9 @@ Resources:
 
   ############################################################
   # Security Group (Game Jenkins)
-  # - ¿ŒπŸøÓµÂ øœ¿¸ ¬˜¥‹(SSM¿∏∑Œ∏∏ ¡¢º”)
-  # - Jenkins UI¥¬ SSM ∆˜∆Æ∆˜øˆµ˘(localhost:8080)¿∏∑Œ ¡¢±Ÿ
-  # ¿Ã æ∆∑°ø° ¿÷¥¬ ƒ⁄µÂµÈµµ pollingπÊΩƒ¿Ã æ∆¥œ∂Û, webhookπÊΩƒ¿ª æ¥¥Ÿ¥¬ ∞°¡§«œ∞‘ ¡∏¿Á«œ¥¬ ƒ⁄µÂµÈ
+  # - Ïù∏Î∞îÏö¥Îìú ÏôÑÏ†Ñ Ï∞®Îã®(SSMÏúºÎ°úÎßå Ï†ëÏÜç)
+  # - Jenkins UIÎäî SSM Ìè¨Ìä∏Ìè¨ÏõåÎî©(localhost:8080)ÏúºÎ°ú Ï†ëÍ∑º
+  # Ïù¥ ÏïÑÎûòÏóê ÏûàÎäî ÏΩîÎìúÎì§ÎèÑ pollingÎ∞©ÏãùÏù¥ ÏïÑÎãàÎùº, webhookÎ∞©ÏãùÏùÑ Ïì¥Îã§Îäî Í∞ÄÏ†ïÌïòÍ≤å Ï°¥Ïû¨ÌïòÎäî ÏΩîÎìúÎì§
   ############################################################
   JenkinsGameSG:
     Type: AWS::EC2::SecurityGroup
@@ -135,6 +199,12 @@ Resources:
       GroupDescription: Security Group for Jenkins Game Server (SSM-only, no inbound)
       VpcId: !ImportValue T3-Wagu-Game-VPC-Id
       SecurityGroupIngress: []
+
+      # (ÔøΩÔøΩÔøΩÔøΩ ÔøΩÔøΩÔøΩÔøΩ) ÔøΩ∆øÔøΩÔøΩŸøÔøΩÔøΩ ÔøΩÔøΩ√º ÔøΩÔøΩÔøΩ (SSM/GitHub/ECR/S3/CloudFront ÔøΩÔøΩÔøΩÔøΩ ÔøΩÔøΩÔøΩÔøΩ)
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
       Tags:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Jenkins-Game-SG"
@@ -143,8 +213,8 @@ Resources:
 
   ############################################################
   # Jenkins EC2 Instance (Matching)
-  # - matching-ci Job¿ª init.groovy∑Œ ¿⁄µø ª˝º∫
-  # - Poll SCM ∆Æ∏Æ∞≈ ¿˚øÎ, 5∫–∏∂¥Ÿ
+  # - matching-ci JobÏùÑ init.groovyÎ°ú ÏûêÎèô ÏÉùÏÑ±
+  # - Poll SCM Ìä∏Î¶¨Í±∞ Ï†ÅÏö©, 5Î∂ÑÎßàÎã§
   ############################################################
   JenkinsInstanceMatching:
     Type: AWS::EC2::Instance
@@ -158,38 +228,38 @@ Resources:
           DeviceIndex: "0"
           GroupSet:
             - !Ref JenkinsMatchingSG
-          # Matching Public Subnet ¡ﬂ √π π¯¬∞ ªÁøÎ
+          # Matching Public Subnet Ï§ë Ï≤´ Î≤àÏß∏ ÏÇ¨Ïö©
           SubnetId: !Select
             - 0
             - !Split
               - ","
               - !ImportValue T3-Wagu-Matching-Public-Subnet-Ids
 
-      # Jenkins ¿⁄µø º≥ƒ°/º≥¡§(UserData)
+      # Jenkins ÏûêÎèô ÏÑ§Ïπò/ÏÑ§Ï†ï(UserData)
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
           set -euxo pipefail
 
-          # ∑Œ±◊ ≥≤±‚±‚(Ω«∆– ø¯¿Œ »Æ¿ŒøÎ)
+          # Î°úÍ∑∏ ÎÇ®Í∏∞Í∏∞(Ïã§Ìå® ÏõêÏù∏ ÌôïÏù∏Ïö©)
           exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
 
           dnf update -y
 
-          # CIø° « ø‰«— µµ±∏µÈ: docker/git/awscli (+ ∆Ì¿« ¿Ø∆ø)
-          # NOTE: AL2023ø°º≠ curl º≥ƒ°¥¬ curl-minimal∞˙ √Êµπ ∞°¥… -> ¡¶ø‹
+          # CIÏóê ÌïÑÏöîÌïú ÎèÑÍµ¨Îì§: docker/git/awscli (+ Ìé∏Ïùò Ïú†Ìã∏)
+          # NOTE: AL2023ÏóêÏÑú curl ÏÑ§ÏπòÎäî curl-minimalÍ≥º Ï∂©Îèå Í∞ÄÎä• -> Ï†úÏô∏
           dnf install -y docker git wget unzip jq awscli
           systemctl enable --now docker
 
-          # kubectl º≥ƒ° (KVER¥¬ Fn::Sub ∫Øºˆ∑Œ ø¿«ÿπﬁ¡ˆ æ ∞‘ $KVER ªÁøÎ)
+          # kubectl ÏÑ§Ïπò (KVERÎäî Fn::Sub Î≥ÄÏàòÎ°ú Ïò§Ìï¥Î∞õÏßÄ ÏïäÍ≤å $KVER ÏÇ¨Ïö©)
           KVER="$(wget -qO- https://dl.k8s.io/release/stable.txt)"
           wget -q "https://dl.k8s.io/release/$KVER/bin/linux/amd64/kubectl" -O /usr/local/bin/kubectl
           chmod +x /usr/local/bin/kubectl
 
-          # Jenkins Ω««‡ø° « ø‰«— Java
+          # Jenkins Ïã§ÌñâÏóê ÌïÑÏöîÌïú Java
           dnf install -y java-17-amazon-corretto
 
-          # Jenkins repo (∞¯Ωƒ πÊΩƒ)
+          # Jenkins repo (Í≥µÏãù Î∞©Ïãù)
           wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
           rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
 
@@ -197,10 +267,10 @@ Resources:
           dnf makecache -y
           dnf install -y jenkins
 
-          # jenkins ¿Ø¿˙∞° docker Ω««‡ ∞°¥…«œµµ∑œ
+          # jenkins Ïú†Ï†ÄÍ∞Ä docker Ïã§Ìñâ Í∞ÄÎä•ÌïòÎèÑÎ°ù
           usermod -aG docker jenkins
 
-          # «√∑Ø±◊¿Œ ¿⁄µø º≥ƒ°(Pipeline/Git/GitHub/Credentials µÓ)
+          # ÌîåÎü¨Í∑∏Ïù∏ ÏûêÎèô ÏÑ§Ïπò(Pipeline/Git/GitHub/Credentials Îì±)
           mkdir -p /var/lib/jenkins/plugins
           cat >/tmp/plugins.txt <<'EOF'
           workflow-aggregator
@@ -213,7 +283,7 @@ Resources:
 
           export JENKINS_HOME=/var/lib/jenkins
 
-          # jenkins-plugin-cli∞° ¿÷¿∏∏È ªÁøÎ, æ¯¿∏∏È plugin manager tool(jar) ªÁøÎ
+          # jenkins-plugin-cliÍ∞Ä ÏûàÏúºÎ©¥ ÏÇ¨Ïö©, ÏóÜÏúºÎ©¥ plugin manager tool(jar) ÏÇ¨Ïö©
           if command -v jenkins-plugin-cli >/dev/null 2>&1; then
             PLUGINS="$(tr '\n' ' ' </tmp/plugins.txt)"
             jenkins-plugin-cli --plugins "$PLUGINS" --plugin-dir /var/lib/jenkins/plugins
@@ -229,10 +299,10 @@ Resources:
 
           chown -R jenkins:jenkins /var/lib/jenkins
 
-          # Setup Wizard Ω∫≈µ Ω√µµ (»Ø∞Êø° µ˚∂Û øœ¿¸»˜ æ» ∏‘¿ª ºˆµµ ¿÷¿Ω)
+          # Setup Wizard Ïä§ÌÇµ ÏãúÎèÑ (ÌôòÍ≤ΩÏóê Îî∞Îùº ÏôÑÏ†ÑÌûà Ïïà Î®πÏùÑ ÏàòÎèÑ ÏûàÏùå)
           mkdir -p /etc/sysconfig
           if [ -f /etc/sysconfig/jenkins ] && grep -q '^JENKINS_JAVA_OPTIONS=' /etc/sysconfig/jenkins; then
-            sed -i 's#^JENKINS_JAVA_OPTIONS="\(.*\)"#JENKINS_JAVA_OPTIONS="\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
+            sed -i 's#^JENKINS_JAVA_OPTIONS="\\(.*\\)"#JENKINS_JAVA_OPTIONS="\\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
           else
             echo 'JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"' >> /etc/sysconfig/jenkins
           fi
@@ -241,7 +311,7 @@ Resources:
           systemctl enable jenkins
           systemctl stop jenkins || true
 
-          # ∞¸∏Æ¿⁄ ∞Ë¡§ ¿⁄µø ª˝º∫/∫∏æ» º≥¡§ + (º±≈√) Jenkins URL º≥¡§
+          # Í¥ÄÎ¶¨Ïûê Í≥ÑÏ†ï ÏûêÎèô ÏÉùÏÑ±/Î≥¥Ïïà ÏÑ§Ï†ï + (ÏÑ†ÌÉù) Jenkins URL ÏÑ§Ï†ï
           mkdir -p /var/lib/jenkins/init.groovy.d
           cat >/var/lib/jenkins/init.groovy.d/01-security.groovy <<'GROOVY'
           import jenkins.model.*
@@ -273,7 +343,7 @@ Resources:
           instance.save()
           GROOVY
 
-          # Job ¿⁄µø ª˝º∫ (matching-ci) + Poll SCM
+          # Job ÏûêÎèô ÏÉùÏÑ± (matching-ci) + Poll SCM
           cat >/var/lib/jenkins/init.groovy.d/02-jobs.groovy <<'GROOVY'
           import jenkins.model.*
           import org.jenkinsci.plugins.workflow.job.WorkflowJob
@@ -297,7 +367,7 @@ Resources:
 
             WorkflowJob job = j.createProject(WorkflowJob, jobName)
 
-            def remote = new UserRemoteConfig(repoUrl, null, null, null) // public repo -> credentialsId ∫“« ø‰
+            def remote = new UserRemoteConfig(repoUrl, null, null, null) // public repo -> credentialsId Î∂àÌïÑÏöî
             def scm = new GitSCM(
               [remote],
               [new BranchSpec(branchSpec)],
@@ -310,13 +380,14 @@ Resources:
 
             job.definition = new CpsScmFlowDefinition(scm, scriptPath)
 
-            // Poll SCM: 5∫–∏∂¥Ÿ ∫Ø∞Ê ∞®¡ˆ
-            job.addTrigger(new SCMTrigger("H/5 * * * *"))
+            // Poll SCM: 5Î∂ÑÎßàÎã§ Î≥ÄÍ≤Ω Í∞êÏßÄ
+            job.addTrigger(new SCMTrigger("H/2 * * * *"))
 
             job.save()
           }
 
           ensurePipelineJob("matching-ci", "matching-server/Jenkinsfile")
+          ensurePipelineJob("frontend-ci", "frontend/Jenkinsfile")
           j.save()
           GROOVY
 
@@ -335,8 +406,8 @@ Resources:
 
   ############################################################
   # Jenkins EC2 Instance (Game)
-  # - game-ci Job¿ª init.groovy∑Œ ¿⁄µø ª˝º∫
-  # - Poll ∆Æ∏Æ∞≈ ¿˚øÎ, 5∫–∏∂¥Ÿ
+  # - game-ci JobÏùÑ init.groovyÎ°ú ÏûêÎèô ÏÉùÏÑ±
+  # - Poll Ìä∏Î¶¨Í±∞ Ï†ÅÏö©, 5Î∂ÑÎßàÎã§
   ############################################################
   JenkinsInstanceGame:
     Type: AWS::EC2::Instance
@@ -350,7 +421,7 @@ Resources:
           DeviceIndex: "0"
           GroupSet:
             - !Ref JenkinsGameSG
-          # Game Public Subnet ¡ﬂ √π π¯¬∞ ªÁøÎ
+          # Game Public Subnet Ï§ë Ï≤´ Î≤àÏß∏ ÏÇ¨Ïö©
           SubnetId: !Select
             - 0
             - !Split
@@ -362,23 +433,23 @@ Resources:
           #!/bin/bash
           set -euxo pipefail
 
-          # ∑Œ±◊ ≥≤±‚±‚(Ω«∆– ø¯¿Œ »Æ¿ŒøÎ)
+          # Î°úÍ∑∏ ÎÇ®Í∏∞Í∏∞(Ïã§Ìå® ÏõêÏù∏ ÌôïÏù∏Ïö©)
           exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
 
           dnf update -y
 
-          # CIø° « ø‰«— µµ±∏µÈ: docker/git/awscli (+ ∆Ì¿« ¿Ø∆ø)
+          # CIÏóê ÌïÑÏöîÌïú ÎèÑÍµ¨Îì§: docker/git/awscli (+ Ìé∏Ïùò Ïú†Ìã∏)
           dnf install -y docker git wget unzip jq awscli
           systemctl enable --now docker
 
-          # kubectl º≥ƒ°
+          # kubectl ÏÑ§Ïπò
           KVER="$(wget -qO- https://dl.k8s.io/release/stable.txt)"
           wget -q "https://dl.k8s.io/release/$KVER/bin/linux/amd64/kubectl" -O /usr/local/bin/kubectl
           chmod +x /usr/local/bin/kubectl
 
           dnf install -y java-17-amazon-corretto
 
-          # Jenkins repo (∞¯Ωƒ πÊΩƒ)
+          # Jenkins repo (Í≥µÏãù Î∞©Ïãù)
           wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
           rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
 
@@ -386,10 +457,10 @@ Resources:
           dnf makecache -y
           dnf install -y jenkins
 
-          # jenkins ¿Ø¿˙∞° docker Ω««‡ ∞°¥…«œµµ∑œ
+          # jenkins Ïú†Ï†ÄÍ∞Ä docker Ïã§Ìñâ Í∞ÄÎä•ÌïòÎèÑÎ°ù
           usermod -aG docker jenkins
 
-          # «√∑Ø±◊¿Œ ¿⁄µø º≥ƒ°
+          # ÌîåÎü¨Í∑∏Ïù∏ ÏûêÎèô ÏÑ§Ïπò
           mkdir -p /var/lib/jenkins/plugins
           cat >/tmp/plugins.txt <<'EOF'
           workflow-aggregator
@@ -417,10 +488,10 @@ Resources:
 
           chown -R jenkins:jenkins /var/lib/jenkins
 
-          # Setup Wizard Ω∫≈µ Ω√µµ
+          # Setup Wizard Ïä§ÌÇµ ÏãúÎèÑ
           mkdir -p /etc/sysconfig
           if [ -f /etc/sysconfig/jenkins ] && grep -q '^JENKINS_JAVA_OPTIONS=' /etc/sysconfig/jenkins; then
-            sed -i 's#^JENKINS_JAVA_OPTIONS="\(.*\)"#JENKINS_JAVA_OPTIONS="\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
+            sed -i 's#^JENKINS_JAVA_OPTIONS="\\(.*\\)"#JENKINS_JAVA_OPTIONS="\\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
           else
             echo 'JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"' >> /etc/sysconfig/jenkins
           fi
@@ -429,7 +500,7 @@ Resources:
           systemctl enable jenkins
           systemctl stop jenkins || true
 
-          # ∞¸∏Æ¿⁄ ∞Ë¡§ ¿⁄µø ª˝º∫/∫∏æ» º≥¡§
+          # Í¥ÄÎ¶¨Ïûê Í≥ÑÏ†ï ÏûêÎèô ÏÉùÏÑ±/Î≥¥Ïïà ÏÑ§Ï†ï
           mkdir -p /var/lib/jenkins/init.groovy.d
           cat >/var/lib/jenkins/init.groovy.d/01-security.groovy <<'GROOVY'
           import jenkins.model.*
@@ -461,7 +532,7 @@ Resources:
           instance.save()
           GROOVY
 
-          # Job ¿⁄µø ª˝º∫ (game-ci) + Poll SCM
+          # Job ÏûêÎèô ÏÉùÏÑ± (game-ci) + Poll SCM
           cat >/var/lib/jenkins/init.groovy.d/02-jobs.groovy <<'GROOVY'
           import jenkins.model.*
           import org.jenkinsci.plugins.workflow.job.WorkflowJob
@@ -485,7 +556,7 @@ Resources:
 
             WorkflowJob job = j.createProject(WorkflowJob, jobName)
 
-            def remote = new UserRemoteConfig(repoUrl, null, null, null) // public repo -> credentialsId ∫“« ø‰
+            def remote = new UserRemoteConfig(repoUrl, null, null, null) // public repo -> credentialsId Î∂àÌïÑÏöî
             def scm = new GitSCM(
               [remote],
               [new BranchSpec(branchSpec)],
@@ -498,8 +569,8 @@ Resources:
 
             job.definition = new CpsScmFlowDefinition(scm, scriptPath)
 
-            // Poll SCM: 5∫–∏∂¥Ÿ ∫Ø∞Ê ∞®¡ˆ
-            job.addTrigger(new SCMTrigger("H/5 * * * *"))
+            // Poll SCM: 5Î∂ÑÎßàÎã§ Î≥ÄÍ≤Ω Í∞êÏßÄ
+            job.addTrigger(new SCMTrigger("H/2 * * * *"))
 
             job.save()
           }

@@ -71,7 +71,7 @@ Resources:
       DBName: !Ref DBName
       DBInstanceClass: !Ref DBInstanceClass
       AllocatedStorage: !Ref AllocatedStorage
-      StorageType: gp3
+      StorageType: gp2
       StorageEncrypted: true
       
       MasterUsername: !Ref MasterUsername

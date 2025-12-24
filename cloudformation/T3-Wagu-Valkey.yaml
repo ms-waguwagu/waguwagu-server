@@ -47,7 +47,6 @@ Resources:
       SecurityGroupIds:
         - !ImportValue T3-Wagu-ValkeySGId
 
-
       # Maintenance
       PreferredMaintenanceWindow: sun:03:00-sun:04:00
 

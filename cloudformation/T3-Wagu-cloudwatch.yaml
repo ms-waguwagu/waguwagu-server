@@ -1,0 +1,243 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "WAGUWAGU CloudWatch Dashboard - Service Infra Monitoring (Infra Focus)"
+
+Parameters:
+  ProjectPrefix:
+    Type: String
+    Default: T3-Wagu
+
+  GameNodeASG:
+    Type: String
+
+  MatchingNodeASG:
+    Type: String
+
+Resources:
+  InfraDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub "${ProjectPrefix}-Infra-Dashboard"
+      DashboardBody:
+        Fn::Sub:
+          - |
+            {
+              "widgets": [
+                {
+                  "type": "metric",
+                  "x": 0,
+                  "y": 0,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "CPU Utilization - Game vs Matching",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "annotations": {
+                      "horizontal": [
+                        { "label": "Warning (50%)", "value": 50 }
+                      ]
+                    },
+                    "metrics": [
+                      [ "AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${GameASG}", { "label": "Game CPU", "stat": "Average" } ],
+                      [ ".", ".", ".", "${MatchingASG}", { "label": "Matching CPU", "stat": "Average" } ]
+                    ]
+                  }
+                },
+                {
+                  "type": "metric",
+                  "x": 12,
+                  "y": 0,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "ASG Desired vs InService",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [ "AWS/AutoScaling", "GroupDesiredCapacity", "AutoScalingGroupName", "${GameASG}", { "label": "Game Desired" } ],
+                      [ ".", "GroupInServiceInstances", ".", ".", { "label": "Game InService" } ],
+                      [ ".", "GroupDesiredCapacity", ".", "${MatchingASG}", { "label": "Matching Desired" } ],
+                      [ ".", "GroupInServiceInstances", ".", ".", { "label": "Matching InService" } ]
+                    ]
+                  }
+                },
+                {
+                  "type": "metric",
+                  "x": 0,
+                  "y": 6,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "Network Traffic (Game Nodes)",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [ "AWS/EC2", "NetworkIn", "AutoScalingGroupName", "${GameASG}", { "label": "In", "stat": "Sum" } ],
+                      [ ".", "NetworkOut", ".", ".", { "label": "Out", "stat": "Sum" } ]
+                    ]
+                  }
+                },
+
+                {
+                  "type": "metric",
+                  "x": 12,
+                  "y": 6,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "Network Traffic (Matching Nodes)",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [ "AWS/EC2", "NetworkIn", "AutoScalingGroupName", "${MatchingASG}", { "label": "In", "stat": "Sum" } ],
+                      [ ".", "NetworkOut", ".", ".", { "label": "Out", "stat": "Sum" } ]
+                    ]
+                  }
+                },
+                {
+                  "type": "metric",
+                  "x": 0,
+                  "y": 12,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "EC2 Status Check Failed",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [ "AWS/EC2", "StatusCheckFailed", "AutoScalingGroupName", "${GameASG}", { "label": "Game Nodes", "stat": "Maximum" } ],
+                      [ ".", ".", ".", "${MatchingASG}", { "label": "Matching Nodes", "stat": "Maximum" } ]
+                    ]
+                  }
+                },
+                                {
+                  "type": "metric",
+                  "x": 12,
+                  "y": 12,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "ASG Scaling Activity (Pending / Terminating)",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [ "AWS/AutoScaling", "GroupPendingInstances", "AutoScalingGroupName", "${GameASG}", { "label": "Game Pending" } ],
+                      [ ".", "GroupTerminatingInstances", ".", ".", { "label": "Game Terminating" } ],
+                      [ ".", "GroupPendingInstances", ".", "${MatchingASG}", { "label": "Matching Pending" } ],
+                      [ ".", "GroupTerminatingInstances", ".", ".", { "label": "Matching Terminating" } ]
+                    ]
+                  }
+                }
+              ]
+            }
+          - GameASG: !Ref GameNodeASG
+            MatchingASG: !Ref MatchingNodeASG
+
+  ############################################################
+  # Alarm
+  ############################################################
+
+  AlarmSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${ProjectPrefix}-infra-alarms"
+
+  AlarmEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlarmSNSTopic
+      Protocol: email
+      Endpoint: xyukyeong@naver.com
+
+  GameNodeCPUHighAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectPrefix}-GameNode-CPU-High"
+      AlarmDescription: "Game Node ASG CPU >= 50% for 5 minutes"
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref GameNodeASG
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 50
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+      OKActions:
+        - !Ref AlarmSNSTopic
+
+  MatchingNodeCPUHighAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectPrefix}-MatchingNode-CPU-High"
+      AlarmDescription: "Matching Node ASG CPU >= 50% for 5 minutes"
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref MatchingNodeASG
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 50
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+      OKActions:
+        - !Ref AlarmSNSTopic
+
+  EC2StatusCheckFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectPrefix}-EC2-StatusCheck-Failed"
+      AlarmDescription: "Any EC2 node status check failed"
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
+  ASGInServiceLowAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectPrefix}-ASG-InService-Low"
+      AlarmDescription: "ASG InService instances dropped"
+      Namespace: AWS/AutoScaling
+      MetricName: GroupInServiceInstances
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref GameNodeASG
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
+  ASGPendingTooLongAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectPrefix}-ASG-Pending-Too-Long"
+      Namespace: AWS/AutoScaling
+      MetricName: GroupPendingInstances
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref GameNodeASG
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref AlarmSNSTopic

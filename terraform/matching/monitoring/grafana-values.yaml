@@ -1,0 +1,77 @@
+adminUser: admin
+adminPassword: admin
+
+service:
+  type: LoadBalancer
+
+########################
+# Datasources
+########################
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus-Game
+        type: prometheus
+        url: http://k8s-monitori-promethe-f2f2273249-da43051036de016b.elb.ap-northeast-2.amazonaws.com #하드코딩, 매일 바꿔야 하는 값
+        access: proxy
+        isDefault: true
+
+      - name: Prometheus-Matching
+        type: prometheus
+        url: http://prometheus-server.monitoring.svc.cluster.local
+        access: proxy
+        isDefault: false
+
+########################
+# Dashboard
+########################
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: game
+        orgId: 1
+        folder: Game
+        type: file
+        disableDeletion: true
+        editable: false
+        options:
+          path: /var/lib/grafana/dashboards/game
+
+      - name: matching
+        orgId: 1
+        folder: Matching
+        type: file
+        disableDeletion: true
+        editable: false
+        options:
+          path: /var/lib/grafana/dashboards/matching
+
+dashboards:
+  game:
+    kubernetes-cluster-game:
+      gnetId: 7249
+      revision: 1
+      datasource: Prometheus-Game
+
+  matching:
+    kubernetes-cluster-matching:
+      gnetId: 15757
+      revision: 1
+      datasource: Prometheus-Matching
+
+# ########################
+# # Sidecar (필수)
+# ########################
+sidecar:
+  dashboards:
+    enabled: true
+
+########################
+# Anonymous Access
+########################
+grafana.ini:
+  auth.anonymous:
+    enabled: true
+    org_role: Viewer
