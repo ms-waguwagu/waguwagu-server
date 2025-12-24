@@ -17,7 +17,7 @@ startButton.addEventListener("click", async () => {
   }
 
   try {
-    // 닉네임 설정s
+    // 닉네임 설정ss
     const { accessToken } = await setNickname(nickname);
 
     // OAuth 토큰을 새 토큰으로 교체
