@@ -7,7 +7,7 @@ metadata:
     app: waguwagu
 spec:
   # Ready 또는 Allocated 상태로 유지할 GameServer 개수
-  replicas: 10
+  replicas: 5
 
   # 스케줄링 전략. 기본값은 Packed.
   scheduling: Packed

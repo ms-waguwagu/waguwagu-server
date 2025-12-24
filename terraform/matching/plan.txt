@@ -1,0 +1,746 @@
+module.eks.aws_iam_role.cluster: Refreshing state... [id=T3-Wagu-Matching-EKS-cluster-role]
+data.aws_subnet.matching_private_b: Reading...
+module.eks.aws_iam_role.node: Refreshing state... [id=T3-Wagu-Matching-EKS-node-role]
+data.aws_subnet.matching_private_a: Reading...
+data.aws_vpc.matching: Reading...
+data.aws_iam_policy_document.eso_sm_policy_doc: Reading...
+data.aws_iam_policy_document.eso_sm_policy_doc: Read complete after 0s [id=2246821148]
+data.aws_subnet.matching_private_b: Read complete after 0s [id=subnet-00c3853ed11c2c3e1]
+data.aws_subnet.matching_private_a: Read complete after 0s [id=subnet-08dbc190c2a7706c2]
+data.aws_vpc.matching: Read complete after 1s [id=vpc-05f72c7b9840c0ea7]
+module.eks.aws_iam_role_policy_attachment.cluster_AmazonEKSVPCResourceController: Refreshing state... [id=T3-Wagu-Matching-EKS-cluster-role/arn:aws:iam::aws:policy/AmazonEKSVPCResourceController]
+module.eks.aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy: Refreshing state... [id=T3-Wagu-Matching-EKS-cluster-role/arn:aws:iam::aws:policy/AmazonEKSClusterPolicy]
+module.eks.aws_iam_role_policy_attachment.node_AmazonEKS_CNI_Policy: Refreshing state... [id=T3-Wagu-Matching-EKS-node-role/arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy]
+module.eks.aws_iam_role_policy_attachment.node_AmazonEC2ContainerRegistryReadOnly: Refreshing state... [id=T3-Wagu-Matching-EKS-node-role/arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly]
+module.eks.aws_iam_role_policy_attachment.node_AmazonEKSWorkerNodePolicy: Refreshing state... [id=T3-Wagu-Matching-EKS-node-role/arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy]
+module.eks.aws_iam_role_policy_attachment.node_AmazonSSMManagedInstanceCore: Refreshing state... [id=T3-Wagu-Matching-EKS-node-role/arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore]
+module.eks.aws_eks_cluster.this: Refreshing state... [id=T3-Wagu-Matching-EKS]
+data.aws_eks_cluster.this: Reading...
+aws_iam_policy.eso_sm_policy: Refreshing state... [id=arn:aws:iam::061039804626:policy/T3-Wagu-Matching-EKS-eso-sm-policy]
+module.eks.aws_eks_node_group.this: Refreshing state... [id=T3-Wagu-Matching-EKS:matching-node-group]
+data.aws_eks_cluster.this: Read complete after 0s [id=T3-Wagu-Matching-EKS]
+data.tls_certificate.eks: Reading...
+data.tls_certificate.eks: Read complete after 0s [id=2f4c12273dfce0668da79492f884c5b681951fb9]
+aws_iam_openid_connect_provider.eks: Refreshing state... [id=arn:aws:iam::061039804626:oidc-provider/oidc.eks.ap-northeast-2.amazonaws.com/id/DE84D0822A550E2730AE3D305E409EA8]
+aws_iam_role.eso_role: Refreshing state... [id=T3-Wagu-Matching-EKS-eso-role]
+aws_iam_role_policy_attachment.eso_attach: Refreshing state... [id=T3-Wagu-Matching-EKS-eso-role/arn:aws:iam::061039804626:policy/T3-Wagu-Matching-EKS-eso-sm-policy]
+
+Note: Objects have changed outside of Terraform
+
+Terraform detected the following changes made outside of Terraform since the
+last "terraform apply" which may have affected this plan:
+
+  # aws_iam_openid_connect_provider.eks has been deleted
+  - resource "aws_iam_openid_connect_provider" "eks" {
+      - arn             = "arn:aws:iam::061039804626:oidc-provider/oidc.eks.ap-northeast-2.amazonaws.com/id/DE84D0822A550E2730AE3D305E409EA8" -> null
+        id              = "arn:aws:iam::061039804626:oidc-provider/oidc.eks.ap-northeast-2.amazonaws.com/id/DE84D0822A550E2730AE3D305E409EA8"
+        tags            = {}
+        # (4 unchanged attributes hidden)
+    }
+
+  # module.eks.aws_eks_cluster.this has changed
+  ~ resource "aws_eks_cluster" "this" {
+      ~ certificate_authority         = [
+          ~ {
+              ~ data = "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURCVENDQWUyZ0F3SUJBZ0lJWFcxR1llMWxjRVF3RFFZSktvWklodmNOQVFFTEJRQXdGVEVUTUJFR0ExVUUKQXhNS2EzVmlaWEp1WlhSbGN6QWVGdzB5TlRFeU1qTXdNRFV4TVRWYUZ3MHpOVEV5TWpFd01EVTJNVFZhTUJVeApFekFSQmdOVkJBTVRDbXQxWW1WeWJtVjBaWE13Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLCkFvSUJBUUM0UWE4TWw1Ukk4WEtSaDFPOXJ5RWpLdGNqUUJuL3oxRVgrNnY4OHBpemhmS3Y4LzM5MVNjSlBhcUgKak4xSUJWWlUxeXpCcFJ5eHZzRXBSYmFDS1cvUG9RQlF5WitYa3dHMWw5Y2l6Uk9NbXh5MEpaQ1dkUW83OTlLcQpqb0h4QWdNcXA2dmsvd3pkd0RtRW1XbkdPZHV3aGxlM0FzMEhrQzZzQzV6eGpoaXBiYjQ1ekp6UnFSMzRXSTFOCkxEOFM3MkI1OFJBWmh2WDZqa2QwTVJpNGxiUWZ1M1pYbWloMzBVKzRDdGVOYUI3RXhVdWtDZWIrbytBbDFDUGoKVVgrNkJuY2xSU3RsQkVnWlhGbE9RRURhNnNzZWNCQmFtakFtKzNRQXZ0QjZCc1dhRDIzRVNhUU15OUVpQ3pydwpPMUU1ajhTajQ5TXIreUVrMDQrZG1RWUlIWjlOQWdNQkFBR2pXVEJYTUE0R0ExVWREd0VCL3dRRUF3SUNwREFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUIwR0ExVWREZ1FXQkJSUWZrZU1hQUdzeXNuOUNDRjZOK3F3TE5CcURUQVYKQmdOVkhSRUVEakFNZ2dwcmRXSmxjbTVsZEdWek1BMEdDU3FHU0liM0RRRUJDd1VBQTRJQkFRQnBaTWxTZkpuSApPTGEzL1R6bk9SVHdwdWprZVdxNFk0VkVvejFwUC9XazlTMG12M293c3ozRjhpa0FpaDB6WXZaLy8yVTRKeGtrCm5BUklETCtleGhCZk1XVWFRUWtodEdzb1pMdDVuN2ljcmRpbFJucXlUZDhGdVNDSXVZeXhMSk9uY2Y1SlczOTEKQldzZHQveFhtNjBtYlhrMFBEWENwT3cyVFh4aWRaS0djVmRoQkFQczJTNkhNenRmek1LZytHMndwbGw1L2FXVApCSkZXaXp1MitGa3AvSnh2Y2gzbjVFOFlvcmFMb2gzR250RnU0bE9HRUdkWUhXSC9QWWkyaWdUd1VXRjRFY1FBCnRnUitGazVSMzNSNjg3TnhTVmhWaVdmRy9iZnF5ZmN5aitmVEpOSzczekFEaEZPUmN2bjdWMkFMQlpmWlgxbUwKRHZ3QUxhQUJUUE9SCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K" -> "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURCVENDQWUyZ0F3SUJBZ0lJWFhJOGxBYkpGaFV3RFFZSktvWklodmNOQVFFTEJRQXdGVEVUTUJFR0ExVUUKQXhNS2EzVmlaWEp1WlhSbGN6QWVGdzB5TlRFeU1qUXdNRE14TlRsYUZ3MHpOVEV5TWpJd01ETTJOVGxhTUJVeApFekFSQmdOVkJBTVRDbXQxWW1WeWJtVjBaWE13Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLCkFvSUJBUUNwMVBVc0p5MlhIMG1LQzBrRjFveXh6WWdXT3NZSGVXU2xCMVJ6ZWdiYWsraFhnRVQ1MGppVlNBM3oKcmJ4UTZocTRJbDZtY0ZYZ1E4QWtwb3dEcUpVTTV2dUtpVzZtWjFnQm85TVM3aXArZUFCQWx4R2xsa1JFcUhVTgpuVVIwZjk4ajNhNEx0VVlDRjBvZlFaVlU3QjJiRFpiMUlMNENkSHVpdUNTRFcwMS94V29vUytMOStMQS9tNVFpCkQyeWxwM0VPbXU0ZFZMb0J1aWg2KzlCVXhnOExuYUR5QXlTQmJBMmkxUnJJaDNPbkJ3WW43ZmdabklNY0hXd3MKVUJiVEVmUU5ZaFJ1QWxUc3g1ZVdOWmdMTHRuT2NZd3prbEl5OVpEN2pqMys4Z081aFVqMEo5bzVGYUhXRXRmWQpxQVhLL2Z2ckxRMjVPM0FBaS9TdkZOb2pTTFg3QWdNQkFBR2pXVEJYTUE0R0ExVWREd0VCL3dRRUF3SUNwREFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUIwR0ExVWREZ1FXQkJTbUVRM2NjaWhEL3FaR3JqeUI3dHF2NzM5VGp6QVYKQmdOVkhSRUVEakFNZ2dwcmRXSmxjbTVsZEdWek1BMEdDU3FHU0liM0RRRUJDd1VBQTRJQkFRQXp0QTI2a3VYbApCNS94WGFxWUNtUjJpMXJkWFcvQkpaMjZ2NWdEM0NSUEdNR2JabENRRzZnSnp3eFJUQXBEZ3czWnBzU1BMYkhuCnZVS1lPWnZXc2JrQy9MV2RxNHI1c2drOUpQSXFZN090WkxKWWRUVmZaWHhVWTMxSEFONzRkRnNGMTJ0eC9vMWsKaWgwdVVZY0VJU0NRRTh6ZnZEeUlGOXRqNDhZMXhiVkNjNWgwUzVrWiszMGJCbEVCUEdvaXQ4Q1RYNzgyeWVEdgpZbndaRTQwS1FtVW1Dek5tTWhmNERZYmFFcG5UNW11Y2tJWXNqcmx2YUkxclQzbW9MSWd1S2ZjVS9LOTlDSkM3Ck1MMTlNR0J2R3dwN2JkQUtZNndib21yTzJ5YncxNktudllzU0oyRURNbHBPbjcxWWdnZVg5VFBvS0lTT1RhSzIKWGE1VWhhWXg3c3F1Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K"
+            },
+        ]
+      ~ endpoint                      = "https://DE84D0822A550E2730AE3D305E409EA8.gr7.ap-northeast-2.eks.amazonaws.com" -> "https://990870F3F7470B2FD8405EF8900FC866.gr7.ap-northeast-2.eks.amazonaws.com"
+        id                            = "T3-Wagu-Matching-EKS"
+        name                          = "T3-Wagu-Matching-EKS"
+        tags                          = {}
+        # (12 unchanged attributes hidden)
+
+      ~ vpc_config {
+          ~ cluster_security_group_id = "sg-0f2eb6b162befda60" -> "sg-022207f010d364d2c"
+            # (6 unchanged attributes hidden)
+        }
+
+        # (6 unchanged blocks hidden)
+    }
+
+
+Unless you have made equivalent changes to your configuration, or ignored the
+relevant attributes using ignore_changes, the following plan may include
+actions to undo or respond to these changes.
+
+─────────────────────────────────────────────────────────────────────────────
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  + create
+  ~ update in-place
++/- create replacement and then destroy
+ <= read (data resources)
+
+Terraform will perform the following actions:
+
+  # data.aws_iam_policy_document.alb_controller_assume will be read during apply
+  # (config refers to values not yet known)
+ <= data "aws_iam_policy_document" "alb_controller_assume" {
+      + id            = (known after apply)
+      + json          = (known after apply)
+      + minified_json = (known after apply)
+
+      + statement {
+          + actions = [
+              + "sts:AssumeRoleWithWebIdentity",
+            ]
+
+          + condition {
+              + test     = "StringEquals"
+              + values   = [
+                  + "sts.amazonaws.com",
+                ]
+              + variable = "oidc.eks.ap-northeast-2.amazonaws.com/id/990870F3F7470B2FD8405EF8900FC866:aud"
+            }
+          + condition {
+              + test     = "StringEquals"
+              + values   = [
+                  + "system:serviceaccount:kube-system:aws-load-balancer-controller",
+                ]
+              + variable = "oidc.eks.ap-northeast-2.amazonaws.com/id/990870F3F7470B2FD8405EF8900FC866:sub"
+            }
+
+          + principals {
+              + identifiers = [
+                  + (known after apply),
+                ]
+              + type        = "Federated"
+            }
+        }
+    }
+
+  # data.aws_iam_policy_document.eso_assume will be read during apply
+  # (config refers to values not yet known)
+ <= data "aws_iam_policy_document" "eso_assume" {
+      + id            = (known after apply)
+      + json          = (known after apply)
+      + minified_json = (known after apply)
+
+      + statement {
+          + actions = [
+              + "sts:AssumeRoleWithWebIdentity",
+            ]
+
+          + condition {
+              + test     = "StringEquals"
+              + values   = [
+                  + "sts.amazonaws.com",
+                ]
+              + variable = "oidc.eks.ap-northeast-2.amazonaws.com/id/990870F3F7470B2FD8405EF8900FC866:aud"
+            }
+          + condition {
+              + test     = "StringEquals"
+              + values   = [
+                  + "system:serviceaccount:external-secrets:external-secrets",
+                ]
+              + variable = "oidc.eks.ap-northeast-2.amazonaws.com/id/990870F3F7470B2FD8405EF8900FC866:sub"
+            }
+
+          + principals {
+              + identifiers = [
+                  + (known after apply),
+                ]
+              + type        = "Federated"
+            }
+        }
+    }
+
+  # aws_iam_openid_connect_provider.eks will be created
+  + resource "aws_iam_openid_connect_provider" "eks" {
+      + arn             = (known after apply)
+      + client_id_list  = [
+          + "sts.amazonaws.com",
+        ]
+      + id              = (known after apply)
+      + tags_all        = (known after apply)
+      + thumbprint_list = [
+          + "06b25927c42a721631c1efd9431e648fa62e1e39",
+        ]
+      + url             = "https://oidc.eks.ap-northeast-2.amazonaws.com/id/990870F3F7470B2FD8405EF8900FC866"
+    }
+
+  # aws_iam_policy.alb_controller_policy will be created
+  + resource "aws_iam_policy" "alb_controller_policy" {
+      + arn              = (known after apply)
+      + attachment_count = (known after apply)
+      + id               = (known after apply)
+      + name             = "T3-Wagu-Matching-EKS-alb-controller-policy"
+      + name_prefix      = (known after apply)
+      + path             = "/"
+      + policy           = jsonencode(
+            {
+              + Statement = [
+                  + {
+                      + Action    = [
+                          + "iam:CreateServiceLinkedRole",
+                        ]
+                      + Condition = {
+                          + StringEquals = {
+                              + "iam:AWSServiceName" = "elasticloadbalancing.amazonaws.com"
+                            }
+                        }
+                      + Effect    = "Allow"
+                      + Resource  = "*"
+                    },
+                  + {
+                      + Action   = [
+                          + "ec2:DescribeAccountAttributes",
+                          + "ec2:DescribeAddresses",
+                          + "ec2:DescribeAvailabilityZones",
+                          + "ec2:DescribeInternetGateways",
+                          + "ec2:DescribeVpcs",
+                          + "ec2:DescribeVpcPeeringConnections",
+                          + "ec2:DescribeSubnets",
+                          + "ec2:DescribeSecurityGroups",
+                          + "ec2:DescribeInstances",
+                          + "ec2:DescribeNetworkInterfaces",
+                          + "ec2:DescribeTags",
+                          + "ec2:GetCoipPoolUsage",
+                          + "ec2:DescribeCoipPools",
+                          + "ec2:GetSecurityGroupsForVpc",
+                          + "ec2:DescribeIpamPools",
+                          + "ec2:DescribeRouteTables",
+                          + "elasticloadbalancing:DescribeLoadBalancers",
+                          + "elasticloadbalancing:DescribeLoadBalancerAttributes",
+                          + "elasticloadbalancing:DescribeListeners",
+                          + "elasticloadbalancing:DescribeListenerCertificates",
+                          + "elasticloadbalancing:DescribeSSLPolicies",
+                          + "elasticloadbalancing:DescribeRules",
+                          + "elasticloadbalancing:DescribeTargetGroups",
+                          + "elasticloadbalancing:DescribeTargetGroupAttributes",
+                          + "elasticloadbalancing:DescribeTargetHealth",
+                          + "elasticloadbalancing:DescribeTags",
+                          + "elasticloadbalancing:DescribeTrustStores",
+                          + "elasticloadbalancing:DescribeListenerAttributes",
+                          + "elasticloadbalancing:DescribeCapacityReservation",
+                        ]
+                      + Effect   = "Allow"
+                      + Resource = "*"
+                    },
+                  + {
+                      + Action   = [
+                          + "cognito-idp:DescribeUserPoolClient",
+                          + "acm:ListCertificates",
+                          + "acm:DescribeCertificate",
+                          + "iam:ListServerCertificates",
+                          + "iam:GetServerCertificate",
+                          + "waf-regional:GetWebACL",
+                          + "waf-regional:GetWebACLForResource",
+                          + "waf-regional:AssociateWebACL",
+                          + "waf-regional:DisassociateWebACL",
+                          + "wafv2:GetWebACL",
+                          + "wafv2:GetWebACLForResource",
+                          + "wafv2:AssociateWebACL",
+                          + "wafv2:DisassociateWebACL",
+                          + "shield:GetSubscriptionState",
+                          + "shield:DescribeProtection",
+                          + "shield:CreateProtection",
+                          + "shield:DeleteProtection",
+                        ]
+                      + Effect   = "Allow"
+                      + Resource = "*"
+                    },
+                  + {
+                      + Action   = [
+                          + "ec2:AuthorizeSecurityGroupIngress",
+                          + "ec2:RevokeSecurityGroupIngress",
+                        ]
+                      + Effect   = "Allow"
+                      + Resource = "*"
+                    },
+                  + {
+                      + Action   = [
+                          + "ec2:CreateSecurityGroup",
+                        ]
+                      + Effect   = "Allow"
+                      + Resource = "*"
+                    },
+                  + {
+                      + Action    = [
+                          + "ec2:CreateTags",
+                        ]
+                      + Condition = {
+                          + Null         = {
+                              + "aws:RequestTag/elbv2.k8s.aws/cluster" = "false"
+                            }
+                          + StringEquals = {
+                              + "ec2:CreateAction" = "CreateSecurityGroup"
+                            }
+                        }
+                      + Effect    = "Allow"
+                      + Resource  = "arn:aws:ec2:*:*:security-group/*"
+                    },
+                  + {
+                      + Action    = [
+                          + "ec2:CreateTags",
+                          + "ec2:DeleteTags",
+                        ]
+                      + Condition = {
+                          + Null = {
+                              + "aws:RequestTag/elbv2.k8s.aws/cluster"  = "true"
+                              + "aws:ResourceTag/elbv2.k8s.aws/cluster" = "false"
+                            }
+                        }
+                      + Effect    = "Allow"
+                      + Resource  = "arn:aws:ec2:*:*:security-group/*"
+                    },
+                  + {
+                      + Action    = [
+                          + "ec2:AuthorizeSecurityGroupIngress",
+                          + "ec2:RevokeSecurityGroupIngress",
+                          + "ec2:DeleteSecurityGroup",
+                        ]
+                      + Condition = {
+                          + Null = {
+                              + "aws:ResourceTag/elbv2.k8s.aws/cluster" = "false"
+                            }
+                        }
+                      + Effect    = "Allow"
+                      + Resource  = "*"
+                    },
+                  + {
+                      + Action    = [
+                          + "elasticloadbalancing:CreateLoadBalancer",
+                          + "elasticloadbalancing:CreateTargetGroup",
+                        ]
+                      + Condition = {
+                          + Null = {
+                              + "aws:RequestTag/elbv2.k8s.aws/cluster" = "false"
+                            }
+                        }
+                      + Effect    = "Allow"
+                      + Resource  = "*"
+                    },
+                  + {
+                      + Action   = [
+                          + "elasticloadbalancing:CreateListener",
+                          + "elasticloadbalancing:DeleteListener",
+                          + "elasticloadbalancing:CreateRule",
+                          + "elasticloadbalancing:DeleteRule",
+                        ]
+                      + Effect   = "Allow"
+                      + Resource = "*"
+                    },
+                  + {
+                      + Action    = [
+                          + "elasticloadbalancing:AddTags",
+                          + "elasticloadbalancing:RemoveTags",
+                        ]
+                      + Condition = {
+                          + Null = {
+                              + "aws:RequestTag/elbv2.k8s.aws/cluster"  = "true"
+                              + "aws:ResourceTag/elbv2.k8s.aws/cluster" = "false"
+                            }
+                        }
+                      + Effect    = "Allow"
+                      + Resource  = [
+                          + "arn:aws:elasticloadbalancing:*:*:targetgroup/*/*",
+                          + "arn:aws:elasticloadbalancing:*:*:loadbalancer/net/*/*",
+                          + "arn:aws:elasticloadbalancing:*:*:loadbalancer/app/*/*",
+                        ]
+                    },
+                  + {
+                      + Action   = [
+                          + "elasticloadbalancing:AddTags",
+                          + "elasticloadbalancing:RemoveTags",
+                        ]
+                      + Effect   = "Allow"
+                      + Resource = [
+                          + "arn:aws:elasticloadbalancing:*:*:listener/net/*/*/*",
+                          + "arn:aws:elasticloadbalancing:*:*:listener/app/*/*/*",
+                          + "arn:aws:elasticloadbalancing:*:*:listener-rule/net/*/*/*",
+                          + "arn:aws:elasticloadbalancing:*:*:listener-rule/app/*/*/*",
+                        ]
+                    },
+                  + {
+                      + Action    = [
+                          + "elasticloadbalancing:ModifyLoadBalancerAttributes",
+                          + "elasticloadbalancing:SetIpAddressType",
+                          + "elasticloadbalancing:SetSecurityGroups",
+                          + "elasticloadbalancing:SetSubnets",
+                          + "elasticloadbalancing:DeleteLoadBalancer",
+                          + "elasticloadbalancing:ModifyTargetGroup",
+                          + "elasticloadbalancing:ModifyTargetGroupAttributes",
+                          + "elasticloadbalancing:DeleteTargetGroup",
+                          + "elasticloadbalancing:ModifyListenerAttributes",
+                          + "elasticloadbalancing:ModifyCapacityReservation",
+                          + "elasticloadbalancing:ModifyIpPools",
+                        ]
+                      + Condition = {
+                          + Null = {
+                              + "aws:ResourceTag/elbv2.k8s.aws/cluster" = "false"
+                            }
+                        }
+                      + Effect    = "Allow"
+                      + Resource  = "*"
+                    },
+                  + {
+                      + Action    = [
+                          + "elasticloadbalancing:AddTags",
+                        ]
+                      + Condition = {
+                          + Null         = {
+                              + "aws:RequestTag/elbv2.k8s.aws/cluster" = "false"
+                            }
+                          + StringEquals = {
+                              + "elasticloadbalancing:CreateAction" = [
+                                  + "CreateTargetGroup",
+                                  + "CreateLoadBalancer",
+                                ]
+                            }
+                        }
+                      + Effect    = "Allow"
+                      + Resource  = [
+                          + "arn:aws:elasticloadbalancing:*:*:targetgroup/*/*",
+                          + "arn:aws:elasticloadbalancing:*:*:loadbalancer/net/*/*",
+                          + "arn:aws:elasticloadbalancing:*:*:loadbalancer/app/*/*",
+                        ]
+                    },
+                  + {
+                      + Action   = [
+                          + "elasticloadbalancing:RegisterTargets",
+                          + "elasticloadbalancing:DeregisterTargets",
+                        ]
+                      + Effect   = "Allow"
+                      + Resource = "arn:aws:elasticloadbalancing:*:*:targetgroup/*/*"
+                    },
+                  + {
+                      + Action   = [
+                          + "elasticloadbalancing:SetWebAcl",
+                          + "elasticloadbalancing:ModifyListener",
+                          + "elasticloadbalancing:AddListenerCertificates",
+                          + "elasticloadbalancing:RemoveListenerCertificates",
+                          + "elasticloadbalancing:ModifyRule",
+                          + "elasticloadbalancing:SetRulePriorities",
+                        ]
+                      + Effect   = "Allow"
+                      + Resource = "*"
+                    },
+                ]
+              + Version   = "2012-10-17"
+            }
+        )
+      + policy_id        = (known after apply)
+      + tags_all         = (known after apply)
+    }
+
+  # aws_iam_policy.eso_sm_policy will be updated in-place
+  ~ resource "aws_iam_policy" "eso_sm_policy" {
+        id               = "arn:aws:iam::061039804626:policy/T3-Wagu-Matching-EKS-eso-sm-policy"
+        name             = "T3-Wagu-Matching-EKS-eso-sm-policy"
+      ~ policy           = jsonencode(
+          ~ {
+              ~ Statement = [
+                  ~ {
+                      ~ Resource = "arn:aws:secretsmanager:ap-northeast-2:269397878198:secret:T3-Wagu-Secrets-HXpYil" -> "arn:aws:secretsmanager:ap-northeast-2:061039804626:secret:T3-Wagu-Secrets-HXpYil"
+                        # (2 unchanged attributes hidden)
+                    },
+                ]
+                # (1 unchanged attribute hidden)
+            }
+        )
+        tags             = {}
+        # (7 unchanged attributes hidden)
+    }
+
+  # aws_iam_role.alb_controller_role will be created
+  + resource "aws_iam_role" "alb_controller_role" {
+      + arn                   = (known after apply)
+      + assume_role_policy    = (known after apply)
+      + create_date           = (known after apply)
+      + force_detach_policies = false
+      + id                    = (known after apply)
+      + managed_policy_arns   = (known after apply)
+      + max_session_duration  = 3600
+      + name                  = "T3-Wagu-Matching-EKS-alb-controller-role"
+      + name_prefix           = (known after apply)
+      + path                  = "/"
+      + tags_all              = (known after apply)
+      + unique_id             = (known after apply)
+
+      + inline_policy (known after apply)
+    }
+
+  # aws_iam_role.eso_role will be updated in-place
+  ~ resource "aws_iam_role" "eso_role" {
+      ~ assume_role_policy    = jsonencode(
+            {
+              - Statement = [
+                  - {
+                      - Action    = "sts:AssumeRoleWithWebIdentity"
+                      - Condition = {
+                          - StringEquals = {
+                              - "oidc.eks.ap-northeast-2.amazonaws.com/id/990870F3F7470B2FD8405EF8900FC866:aud" = "sts.amazonaws.com"
+                              - "oidc.eks.ap-northeast-2.amazonaws.com/id/990870F3F7470B2FD8405EF8900FC866:sub" = "system:serviceaccount:external-secrets:external-secrets"
+                            }
+                        }
+                      - Effect    = "Allow"
+                      - Principal = {
+                          - Federated = "arn:aws:iam::061039804626:oidc-provider/oidc.eks.ap-northeast-2.amazonaws.com/id/990870F3F7470B2FD8405EF8900FC866"
+                        }
+                    },
+                ]
+              - Version   = "2012-10-17"
+            }
+        ) -> (known after apply)
+        id                    = "T3-Wagu-Matching-EKS-eso-role"
+        name                  = "T3-Wagu-Matching-EKS-eso-role"
+        tags                  = {}
+        # (11 unchanged attributes hidden)
+    }
+
+  # aws_iam_role_policy_attachment.alb_controller_policy_attach will be created
+  + resource "aws_iam_role_policy_attachment" "alb_controller_policy_attach" {
+      + id         = (known after apply)
+      + policy_arn = (known after apply)
+      + role       = "T3-Wagu-Matching-EKS-alb-controller-role"
+    }
+
+  # helm_release.alb_controller will be created
+  + resource "helm_release" "alb_controller" {
+      + atomic                     = false
+      + chart                      = "aws-load-balancer-controller"
+      + cleanup_on_fail            = false
+      + create_namespace           = false
+      + dependency_update          = false
+      + disable_crd_hooks          = false
+      + disable_openapi_validation = false
+      + disable_webhooks           = false
+      + force_update               = false
+      + id                         = (known after apply)
+      + lint                       = false
+      + manifest                   = (known after apply)
+      + max_history                = 0
+      + metadata                   = (known after apply)
+      + name                       = "aws-load-balancer-controller"
+      + namespace                  = "kube-system"
+      + pass_credentials           = false
+      + recreate_pods              = false
+      + render_subchart_notes      = true
+      + replace                    = false
+      + repository                 = "https://aws.github.io/eks-charts"
+      + reset_values               = false
+      + reuse_values               = false
+      + skip_crds                  = false
+      + status                     = "deployed"
+      + timeout                    = 300
+      + verify                     = false
+      + version                    = "1.17.0"
+      + wait                       = true
+      + wait_for_jobs              = false
+
+      + set {
+          + name  = "clusterName"
+          + value = "T3-Wagu-Matching-EKS"
+            # (1 unchanged attribute hidden)
+        }
+      + set {
+          + name  = "region"
+          + value = "ap-northeast-2"
+            # (1 unchanged attribute hidden)
+        }
+      + set {
+          + name  = "serviceAccount.create"
+          + value = "false"
+            # (1 unchanged attribute hidden)
+        }
+      + set {
+          + name  = "serviceAccount.name"
+          + value = "aws-load-balancer-controller"
+            # (1 unchanged attribute hidden)
+        }
+      + set {
+          + name  = "vpcId"
+          + value = "vpc-05f72c7b9840c0ea7"
+            # (1 unchanged attribute hidden)
+        }
+    }
+
+  # helm_release.external_secrets will be created
+  + resource "helm_release" "external_secrets" {
+      + atomic                     = true
+      + chart                      = "external-secrets"
+      + cleanup_on_fail            = true
+      + create_namespace           = false
+      + dependency_update          = false
+      + disable_crd_hooks          = false
+      + disable_openapi_validation = false
+      + disable_webhooks           = false
+      + force_update               = false
+      + id                         = (known after apply)
+      + lint                       = false
+      + manifest                   = (known after apply)
+      + max_history                = 0
+      + metadata                   = (known after apply)
+      + name                       = "external-secrets"
+      + namespace                  = "external-secrets"
+      + pass_credentials           = false
+      + recreate_pods              = false
+      + render_subchart_notes      = true
+      + replace                    = false
+      + repository                 = "https://charts.external-secrets.io"
+      + reset_values               = false
+      + reuse_values               = false
+      + skip_crds                  = false
+      + status                     = "deployed"
+      + timeout                    = 600
+      + verify                     = false
+      + version                    = "1.2.0"
+      + wait                       = true
+      + wait_for_jobs              = true
+
+      + set {
+          + name  = "installCRDs"
+          + value = "true"
+            # (1 unchanged attribute hidden)
+        }
+      + set {
+          + name  = "serviceAccount.create"
+          + value = "false"
+            # (1 unchanged attribute hidden)
+        }
+      + set {
+          + name  = "serviceAccount.name"
+          + value = "external-secrets"
+            # (1 unchanged attribute hidden)
+        }
+    }
+
+  # kubernetes_namespace.external_secrets will be created
+  + resource "kubernetes_namespace" "external_secrets" {
+      + id                               = (known after apply)
+      + wait_for_default_service_account = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "external-secrets"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_service_account.alb_sa will be created
+  + resource "kubernetes_service_account" "alb_sa" {
+      + automount_service_account_token = true
+      + default_secret_name             = (known after apply)
+      + id                              = (known after apply)
+
+      + metadata {
+          + annotations      = (known after apply)
+          + generation       = (known after apply)
+          + name             = "aws-load-balancer-controller"
+          + namespace        = "kube-system"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_service_account.eso_sa will be created
+  + resource "kubernetes_service_account" "eso_sa" {
+      + automount_service_account_token = true
+      + default_secret_name             = (known after apply)
+      + id                              = (known after apply)
+
+      + metadata {
+          + annotations      = {
+              + "eks.amazonaws.com/role-arn" = "arn:aws:iam::061039804626:role/T3-Wagu-Matching-EKS-eso-role"
+            }
+          + generation       = (known after apply)
+          + name             = "external-secrets"
+          + namespace        = "external-secrets"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # module.eks.aws_eks_cluster.this must be replaced
++/- resource "aws_eks_cluster" "this" {
+      ~ arn                           = "arn:aws:eks:ap-northeast-2:061039804626:cluster/T3-Wagu-Matching-EKS" -> (known after apply)
+      ~ bootstrap_self_managed_addons = false -> true # forces replacement
+      ~ certificate_authority         = [
+          - {
+              - data = "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURCVENDQWUyZ0F3SUJBZ0lJWFhJOGxBYkpGaFV3RFFZSktvWklodmNOQVFFTEJRQXdGVEVUTUJFR0ExVUUKQXhNS2EzVmlaWEp1WlhSbGN6QWVGdzB5TlRFeU1qUXdNRE14TlRsYUZ3MHpOVEV5TWpJd01ETTJOVGxhTUJVeApFekFSQmdOVkJBTVRDbXQxWW1WeWJtVjBaWE13Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLCkFvSUJBUUNwMVBVc0p5MlhIMG1LQzBrRjFveXh6WWdXT3NZSGVXU2xCMVJ6ZWdiYWsraFhnRVQ1MGppVlNBM3oKcmJ4UTZocTRJbDZtY0ZYZ1E4QWtwb3dEcUpVTTV2dUtpVzZtWjFnQm85TVM3aXArZUFCQWx4R2xsa1JFcUhVTgpuVVIwZjk4ajNhNEx0VVlDRjBvZlFaVlU3QjJiRFpiMUlMNENkSHVpdUNTRFcwMS94V29vUytMOStMQS9tNVFpCkQyeWxwM0VPbXU0ZFZMb0J1aWg2KzlCVXhnOExuYUR5QXlTQmJBMmkxUnJJaDNPbkJ3WW43ZmdabklNY0hXd3MKVUJiVEVmUU5ZaFJ1QWxUc3g1ZVdOWmdMTHRuT2NZd3prbEl5OVpEN2pqMys4Z081aFVqMEo5bzVGYUhXRXRmWQpxQVhLL2Z2ckxRMjVPM0FBaS9TdkZOb2pTTFg3QWdNQkFBR2pXVEJYTUE0R0ExVWREd0VCL3dRRUF3SUNwREFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUIwR0ExVWREZ1FXQkJTbUVRM2NjaWhEL3FaR3JqeUI3dHF2NzM5VGp6QVYKQmdOVkhSRUVEakFNZ2dwcmRXSmxjbTVsZEdWek1BMEdDU3FHU0liM0RRRUJDd1VBQTRJQkFRQXp0QTI2a3VYbApCNS94WGFxWUNtUjJpMXJkWFcvQkpaMjZ2NWdEM0NSUEdNR2JabENRRzZnSnp3eFJUQXBEZ3czWnBzU1BMYkhuCnZVS1lPWnZXc2JrQy9MV2RxNHI1c2drOUpQSXFZN090WkxKWWRUVmZaWHhVWTMxSEFONzRkRnNGMTJ0eC9vMWsKaWgwdVVZY0VJU0NRRTh6ZnZEeUlGOXRqNDhZMXhiVkNjNWgwUzVrWiszMGJCbEVCUEdvaXQ4Q1RYNzgyeWVEdgpZbndaRTQwS1FtVW1Dek5tTWhmNERZYmFFcG5UNW11Y2tJWXNqcmx2YUkxclQzbW9MSWd1S2ZjVS9LOTlDSkM3Ck1MMTlNR0J2R3dwN2JkQUtZNndib21yTzJ5YncxNktudllzU0oyRURNbHBPbjcxWWdnZVg5VFBvS0lTT1RhSzIKWGE1VWhhWXg3c3F1Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K"
+            },
+        ] -> (known after apply)
+      + cluster_id                    = (known after apply)
+      ~ created_at                    = "2025-12-24T00:31:12Z" -> (known after apply)
+      ~ deletion_protection           = false -> (known after apply)
+      - enabled_cluster_log_types     = [] -> null
+      ~ endpoint                      = "https://990870F3F7470B2FD8405EF8900FC866.gr7.ap-northeast-2.eks.amazonaws.com" -> (known after apply)
+      ~ id                            = "T3-Wagu-Matching-EKS" -> (known after apply)
+      ~ identity                      = [
+          - {
+              - oidc = [
+                  - {
+                      - issuer = "https://oidc.eks.ap-northeast-2.amazonaws.com/id/990870F3F7470B2FD8405EF8900FC866"
+                    },
+                ]
+            },
+        ] -> (known after apply)
+        name                          = "T3-Wagu-Matching-EKS"
+      ~ platform_version              = "eks.10" -> (known after apply)
+      ~ status                        = "ACTIVE" -> (known after apply)
+      - tags                          = {} -> null
+      ~ tags_all                      = {} -> (known after apply)
+        # (3 unchanged attributes hidden)
+
+      ~ access_config (known after apply)
+      - access_config {
+          - authentication_mode                         = "CONFIG_MAP" -> null
+          - bootstrap_cluster_creator_admin_permissions = true -> null
+        }
+
+      ~ compute_config (known after apply)
+      - compute_config {
+          - enabled       = false -> null
+          - node_pools    = [] -> null
+            # (1 unchanged attribute hidden)
+        }
+
+      ~ control_plane_scaling_config (known after apply)
+      - control_plane_scaling_config {
+          - tier = "standard" -> null
+        }
+
+      ~ kubernetes_network_config (known after apply)
+      - kubernetes_network_config {
+          - ip_family         = "ipv4" -> null
+          - service_ipv4_cidr = "172.20.0.0/16" -> null
+            # (1 unchanged attribute hidden)
+
+          - elastic_load_balancing {
+              - enabled = false -> null
+            }
+        }
+
+      ~ storage_config (known after apply)
+      - storage_config {
+          - block_storage {
+              - enabled = false -> null
+            }
+        }
+
+      ~ upgrade_policy (known after apply)
+      - upgrade_policy {
+          - support_type = "EXTENDED" -> null
+        }
+
+      ~ vpc_config {
+          ~ cluster_security_group_id = "sg-022207f010d364d2c" -> (known after apply)
+          ~ public_access_cidrs       = [
+              - "0.0.0.0/0",
+            ] -> (known after apply)
+          - security_group_ids        = [] -> null
+          ~ vpc_id                    = "vpc-05f72c7b9840c0ea7" -> (known after apply)
+            # (3 unchanged attributes hidden)
+        }
+    }
+
+Plan: 10 to add, 2 to change, 1 to destroy.
+
+─────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't
+guarantee to take exactly these actions if you run "terraform apply" now.

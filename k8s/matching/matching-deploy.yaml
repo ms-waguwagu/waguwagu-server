@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: matching
-          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:latest # TODO: 매칭 서버 이미지로 교체 무조건 jenkins먼저해라!!!
+          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
@@ -49,7 +49,8 @@ spec:
               value: "5"
 
             - name: AGONES_ALLOCATOR_ENDPOINT
-              value: "https://k8s-agonessy-agonesal-009dcdfc73-163385f94af508ae.elb.ap-northeast-2.amazonaws.com:443"
+            # 환경변수 분리 필수
+              value: "https://k8s-agonessy-agonesal-4afd6365a0-8c62bc4499a150ef.elb.ap-northeast-2.amazonaws.com"
             - name: AGONES_CLIENT_CERT_PATH
               value: "/etc/agones/allocator/client/tls.crt"
             - name: AGONES_CLIENT_KEY_PATH
@@ -59,7 +60,7 @@ spec:
             
           readinessProbe:
             httpGet:
-              path: /api/matching/health
+              path: /health
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 10

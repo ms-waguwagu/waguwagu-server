@@ -2,6 +2,7 @@ resource "aws_eks_cluster" "this" {
   name     = var.cluster_name
   version  = var.cluster_version
   role_arn = aws_iam_role.cluster.arn
+  bootstrap_self_managed_addons = false
 
   vpc_config {
     subnet_ids = var.subnet_ids

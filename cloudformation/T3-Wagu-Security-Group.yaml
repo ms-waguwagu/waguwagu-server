@@ -80,15 +80,15 @@ Resources:
           ToPort: 3001
           SourceSecurityGroupId: !Ref GameAlbSG
 
-        # (ì¶”ê??) Matching -> Agones allocator (VPC Peering)
-        # allocator ?¬?Š¸ê°? 443?´ ?•„?‹ ?ˆ˜?„ ?žˆ?Œ. ë³´í†µ 443 ?˜?Š” 8443 ì¤? ?•˜?‚˜
+        # (??????) Matching -> Agones allocator (VPC Peering)
+        # allocator ????????? 443??? ?????? ?????? ??????. ?????? 443 ?????? 8443 ??? ??????
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
           CidrIp: 10.0.0.0/16 # Matching VPC CIDR
 
-        # (ì¶”ê??) User -> GameServer (Agones Dynamic Ports)
-        # TCP ê¸°ë°˜ ê²Œìž„?´ë©? TCPë§?.
+        # (??????) User -> GameServer (Agones Dynamic Ports)
+        # TCP ?????? ???????????? TCP???.
         - IpProtocol: tcp
           FromPort: 30000
           ToPort: 32767
@@ -134,7 +134,7 @@ Resources:
       VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
 
       SecurityGroupIngress:
-      # GitHub Webhook â†’ Jenkins (HTTP 8080)
+      # GitHub Webhook ??? Jenkins (HTTP 8080)
       - IpProtocol: tcp
         FromPort: 8080
         ToPort: 8080
@@ -145,7 +145,7 @@ Resources:
         ToPort: 8080
         CidrIp: 192.30.252.0/22
 
-      # ì•„ì›ƒë°”ìš´ë“œëŠ” ì „ì²´ í—ˆìš© (SSM, GitHub, ECR, EKS ì ‘ê·¼ìš©)
+      # ?????????????????? ?????? ?????? (SSM, GitHub, ECR, EKS ?????????)
       SecurityGroupEgress:
       - IpProtocol: -1
         CidrIp: 0.0.0.0/0
@@ -164,9 +164,9 @@ Resources:
     Properties:
       GroupDescription: Security Group for Jenkins Game Server (SSM-only)
       VpcId: !ImportValue T3-Wagu-Game-VPC-Id
-      # ì¸ë°”ìš´ë“œ(22/8080) ì™„ì „ ì œê±° -> SSMìœ¼ë¡œë§Œ ì ‘ì†í•˜ê³ , UIëŠ” SSM í¬íŠ¸í¬ì›Œë”©ìœ¼ë¡œ ì ‘ì†
+      # Remove inbound (22/8080) -> Use SSM and SSM Port Forwarding for UI
       SecurityGroupIngress: 
-        # GitHub Webhook â†’ Jenkins (HTTP 8080)
+        # GitHub Webhook ??? Jenkins (HTTP 8080)
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
@@ -177,7 +177,7 @@ Resources:
           ToPort: 8080
           CidrIp: 192.30.252.0/22
 
-      # ì•„ì›ƒë°”ìš´ë“œëŠ” ì „ì²´ í—ˆìš© (SSM, GitHub, ECR, EKS ì ‘ê·¼ìš©)
+      # Allow all outbound traffic (SSM, GitHub, ECR, EKS access)
       SecurityGroupEgress:
       - IpProtocol: -1
         CidrIp: 0.0.0.0/0

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-MATCHING_CTX="arn:aws:eks:ap-northeast-2:796973515852:cluster/T3-Wagu-Matching-EKS"
+MATCHING_CTX="arn:aws:eks:ap-northeast-2:061039804626:cluster/T3-Wagu-Matching-EKS"
 
 echo "▶ 매칭 클러스터로 전환"
 kubectl config use-context "$MATCHING_CTX"
@@ -16,7 +16,7 @@ MATCHING_DNS=$(kubectl get ingress matching-ingress -n matching \
 echo "Matching ALB: $MATCHING_DNS"
 
 echo "▶ CloudFront 배포"
-aws cloudformation deploy \
+aws cloudformation deploy --profile wagu \
   --template-file T3-Wagu-Cloudfront.yaml \
   --stack-name T3-Wagu-Cloudfront \
   --parameter-overrides \

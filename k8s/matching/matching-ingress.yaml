@@ -6,11 +6,22 @@ metadata:
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing # 퍼블릭 ALB
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+
+    # ACM 인증서 ARN
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:061039804626:certificate/c0d82e0a-5d5d-468a-9256-6bafd9eb6018
+
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=3600
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/success-codes: "200"
+
+
 spec:
   ingressClassName: alb
   rules:
-    - http:
+    - host: matching.waguwagu.cloud
+      http:
         paths:
           # 들어오는 모든 요청을 matching-svc로 전달
           - path: /
