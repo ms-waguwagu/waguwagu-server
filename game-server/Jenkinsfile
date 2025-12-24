@@ -1,4 +1,4 @@
-/*
+
 pipeline {
   agent any
 
@@ -86,10 +86,10 @@ pipeline {
     }
   }
 }
-*/
 
 
 
+/*
 pipeline {
   agent any
 
@@ -160,4 +160,4 @@ pipeline {
 
   post { always { sh 'docker image prune -f || true' } }
 }
-
+*/
