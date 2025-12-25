@@ -24,7 +24,6 @@ pipeline {
   }
 
   options {
-    timestamps()
     skipDefaultCheckout(true)
   }
 
@@ -42,7 +41,7 @@ pipeline {
           def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
           echo "Diff range: ${range}"
 
-          // ✅ matching-server/ 변경만 + Jenkinsfile만 바뀐 경우는 스킵(원하면 이 줄 빼도 됨)
+          // matching-server/ 변경만, Jenkinsfile만 바뀐 경우는 스킵
           def changed = sh(
             script: """
               set -e
@@ -132,7 +131,6 @@ pipeline {
           echo "[BEFORE] image line:"
           grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
 
-          # ✅ sed에서 \\s 대신 [[:space:]]* 사용
           sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_MANIFEST}"
 
           echo "[AFTER] image line:"

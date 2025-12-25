@@ -11,9 +11,9 @@ pipeline {
     INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
     INFRA_BRANCH   = "main"
 
-    // 바꿀 manifest (필요한 것만)
+    // 바꿀 manifest 
     INFRA_AGONES_FLEET_MANIFEST = "k8s/agones/agones-fleet.yaml"
-    // INFRA_GAME_DEPLOY_MANIFEST = "k8s/game/game-deploy.yaml"  // 있으면 추가로 같이 바꿔도 됨
+    
 
     // Secrets Manager (PAT)
     GH_SECRET_ID  = "T3-Wagu-Secrets"
@@ -25,7 +25,6 @@ pipeline {
   }
 
   options {
-    timestamps()
     skipDefaultCheckout(true)
   }
 
@@ -43,7 +42,7 @@ pipeline {
           env.DIFF_RANGE = base ? "${base}..HEAD" : "HEAD~1..HEAD"
           echo "Diff range: ${env.DIFF_RANGE}"
 
-          // ✅ game-server/ 변경만 + Jenkinsfile만 바뀐 건 제외
+          //  game-server 변경만, Jenkinsfile만 바뀐 건 제외
           def changed = sh(
             script: '''#!/usr/bin/env bash
               set -e
