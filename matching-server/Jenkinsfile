@@ -111,7 +111,7 @@ pipeline {
           git config --global --unset-all credential.helper || true
           git config --global credential.helper ""
 
-          # 🔒 토큰/헤더 다루는 구간은 로그 숨김
+          #  토큰/헤더 다루는 구간은 로그 숨김
           set +x
           TOK="$(aws secretsmanager get-secret-value \
               --secret-id "${GH_SECRET_ID}" \
