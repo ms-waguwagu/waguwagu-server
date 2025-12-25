@@ -6,10 +6,8 @@ pipeline {
   environment {
     AWS_REGION   = "ap-northeast-2"
 
-    // account id 
-    //ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server" 내 계정으로 돌릴라고 잠깐 주석처리
+    // account id
     ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
-
 
     CLUSTER_NAME = "T3-Wagu-Matching-EKS"
     NAMESPACE    = "matching"
@@ -20,21 +18,17 @@ pipeline {
     // waguwagu-infra 쪽 설정
     INFRA_REPO_URL   = "https://github.com/ms-waguwagu/waguwagu-infra.git"
     INFRA_BRANCH     = "main"
-    INFRA_MANIFEST   = "k8s/matching/matching-deploy.yaml"   // 네가 말한 경로
-    INFRA_CRED_ID    = "github-pat-infra-push"      
+    INFRA_MANIFEST   = "k8s/matching/matching-deploy.yaml"
+    INFRA_CRED_ID    = "github-pat-infra-push"
     GIT_USER_NAME    = "jenkins-bot"
     GIT_USER_EMAIL   = "jenkins@waguwagu.local"
   }
 
-  options {
-    skipDefaultCheckout(true)
-  }
+  options { skipDefaultCheckout(true) }
 
   stages {
     stage("Checkout") {
-      steps {
-        checkout scm
-      }
+      steps { checkout scm }
     }
 
     stage("Change check") {
@@ -84,7 +78,6 @@ pipeline {
       }
     }
 
-    // waguwagu-infra의 k8s yaml 태그 변경 → commit/push
     stage("Update waguwagu-infra manifest") {
       steps {
         withCredentials([string(credentialsId: "${INFRA_CRED_ID}", variable: "GITHUB_PAT")]) {
@@ -100,25 +93,26 @@ pipeline {
 
             # 토큰 로그 노출 방지
             set +x
-            INFRA_AUTH_URL="https://x-access-token:${GITHUB_PAT}@github.com/ms-waguwagu/waguwagu-infra.git"
+            INFRA_AUTH_URL="${INFRA_REPO_URL/https:\\/\\//https:\\/\\/x-access-token:${GITHUB_PAT}@}"
             set -x
 
-            git clone --branch ${INFRA_BRANCH} "${INFRA_AUTH_URL}" infra
+            # clone
+            git clone --branch "${INFRA_BRANCH}" "${INFRA_AUTH_URL}" infra
             cd infra
 
+            # ✅ 중요: origin이 토큰 없는 URL로 저장되는 경우가 있어서 강제로 다시 박음
             set +x
             git remote set-url origin "${INFRA_AUTH_URL}"
             set -x
 
             echo "[BEFORE] image line:"
-            grep -n "image:.*${ECR_REPO_URI}:" -n ${INFRA_MANIFEST} || true
+            grep -n "image:.*${ECR_REPO_URI}:" -n "${INFRA_MANIFEST}" || true
 
-            # image: <repo>:<tag> 부분만 태그를 바꿈
-            # (delimiter를 #로 써서 / 때문에 깨지는 것 방지)
-            sed -i "s#\\(image:\\s*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" ${INFRA_MANIFEST}
+            # image 태그 교체
+            sed -i "s#\\(image:\\s*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_MANIFEST}"
 
             echo "[AFTER] image line:"
-            grep -n "image:.*${ECR_REPO_URI}:" -n ${INFRA_MANIFEST} || true
+            grep -n "image:.*${ECR_REPO_URI}:" -n "${INFRA_MANIFEST}" || true
 
             # 변경 없으면 커밋/푸시 생략
             if git diff --quiet; then
@@ -126,10 +120,12 @@ pipeline {
               exit 0
             fi
 
-            git add ${INFRA_MANIFEST}
+            git add "${INFRA_MANIFEST}"
             git commit -m "ci(matching): bump image to ${IMAGE_TAG}"
+
+            # ✅ push (토큰 포함된 origin으로 push)
             set +x
-            git push "${INFRA_AUTH_URL}" HEAD:${INFRA_BRANCH}
+            git push origin "${INFRA_BRANCH}"
             set -x
           '''
         }
@@ -143,9 +139,6 @@ pipeline {
     }
   }
 }
-
-
-
 
 
 
