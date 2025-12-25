@@ -115,10 +115,12 @@ pipeline {
           # 🔒 토큰/헤더 다루는 구간은 로그 숨김
           set +x
           TOK="$(aws secretsmanager get-secret-value \
-            --secret-id "${GH_SECRET_ID}" \
-            --region "${AWS_REGION}" \
-            --query SecretString \
-            --output text | jq -r '.${GH_SECRET_KEY}' | tr -d '\\r\\n')"
+              --secret-id "${GH_SECRET_ID}" \
+              --region "${AWS_REGION}" \
+              --query SecretString \
+              --output text \
+              | jq -r --arg k "${GH_SECRET_KEY}" '.[$k]' \
+              | tr -d '\r\n')"
 
           AUTH="$(printf 'x-access-token:%s' "$TOK" | base64 | tr -d '\\n')"
           EXTRA="http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH"
