@@ -7,10 +7,12 @@ pipeline {
     AWS_REGION   = "ap-northeast-2"
     ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
 
-    // waguwagu-infra 쪽 설정
+    // waguwagu-infra 설정
     INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
     INFRA_BRANCH   = "main"
     INFRA_MANIFEST = "k8s/matching/matching-deploy.yaml"
+
+    // Jenkins Credentials ID (Secret Text)
     INFRA_CRED_ID  = "github-pat-infra-push"
 
     GIT_USER_NAME  = "jenkins-bot"
@@ -24,9 +26,7 @@ pipeline {
 
   stages {
     stage("Checkout") {
-      steps {
-        checkout scm
-      }
+      steps { checkout scm }
     }
 
     stage("Change check (matching-server only)") {
@@ -39,7 +39,7 @@ pipeline {
           ).trim()
 
           if (!changed) {
-            echo "No changes in matching-server/ -> SKIP build/push/update."
+            echo "No changes in matching-server/ -> SKIP"
             env.MATCHING_CHANGED = "false"
           } else {
             echo "Changes detected in matching-server/ -> proceed."
@@ -92,28 +92,20 @@ pipeline {
             git config --global user.name  "${GIT_USER_NAME}"
             git config --global user.email "${GIT_USER_EMAIL}"
 
-            # 혹시 남아있는 helper/캐시 때문에 꼬이는 경우 방지
+            # 꼬이는 credential 캐시 제거
             git config --global --unset-all credential.helper || true
             git config --global credential.helper ""
 
-            # clone은 public이라도 되지만, push는 반드시 PAT가 들어간 URL을 쓰게 강제
-            # (로그 노출 최소화를 위해 set +x 구간 사용)
-            set +x
-            PUSH_URL="https://x-access-token:${GITHUB_PAT}@github.com/ms-waguwagu/waguwagu-infra.git"
-            set -x
+            # (안전) 토큰 길이만 확인 (값은 출력 X)
+            echo "PAT_LEN=$(printf %s "$GITHUB_PAT" | wc -c)"
 
+            # clone은 일반 URL로 해도 되고,
             git clone --branch "${INFRA_BRANCH}" "${INFRA_REPO_URL}" infra
             cd infra
-
-            # push에만 PAT URL 적용 (fetch URL은 그대로 둬도 됨)
-            set +x
-            git remote set-url --push origin "${PUSH_URL}"
-            set -x
 
             echo "[BEFORE] image line:"
             grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
 
-            # image: <repo>:<tag> 의 tag만 교체 (공백 안전하게)
             sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_MANIFEST}"
 
             echo "[AFTER] image line:"
@@ -127,9 +119,10 @@ pipeline {
             git add "${INFRA_MANIFEST}"
             git commit -m "ci(matching): bump image to ${IMAGE_TAG}"
 
-            # 여기서부터가 핵심: origin(main)으로 push하지만, origin의 push-url이 PAT 포함이라 인증됨
+            # ✅ 여기부터가 핵심: PUSH는 PAT 포함 URL로 "직접" 보냄 (remote/origin 꼬여도 상관없음)
             set +x
-            GIT_TERMINAL_PROMPT=0 git push origin "${INFRA_BRANCH}"
+            PUSH_URL="https://x-access-token:${GITHUB_PAT}@github.com/ms-waguwagu/waguwagu-infra.git"
+            GIT_TERMINAL_PROMPT=0 git push "${PUSH_URL}" HEAD:"${INFRA_BRANCH}"
             set -x
           '''
         }
@@ -143,6 +136,7 @@ pipeline {
     }
   }
 }
+
 
 
 /* 일단 주석 
