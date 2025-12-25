@@ -81,40 +81,47 @@ pipeline {
     stage("Update waguwagu-infra manifest") {
       steps {
         withCredentials([string(credentialsId: "${INFRA_CRED_ID}", variable: "GITHUB_PAT")]) {
-          sh '''
+        sh '''
             set -euo pipefail
 
             rm -rf infra
             mkdir -p infra
 
-            # Git identity (커밋 작성자)
             git config --global user.name  "${GIT_USER_NAME}"
             git config --global user.email "${GIT_USER_EMAIL}"
 
+            # ⚠️ credential helper가 예전 자격증명 들고 있으면 토큰을 무시할 수 있어서 비활성화
+            git config --global --unset-all credential.helper || true
+            git config --global credential.helper ""
+
+            # ✅ "네 GitHub 아이디"로 고정 (너 GitHub 아이디가 kwakmh 였지)
+            GH_USER="kwakmh"
+
             # 토큰 로그 노출 방지
             set +x
-            INFRA_AUTH_URL="${INFRA_REPO_URL/https:\\/\\//https:\\/\\/x-access-token:${GITHUB_PAT}@}"
+            PUSH_URL="https://${GH_USER}:${GITHUB_PAT}@github.com/ms-waguwagu/waguwagu-infra.git"
             set -x
 
-            # clone
-            git clone --branch "${INFRA_BRANCH}" "${INFRA_AUTH_URL}" infra
+            # clone은 깔끔한 URL로 (public/private 상관없이 동작)
+            git clone --branch "${INFRA_BRANCH}" "${INFRA_REPO_URL}" infra
             cd infra
 
-            # ✅ 중요: origin이 토큰 없는 URL로 저장되는 경우가 있어서 강제로 다시 박음
+            # ✅ fetch(origin)은 깨끗하게 유지
+            git remote set-url origin "${INFRA_REPO_URL}"
+
+            # ✅ push는 무조건 토큰 URL로만 나가게 강제
             set +x
-            git remote set-url origin "${INFRA_AUTH_URL}"
+            git remote set-url --push origin "${PUSH_URL}"
             set -x
 
             echo "[BEFORE] image line:"
             grep -n "image:.*${ECR_REPO_URI}:" -n "${INFRA_MANIFEST}" || true
 
-            # image 태그 교체
             sed -i "s#\\(image:\\s*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_MANIFEST}"
 
             echo "[AFTER] image line:"
             grep -n "image:.*${ECR_REPO_URI}:" -n "${INFRA_MANIFEST}" || true
 
-            # 변경 없으면 커밋/푸시 생략
             if git diff --quiet; then
               echo "No manifest change (already on ${IMAGE_TAG}). Skip commit/push."
               exit 0
@@ -123,15 +130,12 @@ pipeline {
             git add "${INFRA_MANIFEST}"
             git commit -m "ci(matching): bump image to ${IMAGE_TAG}"
 
-            # ✅ push (토큰 포함된 origin으로 push)
-            set +x
-            git push origin "${INFRA_BRANCH}"
-            set -x
+            # ✅ 여기서부터는 push 인증만 보면 됨
+            GIT_TERMINAL_PROMPT=0 git push origin "${INFRA_BRANCH}"
           '''
-        }
-      }
     }
   }
+}
 
   post {
     always {
