@@ -6,33 +6,31 @@ pipeline {
   environment {
     AWS_REGION   = "ap-northeast-2"
 
-    // ECR
+    // account id (팀 계정)
     ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
 
-    // K8S (지금은 배포 단계 넣기 전이지만 변수는 유지)
+    // (옵션) 나중에 kubectl 배포까지 붙일 때 사용
     CLUSTER_NAME = "T3-Wagu-Matching-EKS"
     NAMESPACE    = "matching"
     DEPLOYMENT_NAME = "matching-deploy"
     CONTAINER_NAME  = "matching"
 
-    // waguwagu-infra repo
+    // waguwagu-infra 쪽 설정
     INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
     INFRA_BRANCH   = "main"
     INFRA_MANIFEST = "k8s/matching/matching-deploy.yaml"
 
-    // Jenkins Credentials (Secret Text)
+    // Jenkins Credentials ID (Secret text: GitHub PAT)
     INFRA_CRED_ID  = "github-pat-infra-push"
 
-    // Git author
+    // commit author
     GIT_USER_NAME  = "jenkins-bot"
     GIT_USER_EMAIL = "jenkins@waguwagu.local"
-
-    // ✅ 네 GitHub 아이디(토큰 인증용)
-    GH_USER = "kwakmh"
   }
 
   options {
     skipDefaultCheckout(true)
+    timestamps()
   }
 
   stages {
@@ -42,25 +40,32 @@ pipeline {
       }
     }
 
-    stage("Change check") {
+    stage("Change check (matching-server only)") {
       steps {
         script {
-          echo "=== MATCHING JENKINSFILE TEST v1 ==="
+          echo "=== MATCHING JENKINSFILE ==="
+
+          // 변경된 파일 목록에서 matching-server/ 하위만 체크
           def changed = sh(
             script: "git diff --name-only HEAD~1..HEAD | grep -E '^matching-server/' || true",
             returnStdout: true
           ).trim()
 
           if (!changed) {
-            echo "No changes in matching-server/, but continue (always Build & Push)."
+            echo "No changes in matching-server/. Skip Build/Push and Manifest update."
+            currentBuild.result = 'SUCCESS'
+            // 이후 stage들을 스킵하기 위해 플래그
+            env.DO_BUILD = "false"
           } else {
             echo "Changes detected in matching-server/ -> proceed."
+            env.DO_BUILD = "true"
           }
         }
       }
     }
 
     stage("ECR Login") {
+      when { expression { return env.DO_BUILD == "true" } }
       steps {
         sh '''
           set -e
@@ -71,6 +76,7 @@ pipeline {
     }
 
     stage("Build & Push") {
+      when { expression { return env.DO_BUILD == "true" } }
       steps {
         script {
           def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
@@ -89,33 +95,34 @@ pipeline {
       }
     }
 
-    stage("Update waguwagu-infra manifest") {
+    stage("Update waguwagu-infra manifest (commit/push)") {
+      when { expression { return env.DO_BUILD == "true" } }
       steps {
-        withCredentials([string(credentialsId: "github-pat-infra-push", variable: "GITHUB_PAT")]) {
+        withCredentials([string(credentialsId: "${INFRA_CRED_ID}", variable: "GITHUB_PAT")]) {
           sh '''
             set -euo pipefail
 
             rm -rf infra
             mkdir -p infra
 
+            # 커밋 작성자
             git config --global user.name  "${GIT_USER_NAME}"
             git config --global user.email "${GIT_USER_EMAIL}"
 
-            # credential helper 때문에 토큰이 무시되는 케이스 방지
-            git config --global --unset-all credential.helper || true
-            git config --global credential.helper ""
+            # (중요) push 인증이 꼬이지 않도록 프롬프트/credential helper 영향 최소화
+            git config --global --unset-all credential.helper >/dev/null 2>&1 || true
+            git config --global credential.helper "" || true
 
-            # push 전용 URL(로그 노출 방지)
+            # push에만 토큰 사용 (로그 노출 방지)
             set +x
-            PUSH_URL="https://${GH_USER}:${GITHUB_PAT}@github.com/ms-waguwagu/waguwagu-infra.git"
+            PUSH_URL="https://x-access-token:${GITHUB_PAT}@github.com/ms-waguwagu/waguwagu-infra.git"
             set -x
 
-            # clone은 기본 URL로
+            # clone은 일반 URL(읽기)
             git clone --branch "${INFRA_BRANCH}" "${INFRA_REPO_URL}" infra
             cd infra
 
-            # fetch는 깨끗한 origin, push는 토큰 origin으로 강제
-            git remote set-url origin "${INFRA_REPO_URL}"
+            # origin의 push URL만 토큰 URL로 강제 (핵심)
             set +x
             git remote set-url --push origin "${PUSH_URL}"
             set -x
@@ -123,11 +130,13 @@ pipeline {
             echo "[BEFORE] image line:"
             grep -n "image:.*${ECR_REPO_URI}:" -n "${INFRA_MANIFEST}" || true
 
+            # image 태그만 교체
             sed -i "s#\\(image:\\s*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_MANIFEST}"
 
             echo "[AFTER] image line:"
             grep -n "image:.*${ECR_REPO_URI}:" -n "${INFRA_MANIFEST}" || true
 
+            # 변경 없으면 커밋/푸시 생략
             if git diff --quiet; then
               echo "No manifest change (already on ${IMAGE_TAG}). Skip commit/push."
               exit 0
@@ -136,6 +145,7 @@ pipeline {
             git add "${INFRA_MANIFEST}"
             git commit -m "ci(matching): bump image to ${IMAGE_TAG}"
 
+            # push (토큰 URL로)
             GIT_TERMINAL_PROMPT=0 git push origin "${INFRA_BRANCH}"
           '''
         }
@@ -149,8 +159,6 @@ pipeline {
     }
   }
 }
-
-
 
 /* 일단 주석 
 pipeline {
