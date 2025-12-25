@@ -1,4 +1,149 @@
+/* 하나 변경시 다 빌드되는 문제를 고쳐야 한다  */
 
+pipeline {
+  agent any
+
+  environment {
+    AWS_REGION   = "ap-northeast-2"
+
+    // account id 
+    //ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
+    ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
+
+
+    CLUSTER_NAME = "T3-Wagu-Matching-EKS"
+    NAMESPACE    = "matching"
+
+    DEPLOYMENT_NAME = "matching-deploy"
+    CONTAINER_NAME  = "matching"
+
+    // waguwagu-infra 쪽 설정
+    INFRA_REPO_URL   = "https://github.com/ms-waguwagu/waguwagu-infra.git"
+    INFRA_BRANCH     = "main"
+    INFRA_MANIFEST   = "k8s/matching-deploy.yaml"   // 네가 말한 경로
+    INFRA_CRED_ID    = "github-pat-infra-push"      
+    GIT_USER_NAME    = "jenkins-bot"
+    GIT_USER_EMAIL   = "jenkins@waguwagu.local"
+  }
+
+  options {
+    skipDefaultCheckout(true)
+  }
+
+  stages {
+    stage("Checkout") {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage("Change check") {
+      steps {
+        script {
+          echo "=== MATCHING JENKINSFILE TEST v1 ==="
+          def changed = sh(
+            script: "git diff --name-only HEAD~1..HEAD | grep -E '^matching-server/' || true",
+            returnStdout: true
+          ).trim()
+
+          if (!changed) {
+            echo "No changes in matching-server/, but continue (always Build & Push)."
+          } else {
+            echo "Changes detected in matching-server/ -> proceed."
+          }
+        }
+      }
+    }
+
+    stage("ECR Login") {
+      steps {
+        sh '''
+          set -e
+          aws ecr get-login-password --region ${AWS_REGION} \
+            | docker login --username AWS --password-stdin ${ECR_REPO_URI%/*}
+        '''
+      }
+    }
+
+    stage("Build & Push") {
+      steps {
+        script {
+          def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
+          def tag  = "${sha7}-${env.BUILD_NUMBER}"
+          env.IMAGE_TAG = tag
+          env.IMAGE_URI = "${env.ECR_REPO_URI}:${tag}"
+          echo "IMAGE_URI = ${env.IMAGE_URI}"
+        }
+
+        sh '''
+          set -e
+          cd matching-server
+          docker build -t ${ECR_REPO_URI}:${IMAGE_TAG} .
+          docker push ${ECR_REPO_URI}:${IMAGE_TAG}
+        '''
+      }
+    }
+
+    // waguwagu-infra의 k8s yaml 태그 변경 → commit/push
+    stage("Update waguwagu-infra manifest") {
+      steps {
+        withCredentials([string(credentialsId: "${INFRA_CRED_ID}", variable: "GITHUB_PAT")]) {
+          sh '''
+            set -euo pipefail
+
+            rm -rf infra
+            mkdir -p infra
+
+            # Git identity (커밋 작성자)
+            git config --global user.name  "${GIT_USER_NAME}"
+            git config --global user.email "${GIT_USER_EMAIL}"
+
+            # 토큰 로그 노출 방지
+            set +x
+            INFRA_AUTH_URL="https://x-access-token:${GITHUB_PAT}@github.com/ms-waguwagu/waguwagu-infra.git"
+            set -x
+
+            git clone --branch ${INFRA_BRANCH} "${INFRA_AUTH_URL}" infra
+            cd infra
+
+            echo "[BEFORE] image line:"
+            grep -n "image:.*${ECR_REPO_URI}:" -n ${INFRA_MANIFEST} || true
+
+            # image: <repo>:<tag> 부분만 태그를 바꿈
+            # (delimiter를 #로 써서 / 때문에 깨지는 것 방지)
+            sed -i "s#\\(image:\\s*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" ${INFRA_MANIFEST}
+
+            echo "[AFTER] image line:"
+            grep -n "image:.*${ECR_REPO_URI}:" -n ${INFRA_MANIFEST} || true
+
+            # 변경 없으면 커밋/푸시 생략
+            if git diff --quiet; then
+              echo "No manifest change (already on ${IMAGE_TAG}). Skip commit/push."
+              exit 0
+            fi
+
+            git add ${INFRA_MANIFEST}
+            git commit -m "ci(matching): bump image to ${IMAGE_TAG}"
+            git push origin ${INFRA_BRANCH}
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      sh 'docker image prune -f || true'
+    }
+  }
+}
+
+
+
+
+
+
+/* 일단 주석 
 pipeline {
   agent any
 
@@ -86,82 +231,43 @@ pipeline {
     }
   }
 }
+*/
 
 
-/*
-pipeline {
-  agent any
 
-  environment {
-    AWS_REGION   = "ap-northeast-2"
-    ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
-    APP_DIR      = "matching-server"
-  }
 
-  options {
-    skipDefaultCheckout(true)
-    disableConcurrentBuilds()
-  }
 
-  stages {
-    stage("Checkout") {
-      steps { checkout scm }
-    }
 
-    stage("Change check") {
-      steps {
-        script {
-          def prev = (env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: "").trim()
-          def curr = (env.GIT_COMMIT ?: "").trim()
 
-          if (!prev) {
-            env.RUN_PIPELINE = "true"
-            echo "[CHANGE] First build (no previous successful commit) -> RUN"
-          } else {
-            def range = curr ? "${prev}..${curr}" : "${prev}..HEAD"
-            def changed = sh(
-              script: "git diff --name-only ${range} | grep -E '^${APP_DIR}/' || true",
-              returnStdout: true
-            ).trim()
 
-            env.RUN_PIPELINE = changed ? "true" : "false"
-            echo changed ? "[CHANGE] Detected:\n${changed}" : "[CHANGE] No ${APP_DIR}/ changes -> SKIP"
-          }
-        }
-      }
-    }
 
-    stage("ECR Login") {
-      when { expression { env.RUN_PIPELINE == "true" } }
-      steps {
-        sh '''
-          set -e
-          aws ecr get-login-password --region ${AWS_REGION} \
-            | docker login --username AWS --password-stdin ${ECR_REPO_URI%/*}
-        '''
-      }
-    }
 
-    stage("Build & Push") {
-      when { expression { env.RUN_PIPELINE == "true" } }
-      steps {
-        script {
-          def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
-          env.IMAGE_TAG = "${sha7}-${env.BUILD_NUMBER}"
-        }
 
-        sh '''
-          set -e
-          cd ${APP_DIR}
-          docker build -t ${ECR_REPO_URI}:${IMAGE_TAG} .
-          docker push ${ECR_REPO_URI}:${IMAGE_TAG}
-        '''
-      }
-    }
-  }
 
-  post {
-    always { sh 'docker image prune -f || true' }
-  }
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* 하나 변경시 다 빌드되는 오류를 고쳐야 한다 ..
+
 */
