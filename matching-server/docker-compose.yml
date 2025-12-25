@@ -7,8 +7,8 @@ services:
     ports:
       # 로컬에서 redis cli 등으로 접속 테스트를 원할 경우에만 주석 해제
       # - "6379:6379"
-      - "6379"
-    # 장애 발생 시 자동으로 재시작 시도
+      - '6379'
+    # 장애 발생 시 자동으로 재시작 시도.!
     restart: always
 
   # 2. 매칭 서버 서비스 정의
@@ -18,7 +18,7 @@ services:
       dockerfile: Dockerfile # 위에서 작성한 Dockerfile 이름
     container_name: waguwagu-matching
     ports:
-      - "3000:3000"
+      - '3000:3000'
     # Redis가 완전히 실행된 후에 매칭 서버를 시작
     depends_on:
       - redis
@@ -29,9 +29,8 @@ services:
       NODE_ENV: development
       # JWT Secret은 실제로는 AWS Secrets Manager를 사용해야 함
       # 여기서는 로컬 테스트용 임시 키를 사용
-      JWT_SECRET: "waguwagu-secret"
-      GAME_SERVER_URL: "http://host.docker.internal:3001"
+      JWT_SECRET: 'waguwagu-secret'
+      GAME_SERVER_URL: 'http://host.docker.internal:3001'
       MATCH_PLAYER_COUNT: 5
     restart: always
     command: npm run start
-    

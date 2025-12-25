@@ -6,8 +6,8 @@ pipeline {
 
   environment {
     AWS_REGION = "ap-northeast-2"
-    S3_BUCKET  = "waguwagu-s3-bucket-061039804626-ap-northeast-2"
-
+    //S3_BUCKET  = "waguwagu-s3-bucket-061039804626-ap-northeast-2" 내 계정으로 돌릴라고 잠깐 주석처리 
+    S3_BUCKET  = "waguwagu-s3-bucket-269397878198-ap-northeast-2" 
     // Secrets Manager에서 읽어올 배포 아이디
     CF_SECRET_ID  = "T3-Wagu-Secrets"
     CF_SECRET_KEY = "CLOUDFRONT_DISTRIBUTION_ID"
