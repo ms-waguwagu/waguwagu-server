@@ -15,7 +15,7 @@ pipeline {
     INFRA_AGONES_FLEET_MANIFEST = "k8s/agones/agones-fleet.yaml"
     
 
-    // Secrets Manager (PAT)
+    // Secrets Manager (PAT)s
     GH_SECRET_ID  = "T3-Wagu-Secrets"
     GH_SECRET_KEY = "GITHUB_PAT"
 
@@ -112,7 +112,7 @@ pipeline {
           git config --global --unset-all credential.helper || true
           git config --global credential.helper ""
 
-          # 🔒 토큰/헤더 구간 로그 숨김
+          #  토큰/헤더 구간 로그 숨김
           set +x
           TOK="$(aws secretsmanager get-secret-value \
               --secret-id "${GH_SECRET_ID}" \
