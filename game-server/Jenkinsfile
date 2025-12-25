@@ -10,16 +10,13 @@ pipeline {
     // waguwagu-infra
     INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
     INFRA_BRANCH   = "main"
+    INFRA_MANIFEST = "k8s/agones/agones-fleet.yaml"   // 바꿀 manifest (Agones Fleet)
 
-    // 바꿀 manifest (agones fleet)
-    INFRA_AGONES_FLEET_MANIFEST = "k8s/agones/agones-fleet.yaml"
-    
-
-    // Secrets Manager (PAT)s
+    // Secrets Manager (PAT)
     GH_SECRET_ID  = "T3-Wagu-Secrets"
     GH_SECRET_KEY = "GITHUB_PAT"
 
-    // Git author
+    // Git author (infra commit)
     GIT_USER_NAME  = "jenkins-bot"
     GIT_USER_EMAIL = "jenkins@waguwagu.local"
   }
@@ -38,20 +35,21 @@ pipeline {
         script {
           echo "=== GAME JENKINSFILE ==="
 
+          // ✅ 여러 커밋이 한 번에 들어와도 누락 없게 (previous_successful..HEAD)
           def base  = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT
-          env.DIFF_RANGE = base ? "${base}..HEAD" : "HEAD~1..HEAD"
-          echo "Diff range: ${env.DIFF_RANGE}"
+          def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
+          echo "Diff range: ${range}"
 
-          //  game-server 변경만, Jenkinsfile만 바뀐 건 제외
+          // ✅ game-server/ 변경만 감지, Jenkinsfile만 바뀐 경우는 제외
           def changed = sh(
-            script: '''#!/usr/bin/env bash
+            returnStdout: true,
+            script: """#!/usr/bin/env bash
               set -e
-              git diff --name-only ${range} \\
+              git diff --name-only "${range}" \\
                 | grep -E '^game-server/' \\
-                | grep -v '^game-server/Jenkinsfile\\\\\$' \\
+                | grep -v '^game-server/Jenkinsfile\$' \\
                 || true
-            ''',
-            returnStdout: true
+            """
           ).trim()
 
           if (!changed) {
@@ -59,7 +57,7 @@ pipeline {
             env.GAME_CHANGED = "false"
           } else {
             echo "Changes detected -> proceed."
-            echo "Changed files:\n${changed}"
+            echo "Changed files:\\n${changed}"
             env.GAME_CHANGED = "true"
           }
         }
@@ -112,7 +110,7 @@ pipeline {
           git config --global --unset-all credential.helper || true
           git config --global credential.helper ""
 
-          #  토큰/헤더 구간 로그 숨김
+          # 🔒 토큰/헤더 다루는 구간은 로그 숨김
           set +x
           TOK="$(aws secretsmanager get-secret-value \
               --secret-id "${GH_SECRET_ID}" \
@@ -120,9 +118,9 @@ pipeline {
               --query SecretString \
               --output text \
               | jq -r --arg k "${GH_SECRET_KEY}" '.[$k]' \
-              | tr -d '\r\n')"
+              | tr -d '\\r\\n')"
 
-          AUTH="$(printf 'x-access-token:%s' "$TOK" | base64 | tr -d '\n')"
+          AUTH="$(printf 'x-access-token:%s' "$TOK" | base64 | tr -d '\\n')"
           EXTRA="http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH"
 
           GIT_TERMINAL_PROMPT=0 git -c "$EXTRA" clone --branch "${INFRA_BRANCH}" "${INFRA_REPO_URL}" infra
@@ -130,19 +128,19 @@ pipeline {
           set -x
 
           echo "[BEFORE] image line:"
-          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_AGONES_FLEET_MANIFEST}" || true
+          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
 
-          sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_AGONES_FLEET_MANIFEST}"
+          sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_MANIFEST}"
 
           echo "[AFTER] image line:"
-          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_AGONES_FLEET_MANIFEST}" || true
+          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
 
           if git diff --quiet; then
             echo "No manifest change (already on ${IMAGE_TAG}). Skip commit/push."
             exit 0
           fi
 
-          git add "${INFRA_AGONES_FLEET_MANIFEST}"
+          git add "${INFRA_MANIFEST}"
           git commit -m "ci(game): bump image to ${IMAGE_TAG}"
 
           set +x
@@ -159,8 +157,6 @@ pipeline {
     }
   }
 }
-
-
 
 /* 일단 주석 
 pipeline {
