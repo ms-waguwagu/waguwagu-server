@@ -7,7 +7,7 @@ pipeline {
     AWS_REGION   = "ap-northeast-2"
 
     // account id 
-    //ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server" 내 계정으로 돌릴라고 잠깐 주석처리 
+    //ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server" 내 계정으로 돌릴라고 잠깐 주석처리
     ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
 
 
@@ -105,6 +105,10 @@ pipeline {
 
             git clone --branch ${INFRA_BRANCH} "${INFRA_AUTH_URL}" infra
             cd infra
+
+            set +x
+            git remote set-url origin "${INFRA_AUTH_URL}"
+            set -x
 
             echo "[BEFORE] image line:"
             grep -n "image:.*${ECR_REPO_URI}:" -n ${INFRA_MANIFEST} || true
