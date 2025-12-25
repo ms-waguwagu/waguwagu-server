@@ -4,132 +4,158 @@ pipeline {
   environment {
     AWS_REGION   = "ap-northeast-2"
 
-    //game ECR URI 일단 내 계정 accountid / 다시 바꿈
-    //ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
+    // ECR (game)
     ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
 
-    CLUSTER_NAME = "T3-Wagu-Game-EKS"
-    NAMESPACE    = "game"
+    // waguwagu-infra
+    INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
+    INFRA_BRANCH   = "main"
 
-    // Agones Fleet
-    FLEET_NAME     = "waguwagu-fleet"
-    CONTAINER_NAME = "game-server"
-
-    // waguwagu-infra 쪽 설정
-    INFRA_REPO_URL   = "https://github.com/ms-waguwagu/waguwagu-infra.git"
-    INFRA_BRANCH     = "main"
-    INFRA_CRED_ID    = "github-pat-infra-push"   // jenkins.yaml에서 만든 Secret Text credential id
-    GIT_USER_NAME    = "jenkins-bot"
-    GIT_USER_EMAIL   = "jenkins@waguwagu.local"
-
-    // 태그를 바꿀 manifest 경로들
-    INFRA_GAME_DEPLOY_MANIFEST = "k8s/game-deploy.yaml"
+    // ✅ infra에서 태그 바꿀 파일들 (너 infra 경로에 맞게 수정)
     INFRA_AGONES_FLEET_MANIFEST = "k8s/agones/agones-fleet.yaml"
+
+    // Secrets Manager (PAT) - matching에서 성공한 방식 그대로
+    GH_SECRET_ID  = "T3-Wagu-Secrets"
+    GH_SECRET_KEY = "GITHUB_PAT"
+
+    // Git author
+    GIT_USER_NAME  = "jenkins-bot"
+    GIT_USER_EMAIL = "jenkins@waguwagu.local"
   }
 
   options {
+    timestamps()
     skipDefaultCheckout(true)
   }
 
   stages {
     stage("Checkout") {
-      steps {
-        checkout scm
-      }
+      steps { checkout scm }
     }
 
-    stage("Change check") {
+    stage("Change check (game-server only)") {
       steps {
         script {
+          echo "=== GAME JENKINSFILE ==="
+
+          // ✅ merge로 커밋 여러개 들어와도 안전: 이전 성공 커밋 기준 diff
+          def base  = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT
+          def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
+          echo "Diff range: ${range}"
+
+          // ✅ game-server/ 변경만 + Jenkinsfile만 바뀐 경우는 스킵(원하면 -v 줄 제거)
           def changed = sh(
-            script: "git diff --name-only HEAD~1..HEAD | grep -E '^game-server/' || true",
+            script: """
+              set -e
+              git diff --name-only ${range} \
+                | grep -E '^game-server/' \
+                | grep -v '^game-server/Jenkinsfile\\$' \
+                || true
+            """,
             returnStdout: true
           ).trim()
 
           if (!changed) {
-            echo "No changes in game-server/, but continue (always Build & Push)."
+            echo "No app changes in game-server/ -> SKIP"
+            env.GAME_CHANGED = "false"
           } else {
-            echo "Changes detected in game-server/ -> proceed."
+            echo "Changes detected -> proceed."
+            echo "Changed files:\\n${changed}"
+            env.GAME_CHANGED = "true"
           }
         }
       }
     }
 
     stage("ECR Login") {
+      when { expression { env.GAME_CHANGED == "true" } }
       steps {
         sh '''
           set -e
-          aws ecr get-login-password --region ${AWS_REGION} \
-            | docker login --username AWS --password-stdin ${ECR_REPO_URI%/*}
+          aws ecr get-login-password --region "${AWS_REGION}" \
+            | docker login --username AWS --password-stdin "${ECR_REPO_URI%/*}"
         '''
       }
     }
 
     stage("Build & Push") {
+      when { expression { env.GAME_CHANGED == "true" } }
       steps {
         script {
           def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
-          def tag = "${sha7}-${env.BUILD_NUMBER}"
-          env.IMAGE_TAG = tag
-          env.IMAGE_URI = "${env.ECR_REPO_URI}:${tag}"
+          env.IMAGE_TAG = "${sha7}-${env.BUILD_NUMBER}"
+          env.IMAGE_URI = "${env.ECR_REPO_URI}:${env.IMAGE_TAG}"
           echo "IMAGE_URI = ${env.IMAGE_URI}"
         }
 
         sh '''
           set -e
           cd game-server
-          docker build -t ${ECR_REPO_URI}:${IMAGE_TAG} .
-          docker push ${ECR_REPO_URI}:${IMAGE_TAG}
+          docker build -t "${ECR_REPO_URI}:${IMAGE_TAG}" .
+          docker push "${ECR_REPO_URI}:${IMAGE_TAG}"
         '''
       }
     }
 
-    // waguwagu-infra의 game-deploy / agones-fleet image 태그 변경 → commit/push
-    stage("Update waguwagu-infra manifests") {
+    stage("Update waguwagu-infra manifests (commit/push)") {
+      when { expression { env.GAME_CHANGED == "true" } }
       steps {
-        withCredentials([string(credentialsId: "${INFRA_CRED_ID}", variable: "GITHUB_PAT")]) {
-          sh '''
-            set -euo pipefail
+        sh '''
+          set -euo pipefail
 
-            rm -rf infra
-            mkdir -p infra
+          rm -rf infra
+          mkdir -p infra
 
-            git config --global user.name  "${GIT_USER_NAME}"
-            git config --global user.email "${GIT_USER_EMAIL}"
+          git config --global user.name  "${GIT_USER_NAME}"
+          git config --global user.email "${GIT_USER_EMAIL}"
 
-            # 토큰 로그 노출 방지
-            set +x
-            INFRA_AUTH_URL="https://x-access-token:${GITHUB_PAT}@github.com/ms-waguwagu/waguwagu-infra.git"
-            set -x
+          # credential helper 꼬임 방지
+          git config --global --unset-all credential.helper || true
+          git config --global credential.helper ""
 
-            git clone --branch ${INFRA_BRANCH} "${INFRA_AUTH_URL}" infra
-            cd infra
+          # 🔒 토큰/헤더 다루는 구간 로그 숨김
+          set +x
+          TOK="$(aws secretsmanager get-secret-value \
+              --secret-id "${GH_SECRET_ID}" \
+              --region "${AWS_REGION}" \
+              --query SecretString \
+              --output text \
+              | jq -r --arg k "${GH_SECRET_KEY}" '.[$k]' \
+              | tr -d '\\r\\n')"
 
-            echo "---- BEFORE (game-deploy) ----"
-            grep -n "image:.*${ECR_REPO_URI}:" -n ${INFRA_GAME_DEPLOY_MANIFEST} || true
-            echo "---- BEFORE (agones-fleet) ----"
-            grep -n "image:.*${ECR_REPO_URI}:" -n ${INFRA_AGONES_FLEET_MANIFEST} || true
+          AUTH="$(printf 'x-access-token:%s' "$TOK" | base64 | tr -d '\\n')"
+          EXTRA="http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH"
 
-            # image: <repo>:<tag> 라인만 태그 치환
-            # sed delimiter를 #로 사용(/ 때문에 깨짐 방지)
-            sed -i "s#\\(image:\\s*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" ${INFRA_GAME_DEPLOY_MANIFEST}
-            sed -i "s#\\(image:\\s*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" ${INFRA_AGONES_FLEET_MANIFEST}
+          GIT_TERMINAL_PROMPT=0 git -c "$EXTRA" clone --branch "${INFRA_BRANCH}" "${INFRA_REPO_URL}" infra
+          cd infra
+          set -x
 
-            echo "---- AFTER (game-deploy) ----"
-            grep -n "image:.*${ECR_REPO_URI}:" -n ${INFRA_GAME_DEPLOY_MANIFEST} || true
-            echo "---- AFTER (agones-fleet) ----"
-            grep -n "image:.*${ECR_REPO_URI}:" -n ${INFRA_AGONES_FLEET_MANIFEST} || true
+          echo "---- BEFORE (game-deploy) ----"
+          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_GAME_DEPLOY_MANIFEST}" || true
+          echo "---- BEFORE (agones-fleet) ----"
+          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_AGONES_FLEET_MANIFEST}" || true
 
-            if git diff --quiet; then
-              echo "No manifest change (already on ${IMAGE_TAG}). Skip commit/push."
-              exit 0
-            fi
+          # ✅ sed에서 \\s 대신 [[:space:]]* 사용 (매칭에서 검증된 방식)
+          sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_GAME_DEPLOY_MANIFEST}"
+          sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_AGONES_FLEET_MANIFEST}"
 
-            git add ${INFRA_GAME_DEPLOY_MANIFEST} ${INFRA_AGONES_FLEET_MANIFEST}
-            git commit -m "ci(game): bump image to ${IMAGE_TAG}"
-            git push origin ${INFRA_BRANCH}
-          '''
-        }
+          echo "---- AFTER (game-deploy) ----"
+          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_GAME_DEPLOY_MANIFEST}" || true
+          echo "---- AFTER (agones-fleet) ----"
+          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_AGONES_FLEET_MANIFEST}" || true
+
+          if git diff --quiet; then
+            echo "No manifest change (already on ${IMAGE_TAG}). Skip commit/push."
+            exit 0
+          fi
+
+          git add "${INFRA_GAME_DEPLOY_MANIFEST}" "${INFRA_AGONES_FLEET_MANIFEST}"
+          git commit -m "ci(game): bump image to ${IMAGE_TAG}"
+
+          set +x
+          GIT_TERMINAL_PROMPT=0 git -c "$EXTRA" push origin HEAD:"${INFRA_BRANCH}"
+          set -x
+        '''
       }
     }
   }
