@@ -1,4 +1,150 @@
+pipeline {
+  agent any
 
+  environment {
+    AWS_REGION   = "ap-northeast-2"
+
+    //game ECR URI 일단 내 계정 accountid / 다시 바꿈
+    //ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
+    ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
+
+    CLUSTER_NAME = "T3-Wagu-Game-EKS"
+    NAMESPACE    = "game"
+
+    // Agones Fleet
+    FLEET_NAME     = "waguwagu-fleet"
+    CONTAINER_NAME = "game-server"
+
+    // waguwagu-infra 쪽 설정
+    INFRA_REPO_URL   = "https://github.com/ms-waguwagu/waguwagu-infra.git"
+    INFRA_BRANCH     = "main"
+    INFRA_CRED_ID    = "github-pat-infra-push"   // jenkins.yaml에서 만든 Secret Text credential id
+    GIT_USER_NAME    = "jenkins-bot"
+    GIT_USER_EMAIL   = "jenkins@waguwagu.local"
+
+    // 태그를 바꿀 manifest 경로들
+    INFRA_GAME_DEPLOY_MANIFEST = "k8s/game-deploy.yaml"
+    INFRA_AGONES_FLEET_MANIFEST = "k8s/agones-fleet.yaml"
+  }
+
+  options {
+    skipDefaultCheckout(true)
+  }
+
+  stages {
+    stage("Checkout") {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage("Change check") {
+      steps {
+        script {
+          def changed = sh(
+            script: "git diff --name-only HEAD~1..HEAD | grep -E '^game-server/' || true",
+            returnStdout: true
+          ).trim()
+
+          if (!changed) {
+            echo "No changes in game-server/, but continue (always Build & Push)."
+          } else {
+            echo "Changes detected in game-server/ -> proceed."
+          }
+        }
+      }
+    }
+
+    stage("ECR Login") {
+      steps {
+        sh '''
+          set -e
+          aws ecr get-login-password --region ${AWS_REGION} \
+            | docker login --username AWS --password-stdin ${ECR_REPO_URI%/*}
+        '''
+      }
+    }
+
+    stage("Build & Push") {
+      steps {
+        script {
+          def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
+          def tag = "${sha7}-${env.BUILD_NUMBER}"
+          env.IMAGE_TAG = tag
+          env.IMAGE_URI = "${env.ECR_REPO_URI}:${tag}"
+          echo "IMAGE_URI = ${env.IMAGE_URI}"
+        }
+
+        sh '''
+          set -e
+          cd game-server
+          docker build -t ${ECR_REPO_URI}:${IMAGE_TAG} .
+          docker push ${ECR_REPO_URI}:${IMAGE_TAG}
+        '''
+      }
+    }
+
+    // waguwagu-infra의 game-deploy / agones-fleet image 태그 변경 → commit/push
+    stage("Update waguwagu-infra manifests") {
+      steps {
+        withCredentials([string(credentialsId: "${INFRA_CRED_ID}", variable: "GITHUB_PAT")]) {
+          sh '''
+            set -euo pipefail
+
+            rm -rf infra
+            mkdir -p infra
+
+            git config --global user.name  "${GIT_USER_NAME}"
+            git config --global user.email "${GIT_USER_EMAIL}"
+
+            # 토큰 로그 노출 방지
+            set +x
+            INFRA_AUTH_URL="https://x-access-token:${GITHUB_PAT}@github.com/ms-waguwagu/waguwagu-infra.git"
+            set -x
+
+            git clone --branch ${INFRA_BRANCH} "${INFRA_AUTH_URL}" infra
+            cd infra
+
+            echo "---- BEFORE (game-deploy) ----"
+            grep -n "image:.*${ECR_REPO_URI}:" -n ${INFRA_GAME_DEPLOY_MANIFEST} || true
+            echo "---- BEFORE (agones-fleet) ----"
+            grep -n "image:.*${ECR_REPO_URI}:" -n ${INFRA_AGONES_FLEET_MANIFEST} || true
+
+            # image: <repo>:<tag> 라인만 태그 치환
+            # sed delimiter를 #로 사용(/ 때문에 깨짐 방지)
+            sed -i "s#\\(image:\\s*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" ${INFRA_GAME_DEPLOY_MANIFEST}
+            sed -i "s#\\(image:\\s*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" ${INFRA_AGONES_FLEET_MANIFEST}
+
+            echo "---- AFTER (game-deploy) ----"
+            grep -n "image:.*${ECR_REPO_URI}:" -n ${INFRA_GAME_DEPLOY_MANIFEST} || true
+            echo "---- AFTER (agones-fleet) ----"
+            grep -n "image:.*${ECR_REPO_URI}:" -n ${INFRA_AGONES_FLEET_MANIFEST} || true
+
+            if git diff --quiet; then
+              echo "No manifest change (already on ${IMAGE_TAG}). Skip commit/push."
+              exit 0
+            fi
+
+            git add ${INFRA_GAME_DEPLOY_MANIFEST} ${INFRA_AGONES_FLEET_MANIFEST}
+            git commit -m "ci(game): bump image to ${IMAGE_TAG}"
+            git push origin ${INFRA_BRANCH}
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      sh 'docker image prune -f || true'
+    }
+  }
+}
+
+
+
+
+/* 일단 주석 
 pipeline {
   agent any
 
@@ -86,78 +232,15 @@ pipeline {
     }
   }
 }
+*/ 
 
 
 
-/*
-pipeline {
-  agent any
 
-  environment {
-    AWS_REGION   = "ap-northeast-2"
-    ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
-    APP_DIR      = "game-server"
-  }
 
-  options {
-    skipDefaultCheckout(true)
-    disableConcurrentBuilds()
-  }
 
-  stages {
-    stage("Checkout") { steps { checkout scm } }
 
-    stage("Change check") {
-      steps {
-        script {
-          def prev = (env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: "").trim()
-          def curr = (env.GIT_COMMIT ?: "").trim()
 
-          if (!prev) {
-            env.RUN_PIPELINE = "true"
-            echo "[CHANGE] First build -> RUN"
-          } else {
-            def range = curr ? "${prev}..${curr}" : "${prev}..HEAD"
-            def changed = sh(
-              script: "git diff --name-only ${range} | grep -E '^${APP_DIR}/' || true",
-              returnStdout: true
-            ).trim()
 
-            env.RUN_PIPELINE = changed ? "true" : "false"
-            echo changed ? "[CHANGE] Detected:\n${changed}" : "[CHANGE] No ${APP_DIR}/ changes -> SKIP"
-          }
-        }
-      }
-    }
 
-    stage("ECR Login") {
-      when { expression { env.RUN_PIPELINE == "true" } }
-      steps {
-        sh '''
-          set -e
-          aws ecr get-login-password --region ${AWS_REGION} \
-            | docker login --username AWS --password-stdin ${ECR_REPO_URI%/*}
-        '''
-      }
-    }
 
-    stage("Build & Push") {
-      when { expression { env.RUN_PIPELINE == "true" } }
-      steps {
-        script {
-          def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
-          env.IMAGE_TAG = "${sha7}-${env.BUILD_NUMBER}"
-        }
-        sh '''
-          set -e
-          cd ${APP_DIR}
-          docker build -t ${ECR_REPO_URI}:${IMAGE_TAG} .
-          docker push ${ECR_REPO_URI}:${IMAGE_TAG}
-        '''
-      }
-    }
-  }
-
-  post { always { sh 'docker image prune -f || true' } }
-}
-*/
