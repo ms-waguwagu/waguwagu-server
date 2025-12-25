@@ -11,11 +11,11 @@ pipeline {
     INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
     INFRA_BRANCH   = "main"
 
-    // 바꿀 manifest 
+    // 바꿀 manifest (agones fleet)
     INFRA_AGONES_FLEET_MANIFEST = "k8s/agones/agones-fleet.yaml"
     
 
-    // Secrets Manager (PAT)
+    // Secrets Manager (PAT)s
     GH_SECRET_ID  = "T3-Wagu-Secrets"
     GH_SECRET_KEY = "GITHUB_PAT"
 
@@ -46,9 +46,9 @@ pipeline {
           def changed = sh(
             script: '''#!/usr/bin/env bash
               set -e
-              git diff --name-only "$DIFF_RANGE" \
-                | grep -E '^game-server/' \
-                | grep -v '^game-server/Jenkinsfile$' \
+              git diff --name-only ${range} \\
+                | grep -E '^game-server/' \\
+                | grep -v '^game-server/Jenkinsfile\\\\\$' \\
                 || true
             ''',
             returnStdout: true
@@ -112,7 +112,7 @@ pipeline {
           git config --global --unset-all credential.helper || true
           git config --global credential.helper ""
 
-          # 🔒 토큰/헤더 구간 로그 숨김
+          #  토큰/헤더 구간 로그 숨김
           set +x
           TOK="$(aws secretsmanager get-secret-value \
               --secret-id "${GH_SECRET_ID}" \
@@ -159,7 +159,6 @@ pipeline {
     }
   }
 }
-
 
 
 
