@@ -6,29 +6,40 @@ pipeline {
   environment {
     AWS_REGION   = "ap-northeast-2"
 
-    // account id
+    // ECR
     ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
 
+    // K8S (지금은 배포 단계 넣기 전이지만 변수는 유지)
     CLUSTER_NAME = "T3-Wagu-Matching-EKS"
     NAMESPACE    = "matching"
-
     DEPLOYMENT_NAME = "matching-deploy"
     CONTAINER_NAME  = "matching"
 
-    // waguwagu-infra 쪽 설정
-    INFRA_REPO_URL   = "https://github.com/ms-waguwagu/waguwagu-infra.git"
-    INFRA_BRANCH     = "main"
-    INFRA_MANIFEST   = "k8s/matching/matching-deploy.yaml"
-    INFRA_CRED_ID    = "github-pat-infra-push"
-    GIT_USER_NAME    = "jenkins-bot"
-    GIT_USER_EMAIL   = "jenkins@waguwagu.local"
+    // waguwagu-infra repo
+    INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
+    INFRA_BRANCH   = "main"
+    INFRA_MANIFEST = "k8s/matching/matching-deploy.yaml"
+
+    // Jenkins Credentials (Secret Text)
+    INFRA_CRED_ID  = "github-pat-infra-push"
+
+    // Git author
+    GIT_USER_NAME  = "jenkins-bot"
+    GIT_USER_EMAIL = "jenkins@waguwagu.local"
+
+    // ✅ 네 GitHub 아이디(토큰 인증용)
+    GH_USER = "kwakmh"
   }
 
-  options { skipDefaultCheckout(true) }
+  options {
+    skipDefaultCheckout(true)
+  }
 
   stages {
     stage("Checkout") {
-      steps { checkout scm }
+      steps {
+        checkout scm
+      }
     }
 
     stage("Change check") {
@@ -53,8 +64,8 @@ pipeline {
       steps {
         sh '''
           set -e
-          aws ecr get-login-password --region ${AWS_REGION} \
-            | docker login --username AWS --password-stdin ${ECR_REPO_URI%/*}
+          aws ecr get-login-password --region "${AWS_REGION}" \
+            | docker login --username AWS --password-stdin "${ECR_REPO_URI%/*}"
         '''
       }
     }
@@ -72,16 +83,16 @@ pipeline {
         sh '''
           set -e
           cd matching-server
-          docker build -t ${ECR_REPO_URI}:${IMAGE_TAG} .
-          docker push ${ECR_REPO_URI}:${IMAGE_TAG}
+          docker build -t "${ECR_REPO_URI}:${IMAGE_TAG}" .
+          docker push "${ECR_REPO_URI}:${IMAGE_TAG}"
         '''
       }
     }
 
     stage("Update waguwagu-infra manifest") {
       steps {
-        withCredentials([string(credentialsId: "${INFRA_CRED_ID}", variable: "GITHUB_PAT")]) {
-        sh '''
+        withCredentials([string(credentialsId: "github-pat-infra-push", variable: "GITHUB_PAT")]) {
+          sh '''
             set -euo pipefail
 
             rm -rf infra
@@ -90,26 +101,21 @@ pipeline {
             git config --global user.name  "${GIT_USER_NAME}"
             git config --global user.email "${GIT_USER_EMAIL}"
 
-            # ⚠️ credential helper가 예전 자격증명 들고 있으면 토큰을 무시할 수 있어서 비활성화
+            # credential helper 때문에 토큰이 무시되는 케이스 방지
             git config --global --unset-all credential.helper || true
             git config --global credential.helper ""
 
-            # ✅ "네 GitHub 아이디"로 고정 (너 GitHub 아이디가 kwakmh 였지)
-            GH_USER="kwakmh"
-
-            # 토큰 로그 노출 방지
+            # push 전용 URL(로그 노출 방지)
             set +x
             PUSH_URL="https://${GH_USER}:${GITHUB_PAT}@github.com/ms-waguwagu/waguwagu-infra.git"
             set -x
 
-            # clone은 깔끔한 URL로 (public/private 상관없이 동작)
+            # clone은 기본 URL로
             git clone --branch "${INFRA_BRANCH}" "${INFRA_REPO_URL}" infra
             cd infra
 
-            # ✅ fetch(origin)은 깨끗하게 유지
+            # fetch는 깨끗한 origin, push는 토큰 origin으로 강제
             git remote set-url origin "${INFRA_REPO_URL}"
-
-            # ✅ push는 무조건 토큰 URL로만 나가게 강제
             set +x
             git remote set-url --push origin "${PUSH_URL}"
             set -x
@@ -130,12 +136,12 @@ pipeline {
             git add "${INFRA_MANIFEST}"
             git commit -m "ci(matching): bump image to ${IMAGE_TAG}"
 
-            # ✅ 여기서부터는 push 인증만 보면 됨
             GIT_TERMINAL_PROMPT=0 git push origin "${INFRA_BRANCH}"
           '''
+        }
+      }
     }
   }
-}
 
   post {
     always {
