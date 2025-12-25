@@ -8,11 +8,12 @@ pipeline {
     ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
 
     // waguwagu-infra
+    INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
     INFRA_BRANCH   = "main"
     INFRA_MANIFEST = "k8s/matching/matching-deploy.yaml"
 
-    // Jenkins Credentials ID (Secret Text)
-    INFRA_CRED_ID  = "github-pat-infra-push"
+    // ✅ Secrets Manager에서 읽을 시크릿
+    GITHUB_SECRET_ID = "T3-Wagu-Secrets"
 
     GIT_USER_NAME  = "jenkins-bot"
     GIT_USER_EMAIL = "jenkins@waguwagu.local"
@@ -88,52 +89,60 @@ pipeline {
     stage("Update waguwagu-infra manifest (commit/push)") {
       when { expression { env.MATCHING_CHANGED == "true" } }
       steps {
-        withCredentials([string(credentialsId: "${INFRA_CRED_ID}", variable: "GITHUB_PAT")]) {
-          sh '''
-            set -euo pipefail
+        sh '''
+          set -euo pipefail
 
-            rm -rf infra
-            mkdir -p infra
+          rm -rf infra
+          mkdir -p infra
 
-            git config --global user.name  "${GIT_USER_NAME}"
-            git config --global user.email "${GIT_USER_EMAIL}"
+          git config --global user.name  "${GIT_USER_NAME}"
+          git config --global user.email "${GIT_USER_EMAIL}"
 
-            # credential 캐시 꼬임 방지
-            git config --global --unset-all credential.helper || true
-            git config --global credential.helper ""
+          # credential 캐시 꼬임 방지
+          git config --global --unset-all credential.helper || true
+          git config --global credential.helper ""
 
-            # (안전) 토큰 길이만 확인
-            echo "PAT_LEN=$(printf %s "$GITHUB_PAT" | wc -c)"
+          # ✅ Secrets Manager에서 GitHub PAT 가져오기 (로그 노출 방지)
+          set +x
+          TOK="$(aws secretsmanager get-secret-value \
+            --secret-id "${GITHUB_SECRET_ID}" \
+            --region "${AWS_REGION}" \
+            --query SecretString \
+            --output text | jq -r '.GITHUB_PAT' | tr -d '\\r\\n')"
+          set -x
 
-            # ✅ clone/push 모두 토큰 포함 URL 사용 (인증 꼬임 방지)
-            set +x
-            PUSH_URL="https://x-access-token:${GITHUB_PAT}@github.com/ms-waguwagu/waguwagu-infra.git"
-            set -x
+          # (선택) 토큰이 살아있는지 200 확인 (값은 안 찍힘)
+          curl -s -o /dev/null -w "github_user_http=%{http_code}\\n" \
+            -H "Authorization: token ${TOK}" https://api.github.com/user
 
-            GIT_TERMINAL_PROMPT=0 git clone --branch "${INFRA_BRANCH}" "${PUSH_URL}" infra
-            cd infra
+          # ✅ URL에 토큰 박지 말고, git extraheader로 인증 (더 안전/안꼬임)
+          set +x
+          AUTH="$(printf 'x-access-token:%s' "${TOK}" | base64 | tr -d '\\n')"
+          set -x
 
-            echo "[BEFORE] image line:"
-            grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
+          GIT_TERMINAL_PROMPT=0 git -c http.https://github.com/.extraheader="AUTHORIZATION: basic ${AUTH}" \
+            clone --branch "${INFRA_BRANCH}" "${INFRA_REPO_URL}" infra
+          cd infra
 
-            sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_MANIFEST}"
+          echo "[BEFORE] image line:"
+          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
 
-            echo "[AFTER] image line:"
-            grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
+          sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_MANIFEST}"
 
-            if git diff --quiet; then
-              echo "No manifest change (already on ${IMAGE_TAG}). Skip commit/push."
-              exit 0
-            fi
+          echo "[AFTER] image line:"
+          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
 
-            git add "${INFRA_MANIFEST}"
-            git commit -m "ci(matching): bump image to ${IMAGE_TAG}"
+          if git diff --quiet; then
+            echo "No manifest change (already on ${IMAGE_TAG}). Skip commit/push."
+            exit 0
+          fi
 
-            set +x
-            GIT_TERMINAL_PROMPT=0 git push "${PUSH_URL}" HEAD:"${INFRA_BRANCH}"
-            set -x
-          '''
-        }
+          git add "${INFRA_MANIFEST}"
+          git commit -m "ci(matching): bump image to ${IMAGE_TAG}"
+
+          GIT_TERMINAL_PROMPT=0 git -c http.https://github.com/.extraheader="AUTHORIZATION: basic ${AUTH}" \
+            push origin HEAD:"${INFRA_BRANCH}"
+        '''
       }
     }
   }
@@ -144,7 +153,6 @@ pipeline {
     }
   }
 }
-
 
 
 /* 일단 주석 
