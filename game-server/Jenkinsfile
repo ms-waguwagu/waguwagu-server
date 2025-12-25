@@ -35,12 +35,12 @@ pipeline {
         script {
           echo "=== GAME JENKINSFILE ==="
 
-          // ✅ 여러 커밋이 한 번에 들어와도 누락 없게 (previous_successful..HEAD)
+          // 여러 커밋이 한 번에 들어와도 누락 없게 
           def base  = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT
           def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
           echo "Diff range: ${range}"
 
-          // ✅ game-server/ 변경만 감지, Jenkinsfile만 바뀐 경우는 제외
+          //  game-server/ 변경만 감지, Jenkinsfile만 바뀐 경우는 제외
           def changed = sh(
             returnStdout: true,
             script: """#!/usr/bin/env bash
@@ -110,7 +110,7 @@ pipeline {
           git config --global --unset-all credential.helper || true
           git config --global credential.helper ""
 
-          # 🔒 토큰/헤더 다루는 구간은 로그 숨김
+          #  토큰/헤더 다루는 구간은 로그 숨김
           set +x
           TOK="$(aws secretsmanager get-secret-value \
               --secret-id "${GH_SECRET_ID}" \
