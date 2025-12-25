@@ -14,7 +14,7 @@ pipeline {
     // ✅ infra에서 태그 바꿀 파일들 (너 infra 경로에 맞게 수정)
     INFRA_AGONES_FLEET_MANIFEST = "k8s/agones/agones-fleet.yaml"
 
-    // Secrets Manager (PAT) - matching에서 성공한 방식 그대로
+    // Secrets Manager (PAT) - matching에서 성공한 방식 그대로d
     GH_SECRET_ID  = "T3-Wagu-Secrets"
     GH_SECRET_KEY = "GITHUB_PAT"
 
