@@ -7,8 +7,7 @@ pipeline {
     AWS_REGION   = "ap-northeast-2"
     ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
 
-    // waguwagu-infra 설정
-    INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
+    // waguwagu-infra
     INFRA_BRANCH   = "main"
     INFRA_MANIFEST = "k8s/matching/matching-deploy.yaml"
 
@@ -33,8 +32,14 @@ pipeline {
       steps {
         script {
           echo "=== MATCHING JENKINSFILE ==="
+
+          // ✅ 이전 '성공 빌드' 커밋 기준으로 범위 잡기 (merge로 커밋 여러개 들어와도 정확)
+          def base = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT
+          def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
+          echo "Diff range: ${range}"
+
           def changed = sh(
-            script: "git diff --name-only HEAD~1..HEAD | grep -E '^matching-server/' || true",
+            script: "git diff --name-only ${range} | grep -E '^matching-server/' || true",
             returnStdout: true
           ).trim()
 
@@ -43,6 +48,7 @@ pipeline {
             env.MATCHING_CHANGED = "false"
           } else {
             echo "Changes detected in matching-server/ -> proceed."
+            echo "Changed files:\n${changed}"
             env.MATCHING_CHANGED = "true"
           }
         }
@@ -92,15 +98,19 @@ pipeline {
             git config --global user.name  "${GIT_USER_NAME}"
             git config --global user.email "${GIT_USER_EMAIL}"
 
-            # 꼬이는 credential 캐시 제거
+            # credential 캐시 꼬임 방지
             git config --global --unset-all credential.helper || true
             git config --global credential.helper ""
 
-            # (안전) 토큰 길이만 확인 (값은 출력 X)
+            # (안전) 토큰 길이만 확인
             echo "PAT_LEN=$(printf %s "$GITHUB_PAT" | wc -c)"
 
-            # clone은 일반 URL로 해도 되고,
-            git clone --branch "${INFRA_BRANCH}" "${INFRA_REPO_URL}" infra
+            # ✅ clone/push 모두 토큰 포함 URL 사용 (인증 꼬임 방지)
+            set +x
+            PUSH_URL="https://x-access-token:${GITHUB_PAT}@github.com/ms-waguwagu/waguwagu-infra.git"
+            set -x
+
+            GIT_TERMINAL_PROMPT=0 git clone --branch "${INFRA_BRANCH}" "${PUSH_URL}" infra
             cd infra
 
             echo "[BEFORE] image line:"
@@ -119,9 +129,7 @@ pipeline {
             git add "${INFRA_MANIFEST}"
             git commit -m "ci(matching): bump image to ${IMAGE_TAG}"
 
-            # ✅ 여기부터가 핵심: PUSH는 PAT 포함 URL로 "직접" 보냄 (remote/origin 꼬여도 상관없음)
             set +x
-            PUSH_URL="https://x-access-token:${GITHUB_PAT}@github.com/ms-waguwagu/waguwagu-infra.git"
             GIT_TERMINAL_PROMPT=0 git push "${PUSH_URL}" HEAD:"${INFRA_BRANCH}"
             set -x
           '''
