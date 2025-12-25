@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   environment {
-    AWS_REGION   = "ap-northeast-2"
+    AWS_REGION = "ap-northeast-2"
 
     // ECR (game)
     ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
@@ -11,10 +11,11 @@ pipeline {
     INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
     INFRA_BRANCH   = "main"
 
-    // ✅ infra에서 태그 바꿀 파일들 (너 infra 경로에 맞게 수정)
+    // 바꿀 manifest (필요한 것만)
     INFRA_AGONES_FLEET_MANIFEST = "k8s/agones/agones-fleet.yaml"
+    // INFRA_GAME_DEPLOY_MANIFEST = "k8s/game/game-deploy.yaml"  // 있으면 추가로 같이 바꿔도 됨
 
-    // Secrets Manager (PAT) - matching에서 성공한 방식 그대로d
+    // Secrets Manager (PAT)
     GH_SECRET_ID  = "T3-Wagu-Secrets"
     GH_SECRET_KEY = "GITHUB_PAT"
 
@@ -38,20 +39,19 @@ pipeline {
         script {
           echo "=== GAME JENKINSFILE ==="
 
-          // ✅ merge로 커밋 여러개 들어와도 안전: 이전 성공 커밋 기준 diff
           def base  = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT
-          def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
-          echo "Diff range: ${range}"
+          env.DIFF_RANGE = base ? "${base}..HEAD" : "HEAD~1..HEAD"
+          echo "Diff range: ${env.DIFF_RANGE}"
 
-          // ✅ game-server/ 변경만 + Jenkinsfile만 바뀐 경우는 스킵(원하면 -v 줄 제거)
+          // ✅ game-server/ 변경만 + Jenkinsfile만 바뀐 건 제외
           def changed = sh(
-            script: """
+            script: '''#!/usr/bin/env bash
               set -e
-              git diff --name-only ${range} \
+              git diff --name-only "$DIFF_RANGE" \
                 | grep -E '^game-server/' \
-                | grep -v '^game-server/Jenkinsfile\\$' \
+                | grep -v '^game-server/Jenkinsfile$' \
                 || true
-            """,
+            ''',
             returnStdout: true
           ).trim()
 
@@ -60,7 +60,7 @@ pipeline {
             env.GAME_CHANGED = "false"
           } else {
             echo "Changes detected -> proceed."
-            echo "Changed files:\\n${changed}"
+            echo "Changed files:\n${changed}"
             env.GAME_CHANGED = "true"
           }
         }
@@ -97,7 +97,7 @@ pipeline {
       }
     }
 
-    stage("Update waguwagu-infra manifests (commit/push)") {
+    stage("Update waguwagu-infra manifest (commit/push)") {
       when { expression { env.GAME_CHANGED == "true" } }
       steps {
         sh '''
@@ -113,7 +113,7 @@ pipeline {
           git config --global --unset-all credential.helper || true
           git config --global credential.helper ""
 
-          # 🔒 토큰/헤더 다루는 구간 로그 숨김
+          # 🔒 토큰/헤더 구간 로그 숨김
           set +x
           TOK="$(aws secretsmanager get-secret-value \
               --secret-id "${GH_SECRET_ID}" \
@@ -121,27 +121,21 @@ pipeline {
               --query SecretString \
               --output text \
               | jq -r --arg k "${GH_SECRET_KEY}" '.[$k]' \
-              | tr -d '\\r\\n')"
+              | tr -d '\r\n')"
 
-          AUTH="$(printf 'x-access-token:%s' "$TOK" | base64 | tr -d '\\n')"
+          AUTH="$(printf 'x-access-token:%s' "$TOK" | base64 | tr -d '\n')"
           EXTRA="http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH"
 
           GIT_TERMINAL_PROMPT=0 git -c "$EXTRA" clone --branch "${INFRA_BRANCH}" "${INFRA_REPO_URL}" infra
           cd infra
           set -x
 
-          echo "---- BEFORE (game-deploy) ----"
-          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_GAME_DEPLOY_MANIFEST}" || true
-          echo "---- BEFORE (agones-fleet) ----"
+          echo "[BEFORE] image line:"
           grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_AGONES_FLEET_MANIFEST}" || true
 
-          # ✅ sed에서 \\s 대신 [[:space:]]* 사용 (매칭에서 검증된 방식)
-          sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_GAME_DEPLOY_MANIFEST}"
           sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_AGONES_FLEET_MANIFEST}"
 
-          echo "---- AFTER (game-deploy) ----"
-          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_GAME_DEPLOY_MANIFEST}" || true
-          echo "---- AFTER (agones-fleet) ----"
+          echo "[AFTER] image line:"
           grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_AGONES_FLEET_MANIFEST}" || true
 
           if git diff --quiet; then
@@ -149,7 +143,7 @@ pipeline {
             exit 0
           fi
 
-          git add "${INFRA_GAME_DEPLOY_MANIFEST}" "${INFRA_AGONES_FLEET_MANIFEST}"
+          git add "${INFRA_AGONES_FLEET_MANIFEST}"
           git commit -m "ci(game): bump image to ${IMAGE_TAG}"
 
           set +x
