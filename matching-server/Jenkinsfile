@@ -1,156 +1,64 @@
 /* 하나 변경시 다 빌드되는 문제를 고쳐야 한다  */
 
-pipeline {
-  agent any
+stage("Update waguwagu-infra manifest (commit/push)") {
+  when { expression { env.MATCHING_CHANGED == "true" } }
+  steps {
+    sh '''
+      set -euo pipefail
 
-  environment {
-    AWS_REGION   = "ap-northeast-2"
-    ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
+      rm -rf infra
+      mkdir -p infra
 
-    // waguwagu-infra
-    INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
-    INFRA_BRANCH   = "main"
-    INFRA_MANIFEST = "k8s/matching/matching-deploy.yaml"
+      git config --global user.name  "${GIT_USER_NAME}"
+      git config --global user.email "${GIT_USER_EMAIL}"
 
-    // ✅ Secrets Manager에서 읽을 시크릿
-    GITHUB_SECRET_ID = "T3-Wagu-Secrets"
+      git config --global --unset-all credential.helper || true
+      git config --global credential.helper ""
 
-    GIT_USER_NAME  = "jenkins-bot"
-    GIT_USER_EMAIL = "jenkins@waguwagu.local"
-  }
+      # ✅ 여기서부터 민감정보 다루니 로그 출력 끔
+      set +x
+      TOK="$(aws secretsmanager get-secret-value \
+        --secret-id "${GITHUB_SECRET_ID}" \
+        --region "${AWS_REGION}" \
+        --query SecretString \
+        --output text | jq -r '.GITHUB_PAT' | tr -d '\\r\\n')"
 
-  options {
-    timestamps()
-    skipDefaultCheckout(true)
-  }
+      # 토큰 검증 (명령어는 찍히더라도 토큰이 커맨드라인에 노출 안되게)
+      # curl header를 변수로 두고 호출
+      AUTH_HEADER="Authorization: token ${TOK}"
+      curl -s -o /dev/null -w "github_user_http=%{http_code}\\n" \
+        -H "${AUTH_HEADER}" https://api.github.com/user
 
-  stages {
-    stage("Checkout") {
-      steps { checkout scm }
-    }
+      # git extraheader 생성 (토큰 포함)
+      AUTH="$(printf 'x-access-token:%s' "${TOK}" | base64 | tr -d '\\n')"
+      EXTRA="http.https://github.com/.extraheader=AUTHORIZATION: basic ${AUTH}"
 
-    stage("Change check (matching-server only)") {
-      steps {
-        script {
-          echo "=== MATCHING JENKINSFILE ==="
+      # clone/push도 set +x 상태에서 실행 (토큰/헤더 로그 노출 방지)
+      GIT_TERMINAL_PROMPT=0 git -c "${EXTRA}" clone --branch "${INFRA_BRANCH}" "${INFRA_REPO_URL}" infra
+      cd infra
 
-          // ✅ 이전 '성공 빌드' 커밋 기준으로 범위 잡기 (merge로 커밋 여러개 들어와도 정확)
-          def base = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT
-          def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
-          echo "Diff range: ${range}"
+      set -x
+      echo "[BEFORE] image line:"
+      grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
 
-          def changed = sh(
-            script: "git diff --name-only ${range} | grep -E '^matching-server/' || true",
-            returnStdout: true
-          ).trim()
+      sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_MANIFEST}"
 
-          if (!changed) {
-            echo "No changes in matching-server/ -> SKIP"
-            env.MATCHING_CHANGED = "false"
-          } else {
-            echo "Changes detected in matching-server/ -> proceed."
-            echo "Changed files:\n${changed}"
-            env.MATCHING_CHANGED = "true"
-          }
-        }
-      }
-    }
+      echo "[AFTER] image line:"
+      grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
 
-    stage("ECR Login") {
-      when { expression { env.MATCHING_CHANGED == "true" } }
-      steps {
-        sh '''
-          set -e
-          aws ecr get-login-password --region "${AWS_REGION}" \
-            | docker login --username AWS --password-stdin "${ECR_REPO_URI%/*}"
-        '''
-      }
-    }
+      if git diff --quiet; then
+        echo "No manifest change (already on ${IMAGE_TAG}). Skip commit/push."
+        exit 0
+      fi
 
-    stage("Build & Push") {
-      when { expression { env.MATCHING_CHANGED == "true" } }
-      steps {
-        script {
-          def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
-          env.IMAGE_TAG = "${sha7}-${env.BUILD_NUMBER}"
-          env.IMAGE_URI = "${env.ECR_REPO_URI}:${env.IMAGE_TAG}"
-          echo "IMAGE_URI = ${env.IMAGE_URI}"
-        }
+      git add "${INFRA_MANIFEST}"
+      git commit -m "ci(matching): bump image to ${IMAGE_TAG}"
 
-        sh '''
-          set -e
-          cd matching-server
-          docker build -t "${ECR_REPO_URI}:${IMAGE_TAG}" .
-          docker push "${ECR_REPO_URI}:${IMAGE_TAG}"
-        '''
-      }
-    }
-
-    stage("Update waguwagu-infra manifest (commit/push)") {
-      when { expression { env.MATCHING_CHANGED == "true" } }
-      steps {
-        sh '''
-          set -euo pipefail
-
-          rm -rf infra
-          mkdir -p infra
-
-          git config --global user.name  "${GIT_USER_NAME}"
-          git config --global user.email "${GIT_USER_EMAIL}"
-
-          # credential 캐시 꼬임 방지
-          git config --global --unset-all credential.helper || true
-          git config --global credential.helper ""
-
-          # ✅ Secrets Manager에서 GitHub PAT 가져오기 (로그 노출 방지)
-          set +x
-          TOK="$(aws secretsmanager get-secret-value \
-            --secret-id "${GITHUB_SECRET_ID}" \
-            --region "${AWS_REGION}" \
-            --query SecretString \
-            --output text | jq -r '.GITHUB_PAT' | tr -d '\\r\\n')"
-          set -x
-
-          # (선택) 토큰이 살아있는지 200 확인 (값은 안 찍힘)
-          curl -s -o /dev/null -w "github_user_http=%{http_code}\\n" \
-            -H "Authorization: token ${TOK}" https://api.github.com/user
-
-          # ✅ URL에 토큰 박지 말고, git extraheader로 인증 (더 안전/안꼬임)
-          set +x
-          AUTH="$(printf 'x-access-token:%s' "${TOK}" | base64 | tr -d '\\n')"
-          set -x
-
-          GIT_TERMINAL_PROMPT=0 git -c http.https://github.com/.extraheader="AUTHORIZATION: basic ${AUTH}" \
-            clone --branch "${INFRA_BRANCH}" "${INFRA_REPO_URL}" infra
-          cd infra
-
-          echo "[BEFORE] image line:"
-          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
-
-          sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_MANIFEST}"
-
-          echo "[AFTER] image line:"
-          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
-
-          if git diff --quiet; then
-            echo "No manifest change (already on ${IMAGE_TAG}). Skip commit/push."
-            exit 0
-          fi
-
-          git add "${INFRA_MANIFEST}"
-          git commit -m "ci(matching): bump image to ${IMAGE_TAG}"
-
-          GIT_TERMINAL_PROMPT=0 git -c http.https://github.com/.extraheader="AUTHORIZATION: basic ${AUTH}" \
-            push origin HEAD:"${INFRA_BRANCH}"
-        '''
-      }
-    }
-  }
-
-  post {
-    always {
-      sh 'docker image prune -f || true'
-    }
+      # 다시 민감 구간 -> 로그 끔
+      set +x
+      GIT_TERMINAL_PROMPT=0 git -c "${EXTRA}" push origin HEAD:"${INFRA_BRANCH}"
+      set -x
+    '''
   }
 }
 
