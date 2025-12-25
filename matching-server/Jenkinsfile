@@ -128,7 +128,9 @@ pipeline {
 
             git add ${INFRA_MANIFEST}
             git commit -m "ci(matching): bump image to ${IMAGE_TAG}"
-            git push origin ${INFRA_BRANCH}
+            set +x
+            git push "${INFRA_AUTH_URL}" HEAD:${INFRA_BRANCH}
+            set -x
           '''
         }
       }
