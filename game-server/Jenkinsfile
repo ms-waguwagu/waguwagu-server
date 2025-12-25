@@ -24,7 +24,7 @@ pipeline {
 
     // 태그를 바꿀 manifest 경로들
     INFRA_GAME_DEPLOY_MANIFEST = "k8s/game-deploy.yaml"
-    INFRA_AGONES_FLEET_MANIFEST = "k8s/agones-fleet.yaml"
+    INFRA_AGONES_FLEET_MANIFEST = "k8s/agones/agones-fleet.yaml"
   }
 
   options {

@@ -20,7 +20,7 @@ pipeline {
     // waguwagu-infra 쪽 설정
     INFRA_REPO_URL   = "https://github.com/ms-waguwagu/waguwagu-infra.git"
     INFRA_BRANCH     = "main"
-    INFRA_MANIFEST   = "k8s/matching-deploy.yaml"   // 네가 말한 경로
+    INFRA_MANIFEST   = "k8s/matching/matching-deploy.yaml"   // 네가 말한 경로
     INFRA_CRED_ID    = "github-pat-infra-push"      
     GIT_USER_NAME    = "jenkins-bot"
     GIT_USER_EMAIL   = "jenkins@waguwagu.local"
