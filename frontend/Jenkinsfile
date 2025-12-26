@@ -1,20 +1,16 @@
-/* 하나 변경시 다 빌드되는 문제를 고쳐야 한다  */
-
-
 pipeline {
   agent any
 
   environment {
     AWS_REGION = "ap-northeast-2"
-    //S3_BUCKET  = "waguwagu-s3-bucket-061039804626-ap-northeast-2" 내 계정으로 돌릴라고 잠깐 주석처리 
-    S3_BUCKET  = "waguwagu-s3-bucket-269397878198-ap-northeast-2" 
-    // Secrets Manager에서 읽어올 배포 아이디
+    S3_BUCKET  = "waguwagu-s3-bucket-269397878198-ap-northeast-2"
     CF_SECRET_ID  = "T3-Wagu-Secrets"
     CF_SECRET_KEY = "CLOUDFRONT_DISTRIBUTION_ID"
   }
 
   options {
     disableConcurrentBuilds()
+    skipDefaultCheckout(true)
   }
 
   stages {
@@ -22,20 +18,49 @@ pipeline {
       steps { checkout scm }
     }
 
+    stage('Change check (frontend only)') {
+      steps {
+        script {
+          def base  = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT
+          def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
+          echo "Diff range: ${range}"
+
+          // frontend/ 변경만 감지 + frontend/Jenkinsfile만 바뀐 경우는 제외
+          def changed = sh(
+            script: """
+              set -e
+              git diff --name-only ${range} \
+                | grep -E '^frontend/' \
+                | grep -v '^frontend/Jenkinsfile\$' \
+                || true
+            """,
+            returnStdout: true
+          ).trim()
+
+          if (!changed) {
+            echo "No deployable changes in frontend/ -> SKIP S3/CloudFront"
+            env.FRONTEND_CHANGED = "false"
+          } else {
+            echo "Frontend changes detected -> proceed"
+            echo "Changed files:\\n${changed}"
+            env.FRONTEND_CHANGED = "true"
+          }
+        }
+      }
+    }
+
     stage('Deploy to S3 (include src/)') {
+      when { expression { env.FRONTEND_CHANGED == "true" } }
       steps {
         sh '''
           set -euo pipefail
           DEST="s3://$S3_BUCKET/"
 
-          # 1) 전체 업로드 (src 포함)
-          # Jenkinsfile 파일이 S3에 올라가는 것 방지
           aws s3 sync "frontend/" "$DEST" --delete --region "$AWS_REGION" \
             --exclude "Jenkinsfile" \
             --exclude ".git/*" \
             --exclude "*.md"
 
-          # 2) 모든 .html 파일을 no-cache로 메타데이터 덮어쓰기
           find frontend -type f -name "*.html" -print0 | while IFS= read -r -d '' f; do
             rel="${f#frontend/}"
             aws s3 cp "$f" "${DEST}${rel}" --region "$AWS_REGION" \
@@ -48,6 +73,7 @@ pipeline {
     }
 
     stage('Invalidate CloudFront (ALL)') {
+      when { expression { env.FRONTEND_CHANGED == "true" } }
       steps {
         sh '''
           set -euo pipefail
@@ -61,7 +87,7 @@ pipeline {
           CF_ID="$(echo "$SECRET_JSON" | jq -r --arg k "$CF_SECRET_KEY" '.[$k]')"
 
           if [ -z "$CF_ID" ] || [ "$CF_ID" = "null" ]; then
-            echo "[ERROR] CloudFront Distribution ID not found in Secrets Manager. secret=$CF_SECRET_ID key=$CF_SECRET_KEY"
+            echo "[ERROR] CloudFront Distribution ID not found. secret=$CF_SECRET_ID key=$CF_SECRET_KEY"
             exit 1
           fi
 
@@ -74,6 +100,3 @@ pipeline {
     }
   }
 }
-
-
-
