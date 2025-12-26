@@ -532,4 +532,4 @@ Outputs:
   GamePrivateDbSubnetIds:
     Value: !Join [",", [!Ref GamePrivateDbSubnetA, !Ref GamePrivateDbSubnetB]]
     Export:
-      Name: !Sub "${ProjectPrefix}-Game-Private-Db-Subnet-
+      Name: !Sub "${ProjectPrefix}-Game-Private-Db-Subnet-Ids"
