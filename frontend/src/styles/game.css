@@ -445,7 +445,7 @@ input {
   box-shadow: 0 6px 20px rgba(241, 196, 15, 0.4);
 }
 
-/* 게임 시작 전에 카운트다운 효과 */
+/* 게임 시작 전에 카운트다운 효과. */
 
 #countdown-display {
   position: fixed;
