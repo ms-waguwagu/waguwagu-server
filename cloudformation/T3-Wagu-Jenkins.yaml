@@ -38,8 +38,8 @@ Parameters:
   #  frontend/Jenkinsfileï¿½ï¿½ S3_BUCKET ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ø¾ï¿½ ï¿½ï¿½
   FrontendBucketName:
     Type: String
-    #Default: waguwagu-s3-bucket-061039804626-ap-northeast-2 ³» °èÁ¤À¸·Î µ¹¸±¶ó°í Àá±ñ ÁÖ¼®Ã³¸®
-    Default: waguwagu-s3-bucket-269397878198-ap-northeast-2
+    Default: waguwagu-s3-bucket-061039804626-ap-northeast-2
+    #Default: waguwagu-s3-bucket-269397878198-ap-northeast-2 ³» °èÁ¤ ÁÖ¼®
 
   ############################################################
   # CloudFront Distribution IDï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Øµï¿½ Secrets Manager Secret ï¿½ï¿½ï¿½ï¿½
