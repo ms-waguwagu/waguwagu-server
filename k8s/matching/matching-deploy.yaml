@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
         - name: matching
-          # image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:latest 내 계정으로 돌릴라고 잠깐 주석처리
-          image: 269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:75563fe-5
+          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:latest
+          # image: 269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:7d3343e-12 내 계정 주석
           imagePullPolicy: Always
           ports:
             - containerPort: 3000

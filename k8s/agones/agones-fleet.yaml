@@ -42,8 +42,8 @@ spec:
           terminationGracePeriodSeconds: 30
           containers:
             - name: game-server
-              #image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:latest 내 계정으로 돌릴라고 잠깐 주석처리
-              image: 269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:ead18e6-10
+              image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:latest
+              # image: 269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:ead18e6-10 내 계정 주석
 
               imagePullPolicy: IfNotPresent
               ports:
