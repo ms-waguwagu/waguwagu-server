@@ -25,7 +25,7 @@ pipeline {
           def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
           echo "Diff range: ${range}"
 
-          // frontend/ 변경만 감지 + frontend/Jenkinsfile만 바뀐 경우는 제외
+          // frontend 변경만 감지 + frontend/Jenkinsfile만 바뀐 경우는 제외
           def changed = sh(
             script: """
               set -e
