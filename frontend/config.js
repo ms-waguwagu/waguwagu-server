@@ -1,9 +1,9 @@
 export const CONFIG = {
-	// 전부 수정 필요
-  API_URL: "/api/game", // NestJS REST API
-  SOCKET_URL: "/api/game/game", // WebSocket 서버
-  BOSS_GAME_URL: "/api/game/boss", // ‼️보스테스트‼️
+  API_URL: "https://matching.waguwagu.cloud/api/game",
+  SOCKET_URL: "https://matching.waguwagu.cloud/api/game/game",
+  BOSS_GAME_URL: "https://matching.waguwagu.cloud/api/game/boss",
 };
+
 
 export const MATCHING_CONFIG = {
 	API_BASE_URL: "https://matching.waguwagu.cloud",
