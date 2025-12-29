@@ -19,7 +19,7 @@ export class GameService {
     mode: 'NORMAL' | 'BOSS' = 'NORMAL',
   ) {
     // 1. 방 생성
-    const isCreated = this.gameGateway.createRoomByApi(roomId, users, mode);
+    const isCreated = this.gameGateway.ensureRoom(roomId, mode);
 
     if (!isCreated) {
       throw new ConflictException('이미 존재하는 방 ID입니다.');

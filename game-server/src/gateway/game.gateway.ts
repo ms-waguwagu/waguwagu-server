@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-misused-promises */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -10,6 +7,9 @@ import {
   OnGatewayInit,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { Logger } from '@nestjs/common';
+import axios from 'axios';
+
 import { GameEngineService } from '../engine/game-engine.service';
 import { RankingService } from '../ranking/ranking.service';
 import { PlayerService } from 'src/engine/player/player.service';
@@ -18,19 +18,21 @@ import { BotManagerService } from 'src/engine/bot/bot-manager.service';
 import { CollisionService } from 'src/engine/core/collision.service';
 import { LifecycleService } from 'src/engine/core/lifecycle.service';
 import { GameLoopService } from 'src/engine/core/game-loop.service';
-import { Logger } from '@nestjs/common';
 import { BossManagerService } from '../boss/boss-manager.service';
-import axios from 'axios';
+import * as jwt from 'jsonwebtoken';
 
 interface RoomWrapper {
   engine: GameEngineService;
-  users: string[]; // ⭐ 매칭 시점의 googleSub 고정
+  users: string[]; 
 }
+
+type GameMode = 'NORMAL' | 'BOSS';
 
 @WebSocketGateway({
   namespace: '/game',
-	path: '/api/game/socket.io',
+  path: '/socket.io',
   cors: { origin: '*' },
+  transports: ['websocket'],
 })
 export class GameGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
@@ -54,19 +56,77 @@ export class GameGateway
     private bossManagerService: BossManagerService,
   ) {}
 
-  // ‼️추후 보스모드에 대기열 추가할 때에는 없어도 됨(OnGatewayInit)‼️
+	private verifyMatchToken(token: string): { userId: string; roomId: string; nickname?: string; mode?: 'NORMAL' | 'BOSS' } {
+		const secret = process.env.MATCH_TOKEN_SECRET || 'match-token-secret';
+
+		const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
+
+		const userId = decoded?.userId as string | undefined;
+		const roomId = decoded?.roomId as string | undefined;
+
+		if (!userId || !roomId) {
+			throw new Error('INVALID_MATCH_TOKEN_PAYLOAD');
+		}
+
+		return {
+			userId,
+			roomId,
+			nickname: decoded.nickname as string | undefined,
+			mode: decoded.mode as 'NORMAL' | 'BOSS' | undefined,
+		};
+	}
+
+
   afterInit(server: Server) {
     this.lifecycleService.roomManager = this;
+
+    // namespace gateway일 때도 안전하게 미들웨어를 붙이기
+    const nsp: any =
+      (this.server as any).use ? this.server : (this.server as any).of?.('/game');
+
+    if (!nsp?.use) {
+      this.logger.warn('socket middleware(use)를 붙일 수 없습니다.');
+      return;
+    }
+
+    // 1) 연결 단계에서 matchToken 검증
+    nsp.use((socket: Socket, next: (err?: any) => void) => {
+      const token = socket.handshake.auth?.matchToken;
+
+      if (!token) {
+        return next(new Error('NO_MATCH_TOKEN'));
+      }
+
+      try {
+        const payload: any = this.verifyMatchToken(token);
+
+        socket.data.userId = payload.userId;
+        socket.data.roomId = payload.roomId;
+
+        if (payload.nickname) socket.data.nickname = payload.nickname;
+        if (payload.mode) socket.data.mode = payload.mode as GameMode;
+
+        return next();
+      } catch {
+        return next(new Error('INVALID_MATCH_TOKEN'));
+      }
+    });
+
+    this.logger.log('GameGateway socket middleware ready');
   }
 
   handleConnection(client: Socket) {
-    console.log('Client connected:', client.id);
+    this.logger.log(
+      `Client connected socketId=${client.id} userId=${client.data?.userId} roomId=${client.data?.roomId}`,
+    );
   }
 
   async handleDisconnect(client: Socket) {
-    console.log('Client disconnected:', client.id);
+    this.logger.log(
+      `Client disconnected socketId=${client.id} userId=${client.data?.userId} roomId=${client.data?.roomId}`,
+    );
 
-    const roomId = client.data.roomId;
+    const roomId = client.data.roomId as string | undefined;
     if (!roomId) return;
 
     const roomWrapper = this.rooms[roomId];
@@ -78,21 +138,13 @@ export class GameGateway
     room.removePlayer(client.id);
     client.leave(roomId);
 
-    // 플레이어가 아무도 없으면 방 삭제
+    // 방에 아무도 없으면 종료 처리
     if (room.playerCount() === 0) {
-      this.logger.log(`게임 룸(${roomId}) 이 비어있으므로 삭제`);
+      this.logger.log(`roomId=${roomId} is empty. cleaning up`);
 
-      // ⭐ 여기! playerService 쓰지 말고 wrapper.users 사용
-      const userIds = roomWrapper.users;
+      const userIds = Array.from(new Set(roomWrapper.users));
 
-      try {
-        await axios.post('http://localhost:3000/internal/game-finished', {
-          userIds,
-        });
-        this.logger.log(`📤 game-finished sent to matching server`, userIds);
-      } catch (err) {
-        this.logger.error('❌ game-finished notify failed', err);
-      }
+      await this.notifyGameFinished(userIds);
 
       room.stopInterval();
       delete this.rooms[roomId];
@@ -103,25 +155,24 @@ export class GameGateway
     this.server.to(roomId).emit('state', room.getState());
   }
 
-  // game.gateway.ts
+  // HTTP에서 강퇴/나가기 처리할 때 사용
   handleHttpLeave(userId: string) {
     for (const socket of this.server.sockets.sockets.values()) {
       if (socket.data?.userId === userId) {
-        this.logger.log(`🚪 HTTP leave → socket disconnect: ${userId}`);
-        socket.disconnect(true); // 기존 handleDisconnect 자동 실행
+        this.logger.log(`HTTP leave -> socket disconnect userId=${userId}`);
+        socket.disconnect(true);
         return;
       }
     }
-
-    this.logger.warn(`❗ HTTP leave 요청 but socket 없음: ${userId}`);
+    this.logger.warn(`HTTP leave requested but no socket userId=${userId}`);
   }
 
-  // 방 조회 메서드
+  // 방 조회
   getRoom(roomId: string): GameEngineService | undefined {
     return this.rooms[roomId]?.engine;
   }
 
-  // 방 삭제 메서드
+  // 방 삭제
   removeRoom(roomId: string) {
     const roomWrapper = this.rooms[roomId];
     if (!roomWrapper) return;
@@ -134,27 +185,14 @@ export class GameGateway
     this.playerService.clearRoom(roomId);
     this.botManagerService.resetBots(roomId);
 
-    // 모든 클라이언트 연결 끊기
     this.server.in(roomId).disconnectSockets();
 
-    // 방 삭제
     delete this.rooms[roomId];
   }
 
-  // ============================
-  // 1) 클라이언트가 방 입장 요청
-  // ============================
-
-  // 컨트롤러에서 호출할 방 생성 메서드
-  createRoomByApi(
-    roomId: string,
-    userIds: string[],
-    mode: 'NORMAL' | 'BOSS' = 'NORMAL',
-  ): boolean {
-    if (this.rooms[roomId]) {
-      console.log(`Room ${roomId} already exists.`);
-      return false;
-    }
+  // 내부: 방 엔진 생성
+   ensureRoom(roomId: string, mode: GameMode): RoomWrapper {
+    if (this.rooms[roomId]) return this.rooms[roomId];
 
     const engine = new GameEngineService(
       this.ghostManagerService,
@@ -163,135 +201,104 @@ export class GameGateway
       this.collisionService,
       this.lifecycleService,
       this.gameLoopService,
-      //보스매니저 추가
       this.bossManagerService,
     );
 
     engine.roomId = roomId;
     engine.roomManager = this;
 
-    // 보스모드 설정
     if (mode === 'BOSS') {
       engine.setMode('BOSS');
-      console.log('보스 모드 설정:', roomId);
     }
 
-    // 초기화
     this.lifecycleService.initialize(roomId);
 
-    // 보스 모드일 때 보스 스폰 및 루프 시작
     if (mode === 'BOSS') {
-      this.bossManagerService.spawnBoss(roomId, {
-        x: 200,
-        y: 200,
-      });
-      console.log('보스 스폰:', roomId);
-
-      // 보스 모드 루프 시작
+      this.bossManagerService.spawnBoss(roomId, { x: 200, y: 200 });
       engine.startBossMode();
-      console.log('보스 모드 루프 시작:', roomId);
     }
 
-    this.rooms[roomId] = {
-      engine,
-      users: [...userIds],
-    };
-    console.log(`[Gateway] 룸 (roomId:${roomId}, mode:${mode}) 생성됨.`);
-    return true;
+    this.rooms[roomId] = { engine, users: [] };
+    this.logger.log(`room created roomId=${roomId} mode=${mode}`);
+
+    return this.rooms[roomId];
   }
 
   // ============================
-  // 1) 클라이언트가 방 입장 요청
+  // 1) 클라이언트 방 입장
   // ============================
+  // 클라이언트는 roomId만 보내는 걸 권장
   @SubscribeMessage('join-room')
-  handleJoinRoom(
-    client: Socket,
-    data: {
-      roomId: string;
-      userId: string;
-      nickname: string;
-      mode?: 'NORMAL' | 'BOSS';
-    },
-  ) {
-    const { roomId, nickname, userId, mode } = data;
-    const gameMode = mode ?? 'NORMAL';
+  handleJoinRoom(client: Socket, data: { roomId?: string; nickname?: string; mode?: GameMode }) {
+    // 토큰에서 내려온 값이 기준
+    const tokenRoomId = client.data.roomId as string | undefined;
+    const tokenUserId = client.data.userId as string | undefined;
 
-    console.log(`Google Client ${userId} joining room ${roomId}`);
-    console.log('현재 생성된 rooms:', Object.keys(this.rooms));
-
-    if (!roomId) {
-      this.logger.warn('❗ join-room 요청에 roomId 없음');
+    if (!tokenRoomId || !tokenUserId) {
+      this.logger.warn('join-room: token data missing');
       client.disconnect();
       return;
     }
 
-    // 방 객체 없으면 생성
-    if (!this.rooms[roomId]) {
-      const engine = new GameEngineService(
-        this.ghostManagerService,
-        this.playerService,
-        this.botManagerService,
-        this.collisionService,
-        this.lifecycleService,
-        this.gameLoopService,
-        this.bossManagerService,
+    // 클라가 roomId를 보내면, 토큰과 일치해야 함
+    if (data?.roomId && data.roomId !== tokenRoomId) {
+      this.logger.warn(
+        `join-room roomId mismatch token=${tokenRoomId} client=${data.roomId}`,
       );
-
-      // 👇 중요! roomId와 roomManager 설정
-      engine.roomId = roomId;
-      engine.roomManager = this;
-
-      // 보스모드 설정
-      if (gameMode === 'BOSS') {
-        engine.setMode('BOSS');
-        console.log('보스 모드로 방 생성:', roomId);
-      }
-
-      this.lifecycleService.initialize(roomId);
-
-      this.rooms[roomId] = {
-        engine,
-        users: [], // 보스 모드 등 예외
-      };
+      client.disconnect();
+      return;
     }
 
-    const roomWrapper = this.rooms[roomId];
+    const roomId = tokenRoomId;
+
+    // nickname/mode도 가능하면 토큰 기준
+    const nickname =
+      (client.data.nickname as string | undefined) ??
+      data?.nickname ??
+      `user-${String(tokenUserId).slice(-6)}`;
+
+    const mode =
+      (client.data.mode as GameMode | undefined) ??
+      data?.mode ??
+      'NORMAL';
+
+    const roomWrapper = this.ensureRoom(roomId, mode);
     const room = roomWrapper.engine;
 
     client.join(roomId);
     client.data.roomId = roomId;
     client.data.nickname = nickname;
-    client.data.userId = userId;
+    client.data.userId = tokenUserId;
 
-    // 유저 추가
-    room.addPlayer(client.id, userId, nickname);
+    // 접속한 유저 기록(최소한)
+    if (!roomWrapper.users.includes(tokenUserId)) {
+      roomWrapper.users.push(tokenUserId);
+    }
 
+    room.addPlayer(client.id, tokenUserId, nickname);
+
+    // init-game 전송
+    client.emit('init-game', {
+      playerId: client.id,
+      roomId,
+      mapData: room.getMapData(),
+      initialState: room.getState(),
+    });
+
+    // 전체 상태 전파
+    this.server.to(roomId).emit('state', room.getState());
+
+    // 시작 조건
     const humanPlayers = room.playerCount();
     const botPlayers = room.getBotCount();
     const totalPlayers = humanPlayers + botPlayers;
-    // 내 ID 전달
-    // 맵 데이터를 포함한 초기 정보를 전송
-    client.emit('init-game', {
-      playerId: client.id,
-      roomId: roomId,
-      mapData: room.getMapData(), // 맵 데이터(벽, 크기) 전송
-      initialState: room.getState(), // 현재 점, 플레이어 위치
-    });
-
-    // 방 전체에 현재 상태 전달
-    this.server.to(roomId).emit('state', room.getState());
 
     if (room.isBossMode()) {
-			// this.startCountdown(roomId);
-      // 보스 모드는 첫 유저 들어오면 바로 시작
-      console.log('Room', roomId, '→ 보스 모드 시작');
       if (!room.intervalRunning) {
         room.startBossMode();
       }
     } else {
-      // 일반 모드는 5명 모이면 카운트다운 후 시작
       if (totalPlayers === 5) {
-        console.log('Room', roomId, '→ 카운트다운 시작');
         this.startCountdown(roomId);
       }
     }
@@ -307,20 +314,16 @@ export class GameGateway
       if (count < 0) {
         clearInterval(interval);
         this.server.to(roomId).emit('countdown', { count: 0 });
-
-        // 카운트다운 완료 → 게임 시작
         this.startGameLoop(roomId);
       }
     }, 1000);
   }
 
-  // 게임엔진으로 옮기기
   private startGameLoop(roomId: string) {
     const roomWrapper = this.rooms[roomId];
     if (!roomWrapper) return;
 
     const room = roomWrapper.engine;
-
     if (room.intervalRunning) return;
 
     room.intervalRunning = true;
@@ -336,18 +339,8 @@ export class GameGateway
           room.intervalRunning = false;
         }
 
-        const userIds = roomWrapper.users;
-
-        try {
-          await axios.post('http://localhost:3000/internal/game-finished', {
-            userIds,
-          });
-          this.logger.log(
-            `🔥 game-finished sent to matching server: ${userIds.join(', ')}`,
-          );
-        } catch (e) {
-          this.logger.error('❌ failed to notify matching server', e);
-        }
+        const userIds = Array.from(new Set(roomWrapper.users));
+        await this.notifyGameFinished(userIds);
 
         room.stopInterval();
         delete this.rooms[roomId];
@@ -356,11 +349,11 @@ export class GameGateway
   }
 
   // ============================
-  // 2) 이동 입력 처리
+  // 2) 이동 입력
   // ============================
   @SubscribeMessage('input')
   handleInput(client: Socket, data: { dir: { dx: number; dy: number } }) {
-    const roomId = client.data.roomId;
+    const roomId = client.data.roomId as string | undefined;
     if (!roomId) return;
 
     const roomWrapper = this.rooms[roomId];
@@ -370,7 +363,7 @@ export class GameGateway
   }
 
   // ============================
-  // 3) 클라이언트가 게임 리셋 요청 (옵션)
+  // 3) 리셋(옵션)
   // ============================
   @SubscribeMessage('reset')
   handleReset(client: Socket, data: { roomId: string }) {
@@ -386,48 +379,23 @@ export class GameGateway
   }
 
   // ============================
-  // 4) ‼️보스 테스트‼️
+  // matching 서버로 종료 알림
   // ============================
-  createBossDebugRoom(roomState: any) {
-    const roomId = roomState.id;
-    if (this.rooms[roomId]) return;
-
-    // 기존 방 생성 로직 재사용
-    const engine = new GameEngineService(
-      this.ghostManagerService,
-      this.playerService,
-      this.botManagerService,
-      this.collisionService,
-      this.lifecycleService,
-      this.gameLoopService,
-      this.bossManagerService,
-    );
-
-    engine.roomId = roomId;
-    engine.roomManager = this;
-
-    engine.setMode('BOSS');
-
-    // 초기화
-    this.lifecycleService.initialize(roomId);
-
-    // ‼️보스 스폰
-    if (roomState.boss) {
-      this.bossManagerService.spawnBoss(roomId, {
-        x: roomState.boss.x,
-        y: roomState.boss.y,
-        // ‼️필요하면 phase, speed도 여기서 튜닝 가능‼️
-      });
+  private async notifyGameFinished(userIds: string[]) {
+    if (!userIds || userIds.length === 0) {
+      this.logger.warn('game-finished: empty userIds');
+      return;
     }
 
-    this.rooms[roomId] = {
-      engine,
-      users: [],
-    };
+    const url =
+      process.env.MATCHING_INTERNAL_URL ||
+      'http://matching:3000/internal/game-finished';
 
-    // 보스 모드 전용 루프 시작
-    engine.startBossMode();
-
-    this.logger.log(`[Boss Debug] 룸 생성됨: ${roomId}`);
+    try {
+      await axios.post(url, { userIds }, { timeout: 3000 });
+      this.logger.log(`game-finished notified to matching: ${userIds.join(',')}`);
+    } catch (err) {
+      this.logger.error('game-finished notify failed', err as any);
+    }
   }
 }

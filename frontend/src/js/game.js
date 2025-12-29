@@ -14,9 +14,10 @@ export class GameManager {
     finalScoreList,
     mode = "NORMAL", // 기본값 NORMAL
   }) {
-    // 🚨 game 페이지 진입 가드 (새로고침/뒤로가기 대비)
+    console.log("[GameManager] Instantiated");
+    // game 페이지 진입 가드 (새로고침/뒤로가기 대비)
     if (!roomId) {
-      console.warn("❗ roomId 없음 → 홈으로 리다이렉트");
+      console.warn("roomId 없음 → 홈으로 리다이렉트");
       window.location.replace("home.html"); // 또는 queue.html
       return;
     }
@@ -27,7 +28,7 @@ export class GameManager {
     this.socketUrl = socketUrl;
     this.mode = mode;
     this.googlesub = localStorage.getItem("googlesub");
-    console.log("🧬 [GameManager] localStorage googlesub =", this.googlesub);
+    console.log("[GameManager] localStorage googlesub =", this.googlesub);
 
     // DOM Elements
     this.gameScreen = gameScreen;
@@ -71,12 +72,12 @@ export class GameManager {
     window.addEventListener("keydown", this.handleKeyDown.bind(this));
     window.addEventListener("keyup", this.handleKeyUp.bind(this));
 
-    // ✅ 새로고침 / 탭 닫기 = 게임 종료
+    // 새로고침 / 탭 닫기 = 게임 종료
     window.addEventListener("beforeunload", this.sendGameLeave.bind(this));
 
     if (this.homeButton) {
       this.homeButton.addEventListener("click", () => {
-        this.sendGameLeave(); // 👈 홈 버튼도 동일 처리
+        this.sendGameLeave(); // 홈 버튼도 동일 처리
         this.stop();
         window.location.href = "login.html";
       });
@@ -108,32 +109,46 @@ export class GameManager {
       })
     );
 
-    console.log("🚪 leave beacon sent");
+    console.log("leave beacon sent");
   }
 
   connectWebSocket() {
-    this.socket = io(this.socketUrl, {
+		const GAME_WS_URL = "https://game.waguwagu.cloud";
+
+		 // roomId / matchToken 확보
+		this.roomId =
+			new URLSearchParams(window.location.search).get("roomId") ||
+			localStorage.getItem("waguwagu_room_id");
+
+		this.matchToken = localStorage.getItem("waguwagu_match_token");
+
+		if (!this.roomId) {
+			console.warn("roomId 없음 → 접속 중단");
+			return;
+		} else if (!this.matchToken) {
+			console.warn("matchToken 없음 → 접속 중단");
+			return;
+		}
+
+    this.socket = io(`${GAME_WS_URL}/game`, {
+			path: "/socket.io", 
       transports: ["websocket"],
       auth: {
-        token: localStorage.getItem("accessToken"),
+        matchToken: this.matchToken,
       },
     });
 
     this.socket.on("connect", () => {
-      console.log("🟢 Connected:", this.socket.id);
-      console.log("🧬 [join-room] userId =", this.googlesub);
+      console.log("Game socket connected:", this.socket.id);
 
-      // 🔒 핵심 가드: roomId 없으면 join-room 보내지 않음
+      // 핵심 가드: roomId 없으면 join-room 보내지 않음
       if (!this.roomId) {
-        console.warn("❗ roomId 없음 → join-room 스킵 (새로고침/뒤로가기)");
+        console.warn("roomId 없음 → join-room 스킵 (새로고침/뒤로가기)");
         return;
       }
 
       this.socket.emit("join-room", {
         roomId: this.roomId,
-        userId: this.googlesub,
-        nickname: this.nickname,
-        mode: this.mode,
       });
     });
 
@@ -176,7 +191,7 @@ export class GameManager {
       if (!serverState) return;
 
       // ‼️보스 테스트‼️
-      console.log("🔥 state.boss:", serverState.boss);
+      console.log("state.boss:", serverState.boss);
 
       // 타이머 갱신 코드 추가
       const timerEl = document.getElementById("game-timer");
@@ -205,7 +220,7 @@ export class GameManager {
     });
 
     this.socket.on("game-over", (data) => {
-      console.log("🔥 GAME OVER EVENT RECEIVED", data);
+      console.log("GAME OVER EVENT RECEIVED", data);
 
       if (this.gameOverHandled) return;
 
@@ -226,7 +241,7 @@ export class GameManager {
         ...Object.values(state.players || {}), // 일반 플레이어
         ...(state.botPlayers || []), // 봇 플레이어는 배열이므로 그대로 펼치기
       ];
-      console.log("🏆 GAME OVER - 최종 점수 확인:", allPlayers);
+      console.log("GAME OVER - 최종 점수 확인:", allPlayers);
 
       const players = allPlayers.sort((a, b) => b.score - a.score);
 
