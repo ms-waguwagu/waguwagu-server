@@ -122,13 +122,13 @@ export class QueueService implements OnModuleInit {
   }
 
   async acquireLock(key: string, ttlSeconds = 10): Promise<boolean> {
-    // SET key value NX EX ttl
+    // SET key value EX ttl NX
     const result = await this.redis.set(
       key,
       '1',
-      'NX',
       'EX',
       ttlSeconds,
+      'NX',
     );
 
     return result === 'OK';
