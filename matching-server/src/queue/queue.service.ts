@@ -121,6 +121,20 @@ export class QueueService implements OnModuleInit {
     return result as string[];
   }
 
+  async acquireLock(key: string, ttlSeconds = 10): Promise<boolean> {
+    // SET key value NX EX ttl
+    const result = await this.redis.set(
+      key,
+      '1',
+      'NX',
+      'EX',
+      ttlSeconds,
+    );
+
+    return result === 'OK';
+  }
+
+
   // 매칭 취소 메서드
   async cancelQueue(userId: string): Promise<void> {
     const sessionKey = `session:${userId}`;

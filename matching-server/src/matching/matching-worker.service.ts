@@ -27,11 +27,23 @@ export class MatchingWorker {
   // 1초마다 실행
   @Interval(1000)
   async handleMatchmaking() {
-    // 이전 작업이 아직 안 끝났으면 스킵 (오버랩 방지)
+
+    //클러스터 전역 리더 락
+    const leader = await this.queueService.acquireLock(
+      'matchmaking:leader',
+      2, // TTL: 2초 (Interval 1초보다 살짝 크게)
+    );
+
+    if (!leader) {
+      return;
+    }
+
+    // ⬇️ 기존 코드 그대로
     if (this.isProcessing) {
       return;
     }
     this.isProcessing = true;
+
 
     let participants: string[] | null = null;
 
@@ -176,10 +188,18 @@ export class MatchingWorker {
   // 보스모드 매칭 워커 (1초마다 실행)
   @Interval(1000)
   async handleBossMatchmaking() {
-    // 이전 작업이 아직 안 끝났으면 스킵 (오버랩 방지)
+
+    // 1️⃣ Pod 내부 중복 방지
     if (this.isBossProcessing) {
       return;
     }
+
+    // 2️⃣ 클러스터 전역 리더 락
+    const leader = await this.queueService.acquireLock(
+      'matchmaking:boss:leader',
+      2,
+    );
+    if (!leader) return;
     this.isBossProcessing = true;
 
     let participants: string[] | null = null;
