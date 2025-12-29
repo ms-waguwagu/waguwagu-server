@@ -5,7 +5,7 @@
 locals {
   eso_namespace      = "external-secrets"
   eso_serviceaccount = "external-secrets"
-  oidc_issuer        = replace(data.aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")
+  oidc_issuer        = replace(module.eks.cluster_oidc_issuer_url, "https://", "")
 }
 
 # (1) Namespace
@@ -41,7 +41,7 @@ data "aws_iam_policy_document" "eso_sm_policy_doc" {
 }
 
 resource "aws_iam_policy" "eso_sm_policy" {
-  name   = "${local.cluster_name}-eso-sm-policy"
+  name   = "${module.eks.cluster_name}-eso-sm-policy"
   policy = data.aws_iam_policy_document.eso_sm_policy_doc.json
 }
 
@@ -70,7 +70,7 @@ data "aws_iam_policy_document" "eso_assume" {
 }
 
 resource "aws_iam_role" "eso_role" {
-  name               = "${local.cluster_name}-eso-role"
+  name               = "${module.eks.cluster_name}-eso-role"
   assume_role_policy = data.aws_iam_policy_document.eso_assume.json
 }
 

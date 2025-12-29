@@ -7,7 +7,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/ms-waguwagu/waguwagu-server
+    repoURL: https://github.com/ms-waguwagu/waguwagu-infra
     targetRevision: main
     path: k8s/matching
 

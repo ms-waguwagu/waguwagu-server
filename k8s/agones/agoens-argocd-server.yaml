@@ -7,7 +7,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/ms-waguwagu/waguwagu-infra #waguwagu-server를 waguwagu-infra로 바꿔봄
+    repoURL: https://github.com/ms-waguwagu/waguwagu-infra
     targetRevision: main
     path: k8s/agones
 

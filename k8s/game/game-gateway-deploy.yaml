@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: game-gateway
+  namespace: game
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: game-gateway
+  template:
+    metadata:
+      labels:
+        app: game-gateway
+    spec:
+      containers:
+        - name: game-gateway
+          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:latest
+          ports:
+            - containerPort: 3000

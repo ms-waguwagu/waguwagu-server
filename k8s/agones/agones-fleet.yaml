@@ -7,7 +7,7 @@ metadata:
     app: waguwagu
 spec:
   # Ready 또는 Allocated 상태로 유지할 GameServer 개수
-  replicas: 5
+  replicas: 3
 
   # 스케줄링 전략. 기본값은 Packed.
   scheduling: Packed
@@ -39,11 +39,22 @@ spec:
         logLevel: Info
       template:
         spec:
+          # 퍼블릭 노드그룹에만 스케줄링 (Terraform에서 설정한 라벨)
+          nodeSelector:
+            role: game
+
+          # Taint 허용 (Terraform에서 설정한 Taint)
+          tolerations:
+            - key: "game-only"
+              operator: "Equal"
+              value: "true"
+              effect: "NoSchedule"
+
           terminationGracePeriodSeconds: 30
           containers:
             - name: game-server
               image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:latest
-              # image: 269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:ead18e6-10 내 계정 주석
+              
 
               imagePullPolicy: IfNotPresent
               ports:

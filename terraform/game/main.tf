@@ -19,6 +19,20 @@ data "aws_subnet" "game_private_b" {
   }
 }
 
+data "aws_subnet" "game_public_a" {
+  filter {
+    name   = "tag:Name"
+    values = ["T3-Wagu-Game-Public-Subnet-A"]
+  }
+}
+
+data "aws_subnet" "game_public_b" {
+  filter {
+    name   = "tag:Name"
+    values = ["T3-Wagu-Game-Public-Subnet-B"]
+  }
+}
+
 module "eks" {
   source = "../modules/eks"
 
@@ -31,6 +45,15 @@ module "eks" {
   desired_size      = 2
   max_size          = 3
   min_size          = 1
+
+  # Public Node Group for Agones
+  create_public_node_group = true
+  public_node_group_name   = "game-public-node-group"
+  public_subnet_ids        = [data.aws_subnet.game_public_a.id, data.aws_subnet.game_public_b.id]
+  public_instance_types    = ["t3.medium"]
+  public_desired_size      = 1
+  public_max_size          = 3
+  public_min_size          = 0
 }
 
 

@@ -12,5 +12,11 @@ kubectl wait svc \
   agones-allocator \
   --timeout=300s
 
-echo "▶ allocator LB 주소:"
-kubectl get svc agones-allocator -n agones-system
+WORKDIR=/tmp/agones-mtls
+mkdir -p $WORKDIR
+ALLOCATOR_DNS=$(kubectl get svc agones-allocator -n agones-system \
+  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+
+echo "$ALLOCATOR_DNS" > $WORKDIR/allocator-hostname
+
+echo "▶ allocator LB 주소: $ALLOCATOR_DNS"

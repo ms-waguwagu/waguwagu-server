@@ -54,3 +54,46 @@ variable "disk_size" {
   type        = number
   default     = 60
 }
+
+# Public Node Group Variables
+variable "create_public_node_group" {
+  description = "Whether to create a public node group for game servers"
+  type        = bool
+  default     = false
+}
+
+variable "public_node_group_name" {
+  description = "Name of the public node group"
+  type        = string
+  default     = "public-node-group"
+}
+
+variable "public_subnet_ids" {
+  description = "List of public subnet IDs for the public node group"
+  type        = list(string)
+  default     = []
+}
+
+variable "public_instance_types" {
+  description = "List of instance types for the public node group"
+  type        = list(string)
+  default     = ["t3.medium"]
+}
+
+variable "public_desired_size" {
+  description = "Desired number of public worker nodes"
+  type        = number
+  default     = 1
+}
+
+variable "public_max_size" {
+  description = "Maximum number of public worker nodes"
+  type        = number
+  default     = 2
+}
+
+variable "public_min_size" {
+  description = "Minimum number of public worker nodes"
+  type        = number
+  default     = 0
+}

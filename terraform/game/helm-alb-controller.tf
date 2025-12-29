@@ -11,7 +11,7 @@ resource "helm_release" "alb_controller" {
 
   set {
     name  = "clusterName"
-    value = local.cluster_name
+    value = module.eks.cluster_name
   }
   set {
     name  = "region"
@@ -19,7 +19,7 @@ resource "helm_release" "alb_controller" {
   }
   set {
     name  = "vpcId"
-    value = data.aws_eks_cluster.this.vpc_config[0].vpc_id
+    value = module.eks.vpc_id
   }
 
   # SA는 우리가 만들었으니 chart에서는 생성하지 않게
