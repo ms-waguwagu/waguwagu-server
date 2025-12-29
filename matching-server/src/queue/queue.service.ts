@@ -206,6 +206,10 @@ export class QueueService implements OnModuleInit {
     }
   }
 
+  getRedis() {
+    return this.redis;
+  }
+
   // ============================================
   // 보스모드 큐 관련 메서드
   // ============================================
