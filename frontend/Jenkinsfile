@@ -3,7 +3,7 @@ pipeline {
 
   environment {
     AWS_REGION = "ap-northeast-2"
-    S3_BUCKET  = "waguwagu-s3-bucket-269397878198-ap-northeast-2"
+    S3_BUCKET  = "waguwagu-s3-bucket-061039804626-ap-northeast-2"
     CF_SECRET_ID  = "T3-Wagu-Secrets"
     CF_SECRET_KEY = "CLOUDFRONT_DISTRIBUTION_ID"
   }
