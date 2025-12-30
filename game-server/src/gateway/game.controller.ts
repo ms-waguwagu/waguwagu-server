@@ -73,4 +73,31 @@ export class GameController {
 
     return { ok: true };
   }
+
+  // =========================
+// 게임 종료 알림 (게임 서버 → 매칭 서버)
+// =========================
+@Post('internal/game-finished')
+  async gameFinished(
+    @Body()
+    body: {
+      roomId: string;
+      userIds: string[];
+    },
+  ) {
+    const { roomId, userIds } = body;
+
+    if (!roomId || !userIds || userIds.length === 0) {
+      throw new BadRequestException('roomId와 userIds는 필수입니다.');
+    }
+
+    console.log(
+      `🏁 [GAME FINISHED] roomId=${roomId}, users=${userIds.join(',')}`,
+    );
+
+    // 🔥 여기서 "매칭 서버로 알림"만 한다
+    await this.gameService.notifyGameFinished(roomId, userIds);
+
+    return { ok: true };
+  }
 }

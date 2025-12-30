@@ -23,7 +23,8 @@ import * as jwt from 'jsonwebtoken';
 
 interface RoomWrapper {
   engine: GameEngineService;
-  users: string[]; 
+  users: string[];
+  finished?: boolean;
 }
 
 type GameMode = 'NORMAL' | 'BOSS';
@@ -140,17 +141,17 @@ export class GameGateway
 
     // 방에 아무도 없으면 종료 처리
     if (room.playerCount() === 0) {
-      this.logger.log(`roomId=${roomId} is empty. cleaning up`);
+      if (roomWrapper.finished) return;
+      roomWrapper.finished = true;
 
       const userIds = Array.from(new Set(roomWrapper.users));
 
-      await this.notifyGameFinished(userIds);
+      await this.notifyGameFinished(roomId, userIds);
 
       room.stopInterval();
       delete this.rooms[roomId];
       return;
     }
-
     // 남아있는 플레이어들에게 상태 전송
     this.server.to(roomId).emit('state', room.getState());
   }
@@ -328,39 +329,17 @@ export class GameGateway
 
     room.intervalRunning = true;
 
-    // ✅ heartbeat 시작
-    const heartbeatInterval = setInterval(() => {
-      const url =
-        process.env.MATCHING_INTERNAL_URL ||
-        'http://matching:3000/internal/game-heartbeat';
-
-      axios
-        .post(
-          url,
-          { userIds: roomWrapper.users },
-          { timeout: 2000 },
-        )
-        .catch(() => {
-          // 실패해도 게임에는 영향 없음
-        });
-    }, 5000);
-
     room.interval = setInterval(async () => {
       room.update();
       this.server.to(roomId).emit('state', room.getState());
 
       if (this.lifecycleService.isGameOver(roomId)) {
-        // ⛔ 게임 종료 → heartbeat 중단
-        clearInterval(heartbeatInterval);
-
-        if (room.interval) {
-          clearInterval(room.interval);
-          room.interval = null;
-          room.intervalRunning = false;
-        }
+        if (roomWrapper.finished) return;
+        roomWrapper.finished = true;
 
         const userIds = Array.from(new Set(roomWrapper.users));
-        await this.notifyGameFinished(userIds);
+
+        await this.notifyGameFinished(roomId, userIds);
 
         room.stopInterval();
         delete this.rooms[roomId];
@@ -402,19 +381,26 @@ export class GameGateway
   // ============================
   // matching 서버로 종료 알림
   // ============================
-  private async notifyGameFinished(userIds: string[]) {
-    if (!userIds || userIds.length === 0) {
-      this.logger.warn('game-finished: empty userIds');
+  private async notifyGameFinished(roomId: string, userIds: string[]) {
+    if (!roomId || !userIds || userIds.length === 0) {
+      this.logger.warn('game-finished: invalid payload');
       return;
     }
 
     const url =
       process.env.MATCHING_INTERNAL_URL ||
       'http://matching:3000/internal/game-finished';
+      
 
     try {
-      await axios.post(url, { userIds }, { timeout: 3000 });
-      this.logger.log(`game-finished notified to matching: ${userIds.join(',')}`);
+      await axios.post(
+        url,
+        { roomId, userIds },
+        { timeout: 3000 },
+      );
+      this.logger.log(
+        `🏁 game-finished notified roomId=${roomId} users=${userIds.join(',')}`,
+      );
     } catch (err) {
       this.logger.error('game-finished notify failed', err as any);
     }

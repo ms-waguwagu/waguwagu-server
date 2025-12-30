@@ -139,7 +139,7 @@ export class GameManager {
 
     this.socket = io(`${socketUrl}/game`, {
       path: "/socket.io",
-      transports: ["websocket"],
+      //transports: ["websocket"],
       auth: {
         matchToken: this.matchToken,
       },

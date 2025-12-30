@@ -101,17 +101,17 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { userId, nickname } = client.data;
 
     try {
+      await this.queueService.recoverStaleInGameSession(userId);
+
       await this.queueService.enterQueue(userId, nickname);
 
-      // 성공 응답 전송
       client.emit('queue_joined', { message: '대기열 진입 성공' });
-
-      // 대기열 상태 갱신하여 모두에게 푸시
       this.broadcastQueueStatus();
     } catch (error) {
       client.emit('error', { message: error.message });
     }
   }
+
 
   // 대기열 취소 요청
   @SubscribeMessage('cancel_queue')
@@ -148,6 +148,8 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { userId, nickname } = client.data;
 
     try {
+      await this.queueService.recoverStaleInGameSession(userId);
+      
       await this.queueService.enterBossQueue(userId, nickname);
 
       // 성공 응답 전송

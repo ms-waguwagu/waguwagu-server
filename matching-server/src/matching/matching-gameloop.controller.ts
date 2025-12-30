@@ -23,11 +23,7 @@ export class MatchingGameLoopController {
         userId,
         PlayerStatus.IDLE,
       );
-
-      await this.queueService.redis.hdel(
-        `session:${userId}`,
-        'lastSeenAt',
-      );
     }
+    return { ok: true };
   }
 }
