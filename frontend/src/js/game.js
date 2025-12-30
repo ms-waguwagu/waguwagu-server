@@ -113,25 +113,32 @@ export class GameManager {
   }
 
   connectWebSocket() {
-		const GAME_WS_URL = "https://game.waguwagu.cloud";
+    // roomId / matchToken / host / port 확보
+    this.roomId =
+      new URLSearchParams(window.location.search).get("roomId") ||
+      localStorage.getItem("waguwagu_room_id");
 
-		 // roomId / matchToken 확보
-		this.roomId =
-			new URLSearchParams(window.location.search).get("roomId") ||
-			localStorage.getItem("waguwagu_room_id");
+    this.matchToken = localStorage.getItem("waguwagu_match_token");
+    const host = localStorage.getItem("waguwagu_game_host");
+    const port = localStorage.getItem("waguwagu_game_port");
 
-		this.matchToken = localStorage.getItem("waguwagu_match_token");
+    if (!this.roomId) {
+      console.warn("roomId 없음 → 접속 중단");
+      return;
+    } else if (!this.matchToken) {
+      console.warn("matchToken 없음 → 접속 중단");
+      return;
+    } else if (!host || !port) {
+      console.warn("host 또는 port 정보 없음 → 접속 중단");
+      return;
+    }
 
-		if (!this.roomId) {
-			console.warn("roomId 없음 → 접속 중단");
-			return;
-		} else if (!this.matchToken) {
-			console.warn("matchToken 없음 → 접속 중단");
-			return;
-		}
+    // 동적 호스트와 포트를 사용하여 소켓 URL 구성
+    const socketUrl = `https://${host}:${port}`;
+    console.log(`[GameManager] Connecting to ${socketUrl}/game`);
 
-    this.socket = io(`${GAME_WS_URL}/game`, {
-			path: "/socket.io", 
+    this.socket = io(`${socketUrl}/game`, {
+      path: "/socket.io",
       transports: ["websocket"],
       auth: {
         matchToken: this.matchToken,

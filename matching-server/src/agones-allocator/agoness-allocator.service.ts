@@ -20,7 +20,7 @@ export class AgonesAllocatorService {
     checkServerIdentity: () => undefined,
   });
 
-  async allocate(): Promise<{ gameserverIp: string; port: number } | null> {
+  async allocate(): Promise<{ gameserverIp: string; gameserverName: string; port: number } | null> {
     // TEST: allocator 중복 호출 여부 확인용 requestId
     const requestId = crypto.randomUUID();
 
@@ -93,8 +93,9 @@ export class AgonesAllocatorService {
 		// 최종 gameserverIp 결정
 		const gameserverIp = externalIp ?? externalDns ?? res.data?.address;
 
+		const gameserverName = res.data?.gameServerName;
 
-    if (!gameserverIp || !port) {
+    if (!gameserverIp || !port || !gameserverName) {
       this.logger.error(
         `[Agones][${requestId}] allocation 응답 파싱 실패`,
         JSON.stringify(res.data, null, 2),
@@ -104,12 +105,17 @@ export class AgonesAllocatorService {
 
     // TEST
     this.logger.log(
-      `[Agones][${requestId}] 할당 성공: ${gameserverIp}:${port}`,
+      `[Agones][${requestId}] 할당 성공: ${gameserverName} (${gameserverIp}:${port})`,
+    );
+    this.logger.log(
+      `[Agones][${requestId}] { "gameServerName": "${gameserverName}", "address": "${gameserverIp}", "port": ${port} }`,
     );
 
     return {
       gameserverIp,
+			gameserverName,
       port,
+
     };
   }
 }

@@ -202,6 +202,8 @@ if (document.getElementById("queue-screen")) {
           // 서버에서 만든 room_id를 localStorage에 저장
           localStorage.setItem("waguwagu_room_id", matchData.roomId);
 					localStorage.setItem("waguwagu_match_token", matchData.matchToken);
+          localStorage.setItem("waguwagu_game_host", matchData.host);
+          localStorage.setItem("waguwagu_game_port", matchData.port);
           if (matchData.mode === "BOSS" || isBossMode) {
             window.location.href = `boss-game.html?roomId=${matchData.roomId}`;
           } else {

@@ -8,6 +8,7 @@ import axios from 'axios';
 import { PlayerStatus } from '../common/constants';
 import { AgonesAllocatorService } from '../agones-allocator/agoness-allocator.service';
 import { MatchingTokenService } from './matching-token.service';
+import { Route53Service } from '../agones-allocator/route53.service';
 
 @Injectable()
 export class MatchingWorker {
@@ -23,7 +24,7 @@ export class MatchingWorker {
     private readonly configService: ConfigService,
     private readonly agonesAllocatorService: AgonesAllocatorService,
     private readonly matchingTokenService: MatchingTokenService,
-
+    private readonly route53Service: Route53Service,
   ) {}
 
   @Interval(10_000)
@@ -177,11 +178,15 @@ export class MatchingWorker {
     // Agones Allocator 호출
     const allocation = await this.agonesAllocatorService.allocate();
     const gameserverIp = allocation?.gameserverIp;
+    const gameserverName = allocation?.gameserverName;
     const port = allocation?.port;
 
     if (allocation) {
       this.logger.log(
-        `[Agones] Allocator가 GameServer ${gameserverIp}:${port}를 할당했습니다`,
+        `[Agones] Allocator가 GameServer ${gameserverName}(${gameserverIp}:${port})를 할당했습니다`,
+      );
+      this.logger.log(
+        `[Agones] { "gameServerName": "${gameserverName}", "address": "${gameserverIp}", "port": ${port} }`,
       );
     }
 
@@ -204,8 +209,8 @@ export class MatchingWorker {
     // this.logger.log(`게임 룸 생성 완료: ${newRoomId}`);
 
     // 3. 매칭된 유저들에게 웹소켓으로 접속 정보 전송
-			if (!gameserverIp || !port) {
-				throw new Error(`[Agones] GameServer 할당 실패: ${gameserverIp}:${port}`);
+			if (!gameserverIp || !port || !gameserverName) {
+				throw new Error(`[Agones] GameServer 할당 실패: ${gameserverName}(${gameserverIp}:${port})`);
 			}
 		
 			// 매칭 완료 후
@@ -216,12 +221,27 @@ export class MatchingWorker {
 			});
 			
 			this.logger.log(`매칭 토큰 생성: ${matchToken}`);
+
+      // Route53 DNS 레코드 생성 (실패 시 fallback으로 직접 IP 사용)
+      let host = gameserverIp; // 기본값: 직접 IP
+      try {
+        host = await this.route53Service.upsertGameServerARecord(
+          gameserverName,
+          gameserverIp,
+        );
+        this.logger.log(`[Route53] DNS 레코드 생성 완료: ${host}`);
+      } catch (error) {
+        this.logger.error(`[Route53] DNS 레코드 생성 실패, 직접 IP 사용: ${gameserverIp}`, error);
+      }
 			
 			// 유저에게 게임서버 정보 전달
     this.queueGateway.broadcastMatchFound(participants, {
       roomId: newRoomId,
 			 matchToken,
-			 gameUrl: 'https://game.waguwagu.cloud',
+			 gameUrl: `https://${host}:${port}`,
+       host,
+       port,
+       gameServerName: gameserverName,
 			 mode: 'NORMAL',
     });
   }
@@ -353,7 +373,7 @@ export class MatchingWorker {
     this.queueGateway.broadcastMatchFound(participants, {
       roomId: newRoomId,
       mode: 'BOSS',
-      gameServerIp: roomInfo.ip || 'localhost',
+      host: roomInfo.ip || 'localhost',
       port: roomInfo.port || 3001,
     });
   }

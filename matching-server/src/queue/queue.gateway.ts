@@ -190,13 +190,19 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Worker가 호출할 함수. 매칭 성사 알림
   broadcastMatchFound(userIds: string[], roomInfo: any) {
+    this.logger.log(`[broadcastMatchFound] userIds: ${userIds.join(', ')}`);
+    this.logger.log(`[broadcastMatchFound] 연결된유저: ${JSON.stringify([...this.connectedUsers.entries()])}`);
+    
     userIds.forEach((userId) => {
       const socketId = this.connectedUsers.get(userId);
       if (socketId) {
+        this.logger.log(`[broadcastMatchFound] Sending match_found to userId=${userId}, socketId=${socketId}`);
         this.server.to(socketId).emit('match_found', {
           message: '매칭 성공! 게임 서버로 이동합니다.',
           ...roomInfo,
         });
+      } else {
+        this.logger.warn(`[broadcastMatchFound] userId=${userId} not found in connectedUsers map`);
       }
     });
   }
