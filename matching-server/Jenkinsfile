@@ -10,7 +10,6 @@ pipeline {
     ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
     //061039804626
 
-
     // waguwagu-infra
     INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
     INFRA_BRANCH   = "main"
@@ -130,12 +129,28 @@ pipeline {
           cd infra
           set -x
 
-          echo "[BEFORE] image line:"
+          # ====== (추가) Jenkins가 실제로 보는 매니페스트 내용 확인 ======
+          echo "=== DEBUG: infra repo current branch & status ==="
+          git rev-parse --abbrev-ref HEAD || true
+          git log -1 --oneline || true
+          echo "=== DEBUG: list k8s/matching dir ==="
+          ls -al k8s || true
+          ls -al k8s/matching || true
+
+          echo "=== DEBUG: show manifest head (first 40 lines) ==="
+          cat "${INFRA_MANIFEST}" | head -n 40 || true
+
+          echo "=== DEBUG: image lines in manifest ==="
+          grep -n "image:" "${INFRA_MANIFEST}" || true
+          echo "=== END DEBUG ==="
+          # ============================================================
+
+          echo "[BEFORE] image line (target repo uri match):"
           grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
 
           sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_MANIFEST}"
 
-          echo "[AFTER] image line:"
+          echo "[AFTER] image line (target repo uri match):"
           grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
 
           if git diff --quiet; then
@@ -161,36 +176,4 @@ pipeline {
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* 하나 변경시 다 빌드되는 오류를 고쳐야 한다 ..
-
-*/
+/* 하나 변경시 다 빌드되는 오류를 고쳐야 한다 .. */
