@@ -16,7 +16,6 @@ export class MatchingWorker {
   private isProcessing = false; // 중복 실행 방지용 플래그
   private isBossProcessing = false; // 보스모드 중복 실행 방지용 플래그
   private readonly TIMEOUT_MS = 7000; // 마지막 유저 기준 7초 ‼️테스트용‼️
-  private readonly HEARTBEAT_TIMEOUT_MS = 30_000;
 
   constructor(
     private readonly queueService: QueueService,
@@ -26,49 +25,6 @@ export class MatchingWorker {
     private readonly matchingTokenService: MatchingTokenService,
     private readonly route53Service: Route53Service,
   ) {}
-
-  @Interval(10_000)
-  async recoverStaleInGameSessions() {
-    const leader = await this.queueService.acquireLock(
-      'watchdog:leader',
-      15,
-    );
-    if (!leader) return;
-
-    let cursor = '0';
-    const now = Date.now();
-
-    do {
-      const [nextCursor, keys] = await this.queueService['redis'].scan(
-        cursor,
-        'MATCH',
-        'session:*',
-        'COUNT',
-        50,
-      );
-      cursor = nextCursor;
-
-      for (const key of keys) {
-        const session = await this.queueService['redis'].hgetall(key);
-        if (session.status !== PlayerStatus.IN_GAME) continue;
-        if (!session.lastSeenAt) continue;
-
-        const lastSeenAt = Number(session.lastSeenAt);
-        if (now - lastSeenAt > this.HEARTBEAT_TIMEOUT_MS) {
-          await this.queueService['redis'].hset(
-            key,
-            'status',
-            PlayerStatus.IDLE,
-          );
-          await this.queueService['redis'].hdel(key, 'lastSeenAt');
-
-          this.logger.warn(`[Watchdog] ${key} → IDLE 복구`);
-        }
-      }
-    } while (cursor !== '0');
-  }
-
-
 
   // 1초마다 실행
   @Interval(1000)
