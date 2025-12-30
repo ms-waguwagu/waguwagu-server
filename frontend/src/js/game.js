@@ -18,7 +18,12 @@ export class GameManager {
     // game 페이지 진입 가드 (새로고침/뒤로가기 대비)
     if (!roomId) {
       console.warn("roomId 없음 → 홈으로 리다이렉트");
-      window.location.replace("home.html"); // 또는 queue.html
+      // 게임 관련 localStorage 정리
+      localStorage.removeItem("waguwagu_room_id");
+      localStorage.removeItem("waguwagu_match_token");
+      localStorage.removeItem("waguwagu_game_host");
+      localStorage.removeItem("waguwagu_game_port");
+      window.location.replace("home.html");
       return;
     }
 
@@ -139,7 +144,7 @@ export class GameManager {
 
     this.socket = io(`${socketUrl}/game`, {
       path: "/socket.io",
-      //transports: ["websocket"],
+      // transports 제거하여 polling과 websocket 모두 허용
       auth: {
         matchToken: this.matchToken,
       },
@@ -156,6 +161,7 @@ export class GameManager {
 
       this.socket.emit("join-room", {
         roomId: this.roomId,
+        userId: this.googlesub, // googlesub을 userId로 전송
       });
     });
 

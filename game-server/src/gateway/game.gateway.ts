@@ -33,7 +33,7 @@ type GameMode = 'NORMAL' | 'BOSS';
   namespace: '/game',
   path: '/socket.io',
   cors: { origin: '*' },
-  transports: ['websocket'],
+  // transports 제거하여 polling과 websocket 모두 허용
 })
 export class GameGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
@@ -57,20 +57,20 @@ export class GameGateway
     private bossManagerService: BossManagerService,
   ) {}
 
-	private verifyMatchToken(token: string): { userId: string; roomId: string; nickname?: string; mode?: 'NORMAL' | 'BOSS' } {
+	private verifyMatchToken(token: string): { userIds: string[]; roomId: string; nickname?: string; mode?: 'NORMAL' | 'BOSS' } {
 		const secret = process.env.MATCH_TOKEN_SECRET || 'match-token-secret';
 
 		const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
 
-		const userId = decoded?.userId as string | undefined;
+		const userIds = decoded?.userIds as string[] | undefined;
 		const roomId = decoded?.roomId as string | undefined;
 
-		if (!userId || !roomId) {
+		if (!userIds || !roomId) {
 			throw new Error('INVALID_MATCH_TOKEN_PAYLOAD');
 		}
 
 		return {
-			userId,
+			userIds,
 			roomId,
 			nickname: decoded.nickname as string | undefined,
 			mode: decoded.mode as 'NORMAL' | 'BOSS' | undefined,
@@ -93,22 +93,26 @@ export class GameGateway
     // 1) 연결 단계에서 matchToken 검증
     nsp.use((socket: Socket, next: (err?: any) => void) => {
       const token = socket.handshake.auth?.matchToken;
+      this.logger.log(`[Middleware] Connection attempt, token exists: ${!!token}`);
 
       if (!token) {
+        this.logger.warn('[Middleware] NO_MATCH_TOKEN - rejecting connection');
         return next(new Error('NO_MATCH_TOKEN'));
       }
 
       try {
-        const payload: any = this.verifyMatchToken(token);
+        const payload = this.verifyMatchToken(token);
+        this.logger.log(`[Middleware] Token verified for userIds=${payload.userIds.join(',')}, roomId=${payload.roomId}`);
 
-        socket.data.userId = payload.userId;
+        socket.data.userIds = payload.userIds;
         socket.data.roomId = payload.roomId;
 
         if (payload.nickname) socket.data.nickname = payload.nickname;
         if (payload.mode) socket.data.mode = payload.mode as GameMode;
 
         return next();
-      } catch {
+      } catch (err) {
+        this.logger.error(`[Middleware] INVALID_MATCH_TOKEN: ${err.message}`);
         return next(new Error('INVALID_MATCH_TOKEN'));
       }
     });
@@ -230,13 +234,23 @@ export class GameGateway
   // ============================
   // 클라이언트는 roomId만 보내는 걸 권장
   @SubscribeMessage('join-room')
-  handleJoinRoom(client: Socket, data: { roomId?: string; nickname?: string; mode?: GameMode }) {
+  handleJoinRoom(client: Socket, data: { roomId?: string; nickname?: string; mode?: GameMode; userId?: string }) {
     // 토큰에서 내려온 값이 기준
     const tokenRoomId = client.data.roomId as string | undefined;
-    const tokenUserId = client.data.userId as string | undefined;
+    const tokenUserIds = client.data.userIds as string[] | undefined;
 
-    if (!tokenRoomId || !tokenUserId) {
+    // userId는 클라이언트가 보내거나 쿼리에서 가져옴
+    const userId = data?.userId || (client.handshake.query?.userId as string | undefined);
+
+    if (!tokenRoomId || !tokenUserIds) {
       this.logger.warn('join-room: token data missing');
+      client.disconnect();
+      return;
+    }
+
+    // userId가 토큰의 userIds에 포함되어야 함
+    if (!userId || !tokenUserIds.includes(userId)) {
+      this.logger.warn(`join-room: userId=${userId} not in token userIds=${tokenUserIds.join(',')}`);
       client.disconnect();
       return;
     }
@@ -256,7 +270,7 @@ export class GameGateway
     const nickname =
       (client.data.nickname as string | undefined) ??
       data?.nickname ??
-      `user-${String(tokenUserId).slice(-6)}`;
+      `user-${String(userId).slice(-6)}`;
 
     const mode =
       (client.data.mode as GameMode | undefined) ??
@@ -269,14 +283,14 @@ export class GameGateway
     client.join(roomId);
     client.data.roomId = roomId;
     client.data.nickname = nickname;
-    client.data.userId = tokenUserId;
+    client.data.userId = userId;
 
     // 접속한 유저 기록(최소한)
-    if (!roomWrapper.users.includes(tokenUserId)) {
-      roomWrapper.users.push(tokenUserId);
+    if (!roomWrapper.users.includes(userId)) {
+      roomWrapper.users.push(userId);
     }
 
-    room.addPlayer(client.id, tokenUserId, nickname);
+    room.addPlayer(client.id, userId, nickname);
 
     // init-game 전송
     client.emit('init-game', {
