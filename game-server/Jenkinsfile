@@ -4,7 +4,6 @@ pipeline {
   environment {
     AWS_REGION   = "ap-northeast-2"
 
-    //game ECR URI 일단 내 계정 accountid / 다시 바꿈 
     ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
 
     CLUSTER_NAME = "T3-Wagu-Game-EKS"

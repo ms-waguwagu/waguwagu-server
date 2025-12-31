@@ -4,7 +4,6 @@ pipeline {
   environment {
     AWS_REGION   = "ap-northeast-2"
 
-    // 내 account id 집어넣음
     ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
 
     CLUSTER_NAME = "T3-Wagu-Matching-EKS"
