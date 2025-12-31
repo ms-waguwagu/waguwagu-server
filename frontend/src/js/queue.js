@@ -1,4 +1,5 @@
 import { MATCHING_CONFIG } from "../../config.js";
+console.log("[Queue.js] Loaded");
 
 // DOM 요소 가져오기
 const timerEl = document.getElementById("queue-timer");
@@ -37,7 +38,7 @@ function stopTimer() {
 }
 
 export function initQueueScreen(socket, onMatchFound, isBossMode = false) {
-  console.log("🔥 initQueueScreen", isBossMode);
+  console.log("initQueueScreen", isBossMode);
   if (!socket) {
     console.error("소켓이 연결되지 않았습니다.");
     return;
@@ -162,23 +163,25 @@ if (document.getElementById("queue-screen")) {
   if (token) {
     // URL 파라미터로 모드 확인
     const urlParams = new URLSearchParams(window.location.search);
-    console.log("🔍 urlParams:", urlParams);
     const mode = urlParams.get("mode");
     const isBossMode = mode === "boss";
 
-    console.log("🔍 URL 파라미터 확인:", {
+    console.log("URL 파라미터 확인:", {
       전체URL: window.location.href,
       mode파라미터: mode,
       isBossMode: isBossMode,
     });
 
+		
     // socket.io-client가 로드되어 있어야 함 (CDN)
     if (typeof io !== "undefined") {
-      const socket = io(MATCHING_CONFIG.WS_MATCHING_URL,{
+			const MATCHING_WS_URL = "https://matching.waguwagu.cloud"; // 고정 도메인
+      const socket = io(`${MATCHING_WS_URL}/queue`,{
         path: "/socket.io",
         auth: { token },
         transports: ["websocket"],
       });
+      console.log(`[Queue] Connecting to Matching Server: ${MATCHING_WS_URL}/queue`);
 
       // 소켓 연결되면 대기열 진입
       socket.on("connect", () => {
@@ -198,10 +201,13 @@ if (document.getElementById("queue-screen")) {
         (matchData) => {
           // 서버에서 만든 room_id를 localStorage에 저장
           localStorage.setItem("waguwagu_room_id", matchData.roomId);
+					localStorage.setItem("waguwagu_match_token", matchData.matchToken);
+          localStorage.setItem("waguwagu_game_host", matchData.host);
+          localStorage.setItem("waguwagu_game_port", matchData.port);
           if (matchData.mode === "BOSS" || isBossMode) {
             window.location.href = `boss-game.html?roomId=${matchData.roomId}`;
           } else {
-            window.location.href = "game.html";
+            window.location.href = `game.html?roomId=${matchData.roomId}`;
           }
         },
         isBossMode

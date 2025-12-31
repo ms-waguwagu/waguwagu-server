@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid'; //방 ID 생성용
 import axios from 'axios';
 import { PlayerStatus } from '../common/constants';
 import { AgonesAllocatorService } from '../agones-allocator/agoness-allocator.service';
+import { MatchingTokenService } from './matching-token.service';
+import { Route53Service } from '../agones-allocator/route53.service';
 
 @Injectable()
 export class MatchingWorker {
@@ -20,16 +22,30 @@ export class MatchingWorker {
     private readonly queueGateway: QueueGateway,
     private readonly configService: ConfigService,
     private readonly agonesAllocatorService: AgonesAllocatorService,
+    private readonly matchingTokenService: MatchingTokenService,
+    private readonly route53Service: Route53Service,
   ) {}
 
   // 1초마다 실행
   @Interval(1000)
   async handleMatchmaking() {
-    // 이전 작업이 아직 안 끝났으면 스킵 (오버랩 방지)
+
+    //클러스터 전역 리더 락
+    const leader = await this.queueService.acquireLock(
+      'matchmaking:leader',
+      2, // TTL: 2초 (Interval 1초보다 살짝 크게)
+    );
+
+    if (!leader) {
+      return;
+    }
+
+    // ⬇️ 기존 코드 그대로
     if (this.isProcessing) {
       return;
     }
     this.isProcessing = true;
+
 
     let participants: string[] | null = null;
 
@@ -114,36 +130,75 @@ export class MatchingWorker {
       await this.queueService.updateStatus(userId, PlayerStatus.IN_GAME);
     }
 
-		// ‼️Agones Allocator 호출 (현재는 검증용)‼️
-		// 실제 접속에는 아직 사용하지 않음!
-		const { address, port } = await this.agonesAllocatorService.allocate();
-    this.logger.log(
-      `[DEBUG] Allocator가 GameServer ${address}:${port}를 할당했습니다`,
-    );
+    console.log('createRoomAndNotify', participants);
+    // Agones Allocator 호출
+    const allocation = await this.agonesAllocatorService.allocate();
+    const gameserverIp = allocation?.gameserverIp;
+    const gameserverName = allocation?.gameserverName;
+    const port = allocation?.port;
 
-    // 2. 게임 룸 생성 요청 (기존 API 호출 일단 유지)
-    const gameServerUrl = this.configService.get<string>('GAME_SERVER_URL');
+    if (allocation) {
+      this.logger.log(
+        `[Agones] Allocator가 GameServer ${gameserverName}(${gameserverIp}:${port})를 할당했습니다`,
+      );
+      this.logger.log(
+        `[Agones] { "gameServerName": "${gameserverName}", "address": "${gameserverIp}", "port": ${port} }`,
+      );
+    }
 
-    const response = await axios.post(`${gameServerUrl}/internal/room`, {
-      roomId: newRoomId,
-      users: participants,
-      botCount: botsToAdd,
-      maxPlayers,
-    });
+    // // 2. 게임 룸 생성 요청 (기존 API 호출 일단 유지)
+    // const gameServerUrl = this.configService.get<string>('GAME_SERVER_URL');
+
+    // const response = await axios.post(`${gameServerUrl}/internal/room`, {
+    //   roomId: newRoomId,
+    //   users: participants,
+    //   botCount: botsToAdd,
+    //   maxPlayers,
+    // });
 
     //디버깅용
-    this.logger.log(
-      `목표 인원: ${maxPlayers}, 매칭 된 유저 수: ${humanCount}, 봇 추가: ${botsToAdd}`,
-    );
-    const roomInfo = response.data;
+    // this.logger.log(
+    //   `목표 인원: ${maxPlayers}, 매칭 된 유저 수: ${humanCount}, 봇 추가: ${botsToAdd}`,
+    // );
+    // const roomInfo = response.data;
 
-    this.logger.log(`게임 룸 생성 완료: ${newRoomId}`);
+    // this.logger.log(`게임 룸 생성 완료: ${newRoomId}`);
 
     // 3. 매칭된 유저들에게 웹소켓으로 접속 정보 전송
+			if (!gameserverIp || !port || !gameserverName) {
+				throw new Error(`[Agones] GameServer 할당 실패: ${gameserverName}(${gameserverIp}:${port})`);
+			}
+		
+			// 매칭 완료 후
+			const matchToken = this.matchingTokenService.issueToken({
+				userIds: participants,
+				roomId: newRoomId,
+				expiresIn: '30s',
+			});
+			
+			this.logger.log(`매칭 토큰 생성: ${matchToken}`);
+
+      // Route53 DNS 레코드 생성 (실패 시 fallback으로 직접 IP 사용)
+      let host = gameserverIp; // 기본값: 직접 IP
+      try {
+        host = await this.route53Service.upsertGameServerARecord(
+          gameserverName,
+          gameserverIp,
+        );
+        this.logger.log(`[Route53] DNS 레코드 생성 완료: ${host}`);
+      } catch (error) {
+        this.logger.error(`[Route53] DNS 레코드 생성 실패, 직접 IP 사용: ${gameserverIp}`, error);
+      }
+			
+			// 유저에게 게임서버 정보 전달
     this.queueGateway.broadcastMatchFound(participants, {
       roomId: newRoomId,
-      gameServerIp: roomInfo.ip || 'localhost',
-      port: roomInfo.port || 3001,
+			 matchToken,
+			 gameUrl: `https://${host}:${port}`,
+       host,
+       port,
+       gameServerName: gameserverName,
+			 mode: 'NORMAL',
     });
   }
 
@@ -154,10 +209,18 @@ export class MatchingWorker {
   // 보스모드 매칭 워커 (1초마다 실행)
   @Interval(1000)
   async handleBossMatchmaking() {
-    // 이전 작업이 아직 안 끝났으면 스킵 (오버랩 방지)
+
+    // 1️⃣ Pod 내부 중복 방지
     if (this.isBossProcessing) {
       return;
     }
+
+    // 2️⃣ 클러스터 전역 리더 락
+    const leader = await this.queueService.acquireLock(
+      'matchmaking:boss:leader',
+      2,
+    );
+    if (!leader) return;
     this.isBossProcessing = true;
 
     let participants: string[] | null = null;
@@ -266,7 +329,7 @@ export class MatchingWorker {
     this.queueGateway.broadcastMatchFound(participants, {
       roomId: newRoomId,
       mode: 'BOSS',
-      gameServerIp: roomInfo.ip || 'localhost',
+      host: roomInfo.ip || 'localhost',
       port: roomInfo.port || 3001,
     });
   }

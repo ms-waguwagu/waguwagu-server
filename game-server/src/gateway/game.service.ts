@@ -5,6 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { GameGateway } from './game.gateway';
+import axios from 'axios'; 
 
 @Injectable()
 export class GameService {
@@ -19,7 +20,7 @@ export class GameService {
     mode: 'NORMAL' | 'BOSS' = 'NORMAL',
   ) {
     // 1. 방 생성
-    const isCreated = this.gameGateway.createRoomByApi(roomId, users, mode);
+    const isCreated = this.gameGateway.ensureRoom(roomId, mode);
 
     if (!isCreated) {
       throw new ConflictException('이미 존재하는 방 ID입니다.');
@@ -56,5 +57,34 @@ export class GameService {
   // =========================
   handleUserLeave(googleSub: string) {
     this.gameGateway.handleHttpLeave(googleSub);
+  }
+
+  // =========================
+  // 게임 종료 → 매칭 서버 알림
+  // =========================
+  async notifyGameFinished(roomId: string, userIds: string[]) {
+    try {
+      await axios.post(
+        `${process.env.MATCHING_INTERNAL_URL}/internal/game-finished`,
+        {
+          roomId,
+          userIds,
+        },
+        {
+          headers: {
+            'x-internal-token': process.env.INTERNAL_TOKEN,
+          },
+        },
+      );
+
+      this.logger.log(
+        `🏁 [GAME FINISHED] roomId=${roomId}, users=${userIds.join(',')}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `[GAME FINISHED FAIL] roomId=${roomId}`,
+        err?.message,
+      );
+    }
   }
 }

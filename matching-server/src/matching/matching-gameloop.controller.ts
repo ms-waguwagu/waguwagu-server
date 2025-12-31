@@ -9,17 +9,21 @@ export class MatchingGameLoopController {
   constructor(private readonly queueService: QueueService) {}
 
   @Post('game-finished')
-  async gameFinished(@Body() body: { userIds: string[] }) {
-    console.log('🔥 game-finished user-google-Ids:', body.userIds);
+  async gameFinished(
+    @Body() body: { roomId: string; userIds: string[] },
+  ) {
+    const { roomId, userIds } = body;
 
-    for (const userId of body.userIds) {
-      //게임 종료 후 IDLE 상태로 변환
-      const result = await this.queueService.updateStatus(
+    console.log('🏁 game-finished', { roomId, userIds });
+
+    if (!roomId || !userIds || userIds.length === 0) return;
+
+    for (const userId of userIds) {
+      await this.queueService.updateStatus(
         userId,
         PlayerStatus.IDLE,
       );
     }
-
     return { ok: true };
   }
 }

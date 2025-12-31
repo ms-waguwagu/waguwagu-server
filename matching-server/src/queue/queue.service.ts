@@ -121,6 +121,20 @@ export class QueueService implements OnModuleInit {
     return result as string[];
   }
 
+  async acquireLock(key: string, ttlSeconds = 10): Promise<boolean> {
+    // SET key value EX ttl NX
+    const result = await this.redis.set(
+      key,
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+
+    return result === 'OK';
+  }
+
+
   // 매칭 취소 메서드
   async cancelQueue(userId: string): Promise<void> {
     const sessionKey = `session:${userId}`;
@@ -160,6 +174,36 @@ export class QueueService implements OnModuleInit {
     }
   }
 
+  async recoverStaleInGameSession(userId: string): Promise<void> {
+    const sessionKey = `session:${userId}`;
+
+    const session = await this.redis.hgetall(sessionKey);
+    if (!session || Object.keys(session).length === 0) return;
+
+    if (session.status !== PlayerStatus.IN_GAME) return;
+
+    /**
+     * 지금 단계에서는 "게임 서버 WS가 아직 없다"는 게 명확하므로
+     * 👉 IN_GAME = 100% stale 로 간주
+     *
+     * 나중에:
+     * - gameServerName
+     * - heartbeat
+     * - Agones 상태
+     * 이런 걸로 고도화
+     */
+
+    await this.redis.hset(sessionKey, 'status', PlayerStatus.IDLE);
+
+    // TTL 갱신 (중요)
+    await this.redis.expire(sessionKey, this.SESSION_TTL);
+
+    console.warn(
+      `[RECOVER] stale IN_GAME session reset to IDLE (userId=${userId})`,
+    );
+  }
+
+
   // 큐 길이 조회
   async getQueueLength(): Promise<number> {
     const queueKey = 'match_queue';
@@ -190,6 +234,10 @@ export class QueueService implements OnModuleInit {
     for (const userId of participants) {
       await this.updateStatus(userId, PlayerStatus.WAITING);
     }
+  }
+
+  getRedis() {
+    return this.redis;
   }
 
   // ============================================

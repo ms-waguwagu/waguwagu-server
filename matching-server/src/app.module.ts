@@ -6,7 +6,6 @@ import { AuthModule } from './auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { ScheduleModule } from '@nestjs/schedule';
-import { AgonesTestModule } from './agones-test/agones-test.module';
 import { AgonesAllocatorModule } from './agones-allocator/agoness-allocator.module';
 import { QueueModule } from './queue/queue.module';
 
@@ -16,8 +15,7 @@ import { QueueModule } from './queue/queue.module';
     ScheduleModule.forRoot(),
     MatchingModule,
     AuthModule,
-		AgonesTestModule,
-		AgonesAllocatorModule,
+	  AgonesAllocatorModule,
 		QueueModule,
     RedisModule.forRootAsync({
       imports: [ConfigModule],

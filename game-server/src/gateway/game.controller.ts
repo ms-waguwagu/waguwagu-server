@@ -34,7 +34,7 @@ export class GameController {
 
     const gameMode = mode || 'NORMAL';
     console.log(
-      `🏠 [ROOM CREATE] ${roomId}, users=${users.join(',')}, mode=${gameMode}`,
+      `[ROOM CREATE] ${roomId}, users=${users.join(',')}, mode=${gameMode}`,
     );
 
     const result = this.gameService.createRoomWithBots(
@@ -53,6 +53,8 @@ export class GameController {
     };
   }
 
+	
+
   // =========================
   // 게임 강제 종료 (새로고침 / 탭 닫기)
   // =========================
@@ -68,6 +70,33 @@ export class GameController {
     console.log(`🚪 [GAME LEAVE] googleSub=${googleSub}`);
 
     this.gameService.handleUserLeave(googleSub);
+
+    return { ok: true };
+  }
+
+  // =========================
+// 게임 종료 알림 (게임 서버 → 매칭 서버)
+// =========================
+@Post('internal/game-finished')
+  async gameFinished(
+    @Body()
+    body: {
+      roomId: string;
+      userIds: string[];
+    },
+  ) {
+    const { roomId, userIds } = body;
+
+    if (!roomId || !userIds || userIds.length === 0) {
+      throw new BadRequestException('roomId와 userIds는 필수입니다.');
+    }
+
+    console.log(
+      `🏁 [GAME FINISHED] roomId=${roomId}, users=${userIds.join(',')}`,
+    );
+
+    // 여기서 "매칭 서버로 알림"만 한다
+    await this.gameService.notifyGameFinished(roomId, userIds);
 
     return { ok: true };
   }
