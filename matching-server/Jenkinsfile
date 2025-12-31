@@ -1,106 +1,171 @@
+/* 하나 변경시 다 빌드되는 문제를 고쳐야 한다  */
+
 pipeline {
   agent any
 
   environment {
     AWS_REGION   = "ap-northeast-2"
 
+    
     ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
+    
+    // waguwagu-infra
+    INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
+    INFRA_BRANCH   = "main"
+    INFRA_MANIFEST = "k8s/matching/matching-deploy.yaml"
 
-    CLUSTER_NAME = "T3-Wagu-Matching-EKS"
-    NAMESPACE    = "matching"
+    // Secrets Manager (PAT)
+    GH_SECRET_ID  = "T3-Wagu-Secrets"
+    GH_SECRET_KEY = "GITHUB_PAT"
 
-    DEPLOYMENT_NAME = "matching-deploy"
-    CONTAINER_NAME  = "matching"
+    // Git author
+    GIT_USER_NAME  = "jenkins-bot"
+    GIT_USER_EMAIL = "jenkins@waguwagu.local"
   }
 
   options {
     skipDefaultCheckout(true)
-    // (옵션) 중복 checkout 방지하고 싶으면 켜도 됨
-    // skipDefaultCheckout(true)
   }
 
   stages {
     stage("Checkout") {
-      steps {
-        checkout scm
-      }
+      steps { checkout scm }
     }
 
-    // (선택) matching-server 폴더 변경 체크 (하지만 이제 스킵/중단 안 함)
-    stage("Change check") {
+    stage("Change check (matching-server only)") {
       steps {
         script {
-          echo "=== MATCHING JENKINSFILE TEST v1 ==="   // <- 이거 한 줄 추가해보기 테스트용도 실제 잘 polling되나
+          echo "=== MATCHING JENKINSFILE ==="
+
+          def base  = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT
+          def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
+          echo "Diff range: ${range}"
+
+          // matching-server/ 변경만, Jenkinsfile만 바뀐 경우는 스킵
           def changed = sh(
-            script: "git diff --name-only HEAD~1..HEAD | grep -E '^matching-server/' || true",
+            script: """
+              set -e
+              git diff --name-only ${range} \
+                | grep -E '^matching-server/' \
+                | grep -v '^matching-server/Jenkinsfile\$' \
+                || true
+            """,
             returnStdout: true
           ).trim()
 
-          //  변경이 없어도 빌드를 막지 말고 그냥 진행
           if (!changed) {
-            echo "No changes in matching-server/, but continue (always Build & Push)."
+            echo "No app changes in matching-server/ -> SKIP"
+            env.MATCHING_CHANGED = "false"
           } else {
-            echo "Changes detected in matching-server/ -> proceed."
+            echo "Changes detected -> proceed."
+            echo "Changed files:\\n${changed}"
+            env.MATCHING_CHANGED = "true"
           }
         }
       }
     }
 
     stage("ECR Login") {
+      when { expression { env.MATCHING_CHANGED == "true" } }
       steps {
         sh '''
           set -e
-          aws ecr get-login-password --region ${AWS_REGION} \
-            | docker login --username AWS --password-stdin ${ECR_REPO_URI%/*}
+          aws ecr get-login-password --region "${AWS_REGION}" \
+            | docker login --username AWS --password-stdin "${ECR_REPO_URI%/*}"
         '''
       }
     }
 
     stage("Build & Push") {
+      when { expression { env.MATCHING_CHANGED == "true" } }
       steps {
         script {
-          // 태그 전략: 커밋해시, 빌드번호
           def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
-          def tag  = "${sha7}-${env.BUILD_NUMBER}"
-          env.IMAGE_TAG = tag
-          env.IMAGE_URI = "${env.ECR_REPO_URI}:${tag}"
+          env.IMAGE_TAG = "${sha7}-${env.BUILD_NUMBER}"
+          env.IMAGE_URI = "${env.ECR_REPO_URI}:${env.IMAGE_TAG}"
+          echo "IMAGE_URI = ${env.IMAGE_URI}"
         }
 
         sh '''
           set -e
           cd matching-server
-          docker build -t ${ECR_REPO_URI}:${IMAGE_TAG} .
-          docker push ${ECR_REPO_URI}:${IMAGE_TAG}
+          docker build -t "${ECR_REPO_URI}:${IMAGE_TAG}" .
+          docker push "${ECR_REPO_URI}:${IMAGE_TAG}"
         '''
       }
     }
 
-    /*
-    // ===========================
-    // CD 단계 (클러스터 생기면 주석 해제)
-    // ===========================
-
-    stage("Configure kubeconfig") {
+    stage("Update waguwagu-infra manifest (commit/push)") {
+      when { expression { env.MATCHING_CHANGED == "true" } }
       steps {
         sh '''
-          set -e
-          aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
-          kubectl get ns ${NAMESPACE}
-        '''
-      }
-    }
+          set -euo pipefail
 
-    stage("Deploy (Update Deployment image)") {
-      steps {
-        sh '''
-          set -e
-          kubectl -n ${NAMESPACE} set image deploy/${DEPLOYMENT_NAME} ${CONTAINER_NAME}=${IMAGE_URI}
-          kubectl -n ${NAMESPACE} rollout status deploy/${DEPLOYMENT_NAME} --timeout=300s
-          kubectl -n ${NAMESPACE} get deploy ${DEPLOYMENT_NAME} -o wide
+          rm -rf infra
+          mkdir -p infra
+
+          git config --global user.name  "${GIT_USER_NAME}"
+          git config --global user.email "${GIT_USER_EMAIL}"
+
+          # credential helper 꼬임 방지
+          git config --global --unset-all credential.helper || true
+          git config --global credential.helper ""
+
+          #  토큰/헤더 다루는 구간은 로그 숨김
+          set +x
+          TOK="$(aws secretsmanager get-secret-value \
+              --secret-id "${GH_SECRET_ID}" \
+              --region "${AWS_REGION}" \
+              --query SecretString \
+              --output text \
+              | jq -r --arg k "${GH_SECRET_KEY}" '.[$k]' \
+              | tr -d '\r\n')"
+
+          AUTH="$(printf 'x-access-token:%s' "$TOK" | base64 | tr -d '\\n')"
+          EXTRA="http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH"
+
+          GIT_TERMINAL_PROMPT=0 git -c "$EXTRA" clone --branch "${INFRA_BRANCH}" "${INFRA_REPO_URL}" infra
+          cd infra
+          set -x
+
+          # ====== (추가) Jenkins가 실제로 보는 매니페스트 내용 확인 ======
+          echo "=== DEBUG: infra repo current branch & status ==="
+          git rev-parse --abbrev-ref HEAD || true
+          git log -1 --oneline || true
+          echo "=== DEBUG: list k8s/matching dir ==="
+          ls -al k8s || true
+          ls -al k8s/matching || true
+
+          echo "=== DEBUG: show manifest head (first 40 lines) ==="
+          cat "${INFRA_MANIFEST}" | head -n 40 || true
+
+          echo "=== DEBUG: image lines in manifest ==="
+          grep -n "image:" "${INFRA_MANIFEST}" || true
+          echo "=== END DEBUG ==="
+          # ============================================================
+
+          echo "[BEFORE] image line (target repo uri match):"
+          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
+
+          sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_MANIFEST}"
+
+          echo "[AFTER] image line (target repo uri match):"
+          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
+
+          if git diff --quiet; then
+            echo "No manifest change (already on ${IMAGE_TAG}). Skip commit/push."
+            exit 0
+          fi
+
+          git add "${INFRA_MANIFEST}"
+          git commit -m "ci(matching): bump image to ${IMAGE_TAG}"
+
+          set +x
+          GIT_TERMINAL_PROMPT=0 git -c "$EXTRA" push origin HEAD:"${INFRA_BRANCH}"
+          set -x
         '''
       }
     }
-    */
   }
 
   post {
@@ -109,3 +174,5 @@ pipeline {
     }
   }
 }
+
+/* 하나 변경시 다 빌드되는 오류를 고쳐야 한다 .. */

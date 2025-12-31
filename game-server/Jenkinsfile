@@ -2,6 +2,169 @@ pipeline {
   agent any
 
   environment {
+    AWS_REGION = "ap-northeast-2"
+
+    // ECR (game)
+    ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
+    //061039804626
+    
+
+    // waguwagu-infra
+    INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
+    INFRA_BRANCH   = "main"
+    INFRA_MANIFEST = "k8s/agones/agones-fleet.yaml"   // 바꿀 manifest (Agones Fleet)
+
+    // Secrets Manager (PAT)
+    GH_SECRET_ID  = "T3-Wagu-Secrets"
+    GH_SECRET_KEY = "GITHUB_PAT"
+
+    // Git author (infra commit)
+    GIT_USER_NAME  = "jenkins-bot"
+    GIT_USER_EMAIL = "jenkins@waguwagu.local"
+  }
+
+  options {
+    skipDefaultCheckout(true)
+  }
+
+  stages {
+    stage("Checkout") {
+      steps { checkout scm }
+    }
+
+    stage("Change check (game-server only)") {
+      steps {
+        script {
+          echo "=== GAME JENKINSFILE ==="
+
+          // 여러 커밋이 한 번에 들어와도 누락 없게 
+          def base  = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT
+          def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
+          echo "Diff range: ${range}"
+
+          //  game-server/ 변경만 감지, Jenkinsfile만 바뀐 경우는 제외
+          def changed = sh(
+            returnStdout: true,
+            script: """#!/usr/bin/env bash
+              set -e
+              git diff --name-only "${range}" \\
+                | grep -E '^game-server/' \\
+                | grep -v '^game-server/Jenkinsfile\$' \\
+                || true
+            """
+          ).trim()
+
+          if (!changed) {
+            echo "No app changes in game-server/ -> SKIP"
+            env.GAME_CHANGED = "false"
+          } else {
+            echo "Changes detected -> proceed."
+            echo "Changed files:\\n${changed}"
+            env.GAME_CHANGED = "true"
+          }
+        }
+      }
+    }
+
+    stage("ECR Login") {
+      when { expression { env.GAME_CHANGED == "true" } }
+      steps {
+        sh '''
+          set -e
+          aws ecr get-login-password --region "${AWS_REGION}" \
+            | docker login --username AWS --password-stdin "${ECR_REPO_URI%/*}"
+        '''
+      }
+    }
+
+    stage("Build & Push") {
+      when { expression { env.GAME_CHANGED == "true" } }
+      steps {
+        script {
+          def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
+          env.IMAGE_TAG = "${sha7}-${env.BUILD_NUMBER}"
+          env.IMAGE_URI = "${env.ECR_REPO_URI}:${env.IMAGE_TAG}"
+          echo "IMAGE_URI = ${env.IMAGE_URI}"
+        }
+
+        sh '''
+          set -e
+          cd game-server
+          docker build -t "${ECR_REPO_URI}:${IMAGE_TAG}" .
+          docker push "${ECR_REPO_URI}:${IMAGE_TAG}"
+        '''
+      }
+    }
+
+    stage("Update waguwagu-infra manifest (commit/push)") {
+      when { expression { env.GAME_CHANGED == "true" } }
+      steps {
+        sh '''
+          set -euo pipefail
+
+          rm -rf infra
+          mkdir -p infra
+
+          git config --global user.name  "${GIT_USER_NAME}"
+          git config --global user.email "${GIT_USER_EMAIL}"
+
+          # credential helper 꼬임 방지
+          git config --global --unset-all credential.helper || true
+          git config --global credential.helper ""
+
+          #  토큰/헤더 다루는 구간은 로그 숨김
+          set +x
+          TOK="$(aws secretsmanager get-secret-value \
+              --secret-id "${GH_SECRET_ID}" \
+              --region "${AWS_REGION}" \
+              --query SecretString \
+              --output text \
+              | jq -r --arg k "${GH_SECRET_KEY}" '.[$k]' \
+              | tr -d '\\r\\n')"
+
+          AUTH="$(printf 'x-access-token:%s' "$TOK" | base64 | tr -d '\\n')"
+          EXTRA="http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH"
+
+          GIT_TERMINAL_PROMPT=0 git -c "$EXTRA" clone --branch "${INFRA_BRANCH}" "${INFRA_REPO_URL}" infra
+          cd infra
+          set -x
+
+          echo "[BEFORE] image line:"
+          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
+
+          sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_MANIFEST}"
+
+          echo "[AFTER] image line:"
+          grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
+
+          if git diff --quiet; then
+            echo "No manifest change (already on ${IMAGE_TAG}). Skip commit/push."
+            exit 0
+          fi
+
+          git add "${INFRA_MANIFEST}"
+          git commit -m "ci(game): bump image to ${IMAGE_TAG}"
+
+          set +x
+          GIT_TERMINAL_PROMPT=0 git -c "$EXTRA" push origin HEAD:"${INFRA_BRANCH}"
+          set -x
+        '''
+      }
+    }
+  }
+
+  post {
+    always {
+      sh 'docker image prune -f || true'
+    }
+  }
+}
+
+/* 일단 주석 
+pipeline {
+  agent any
+
+  environment {
     AWS_REGION   = "ap-northeast-2"
 
     ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
@@ -76,36 +239,6 @@ pipeline {
       }
     }
 
-    /*
-    // ===========================
-    // CD 단계 (클러스터/Agones 준비되면 주석 해제)
-    // ===========================
-
-    stage("Configure kubeconfig") {
-      steps {
-        sh '''
-          set -e
-          aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
-          kubectl get ns ${NAMESPACE}
-        '''
-      }
-    }
-
-    stage("Deploy (Agones Fleet image update)") {
-      steps {
-        sh '''
-          set -e
-          # CRD(Fleet)는 kubectl set image가  잘 먹지 않아서 patch 추천
-          #  containers 배열이 1개라는 전제로 merge patch 사용
-          kubectl -n ${NAMESPACE} patch fleet ${FLEET_NAME} --type merge \
-            -p "{\"spec\":{\"template\":{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"${CONTAINER_NAME}\",\"image\":\"${IMAGE_URI}\"}]}}}}}}"
-
-          # 반영 확인
-          kubectl -n ${NAMESPACE} get fleet ${FLEET_NAME} -o yaml | grep -n "image:" | head -n 5
-        '''
-      }
-    }
-    */
   }
 
   post {
@@ -114,3 +247,15 @@ pipeline {
     }
   }
 }
+*/ 
+
+
+
+
+
+
+
+
+
+
+

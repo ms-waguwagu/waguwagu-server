@@ -394,7 +394,7 @@ export class GameManager {
     this.connectWebSocket();
     this.gameLoop();
     this.startInputLoop();
-    this.loadRanking(); // 랭킹 로드 (요소가 있으면 표시됨)
+    this.loadRanking(); // 랭킹 로드 (요소가 있으면 표시됨)!
     setInterval(() => this.loadRanking(), 30000);
   }
 
