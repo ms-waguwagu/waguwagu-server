@@ -15,7 +15,7 @@ export class MatchingWorker {
   private readonly logger = new Logger(MatchingWorker.name);
   private isProcessing = false; // 중복 실행 방지용 플래그
   private isBossProcessing = false; // 보스모드 중복 실행 방지용 플래그
-  private readonly TIMEOUT_MS = 7000; // 마지막 유저 기준 7초 ‼️테스트용‼️
+  private readonly TIMEOUT_MS = 7000; // 마지막 유저 기준 7초
 
   constructor(
     private readonly queueService: QueueService,
@@ -26,26 +26,21 @@ export class MatchingWorker {
     private readonly route53Service: Route53Service,
   ) {}
 
-  // 1초마다 실행
+  // ============================================
+  // 일반 매칭 워커
+  // ============================================
   @Interval(1000)
   async handleMatchmaking() {
-
     //클러스터 전역 리더 락
     const leader = await this.queueService.acquireLock(
       'matchmaking:leader',
-      2, // TTL: 2초 (Interval 1초보다 살짝 크게)
+      2, // TTL: 2초
     );
 
-    if (!leader) {
-      return;
-    }
+    if (!leader) return;
 
-    // ⬇️ 기존 코드 그대로
-    if (this.isProcessing) {
-      return;
-    }
+    if (this.isProcessing) return;
     this.isProcessing = true;
-
 
     let participants: string[] | null = null;
 
@@ -63,26 +58,21 @@ export class MatchingWorker {
         );
 
         await this.createRoomAndNotify(participants);
-        return; // 5명 방 하나 만들고 끝 (finally에서 isProcessing 해제됨)
+        return; 
       }
 
-      // 이제부터는 큐에 5명 미만이 있거나, 아예 없거나
       // 2. 큐가 비었으면 아무 것도 안 함
       const queueLen = await this.queueService.getQueueLength();
-      if (queueLen === 0) {
-        return;
-      }
+      if (queueLen === 0) return;
 
       // 3. 마지막 유저 입장 시각 확인
       const lastJoinedAt = await this.queueService.getLastJoinedAt();
-      if (!lastJoinedAt) {
-        return;
-      }
+      if (!lastJoinedAt) return;
 
       const now = Date.now();
       const diff = now - lastJoinedAt;
 
-      // 디버깅용 !! 아직 15초 안 지났으면 기다리기만 함
+      // 타임아웃 전이면 대기
       if (diff < this.TIMEOUT_MS) {
         this.logger.debug(
           `대기열 인원=${queueLen}, 마지막 입장 이후 ${diff}ms 경과 (타임아웃 전)`,
@@ -90,24 +80,20 @@ export class MatchingWorker {
         return;
       }
 
-      // 4. 15초 동안 아무도 안 들어왔을 때 -> 현재 인원(최대 maxPlayers명)으로 부분 매칭 실행
+      // 4. 타임아웃 후 부분 매칭 실행
       participants = await this.queueService.extractMatchUpTo(maxPlayers);
 
-      if (!participants || participants.length === 0) {
-        return;
-      }
+      if (!participants || participants.length === 0) return;
 
       this.logger.log(
-        `[부분 매칭] 타임아웃 후 매칭: ${participants.join(
-          ', ',
-        )} (인원: ${participants.length})`,
+        `[부분 매칭] 타임아웃 후 매칭: ${participants.join(', ')} (인원: ${participants.length})`,
       );
 
       await this.createRoomAndNotify(participants);
     } catch (error) {
       this.logger.error('매칭 처리 중 에러 발생', error);
 
-      // 실패 시 롤백 -> 추출된 유저들을 다시 큐에 복구
+      // 실패 시 롤백
       if (participants && participants.length > 0) {
         this.logger.warn(`롤백 실행: 유저 [${participants.join(', ')}] 재삽입`);
         await this.queueService.rollbackParticipants(participants);
@@ -117,88 +103,81 @@ export class MatchingWorker {
     }
   }
 
-  // 공통: 방 생성 + 상태 변경 + 웹소켓 통지
+  // ============================================
+  // 일반 매칭 처리 로직 (Agones + API 호출)
+  // ============================================
   private async createRoomAndNotify(participants: string[]): Promise<void> {
     const newRoomId = uuidv4();
-    const maxPlayers =
-      this.configService.get<number>('MATCH_PLAYER_COUNT') ?? 5;
-    const humanCount = participants.length;
-    const botsToAdd = Math.max(0, maxPlayers - humanCount);
+    const maxPlayers = this.configService.get<number>('MATCH_PLAYER_COUNT') ?? 5;
 
     // 1. 상태를 IN_GAME 으로 변경
     for (const userId of participants) {
       await this.queueService.updateStatus(userId, PlayerStatus.IN_GAME);
     }
 
-    console.log('createRoomAndNotify', participants);
-    // Agones Allocator 호출
+    // 2. Agones Allocator 호출
     const allocation = await this.agonesAllocatorService.allocate();
     const gameserverIp = allocation?.gameserverIp;
     const gameserverName = allocation?.gameserverName;
     const port = allocation?.port;
 
-    if (allocation) {
-      this.logger.log(
-        `[Agones] Allocator가 GameServer ${gameserverName}(${gameserverIp}:${port})를 할당했습니다`,
-      );
-      this.logger.log(
-        `[Agones] { "gameServerName": "${gameserverName}", "address": "${gameserverIp}", "port": ${port} }`,
-      );
+    if (!gameserverIp || !port || !gameserverName) {
+        // 할당 실패 시 에러 던짐 -> catch에서 롤백됨
+        throw new Error(`[Agones] GameServer 할당 실패`);
     }
 
-    // // 2. 게임 룸 생성 요청 (기존 API 호출 일단 유지)
-    // const gameServerUrl = this.configService.get<string>('GAME_SERVER_URL');
+    this.logger.log(
+        `[Agones] GameServer 할당 완료: ${gameserverName}(${gameserverIp}:${port})`,
+    );
 
-    // const response = await axios.post(`${gameServerUrl}/internal/room`, {
-    //   roomId: newRoomId,
-    //   users: participants,
-    //   botCount: botsToAdd,
-    //   maxPlayers,
-    // });
+    // 3. [추가됨] 게임 서버 API 호출하여 봇 생성 및 룸 초기화 요청
+    // Agones IP를 사용하여 해당 파드에 직접 요청
+    try {
+        // 주의: 게임 서버의 HTTP 포트가 3000번이라고 가정 (환경에 맞게 수정 필요)
+        const gameApiUrl = `http://${gameserverIp}:${port}/internal/room`;
+        
+        await axios.post(gameApiUrl, {
+            roomId: newRoomId,
+            users: participants,
+            maxPlayers: maxPlayers,
+            mode: 'NORMAL',
+        });
+        this.logger.log(`[API] 게임 룸/봇 생성 요청 성공: ${newRoomId}`);
+    } catch (error) {
+        this.logger.error(`[API] 게임 룸 생성 요청 실패: ${error.message}`);
+        // API 호출 실패는 치명적이지 않을 수 있으나(게임서버가 알아서 만들수도 있음), 로그는 남김
+    }
+   
+    // 4. 매칭 토큰 발급
+    const matchToken = this.matchingTokenService.issueToken({
+    userIds: participants,
+    roomId: newRoomId,
+    expiresIn: '30s',
+    });
+    
+    this.logger.log(`매칭 토큰 생성: ${matchToken}`);
 
-    //디버깅용
-    // this.logger.log(
-    //   `목표 인원: ${maxPlayers}, 매칭 된 유저 수: ${humanCount}, 봇 추가: ${botsToAdd}`,
-    // );
-    // const roomInfo = response.data;
-
-    // this.logger.log(`게임 룸 생성 완료: ${newRoomId}`);
-
-    // 3. 매칭된 유저들에게 웹소켓으로 접속 정보 전송
-			if (!gameserverIp || !port || !gameserverName) {
-				throw new Error(`[Agones] GameServer 할당 실패: ${gameserverName}(${gameserverIp}:${port})`);
-			}
-		
-			// 매칭 완료 후
-			const matchToken = this.matchingTokenService.issueToken({
-				userIds: participants,
-				roomId: newRoomId,
-				expiresIn: '30s',
-			});
-			
-			this.logger.log(`매칭 토큰 생성: ${matchToken}`);
-
-      // Route53 DNS 레코드 생성 (실패 시 fallback으로 직접 IP 사용)
-      let host = gameserverIp; // 기본값: 직접 IP
-      try {
-        host = await this.route53Service.upsertGameServerARecord(
-          gameserverName,
-          gameserverIp,
-        );
-        this.logger.log(`[Route53] DNS 레코드 생성 완료: ${host}`);
-      } catch (error) {
-        this.logger.error(`[Route53] DNS 레코드 생성 실패, 직접 IP 사용: ${gameserverIp}`, error);
-      }
-			
-			// 유저에게 게임서버 정보 전달
+    // 5. Route53 DNS 레코드 생성 (실패 시 fallback으로 직접 IP 사용)
+    let host = gameserverIp;
+    try {
+    host = await this.route53Service.upsertGameServerARecord(
+        gameserverName,
+        gameserverIp,
+    );
+    this.logger.log(`[Route53] DNS 레코드 생성 완료: ${host}`);
+    } catch (error) {
+    this.logger.error(`[Route53] DNS 레코드 생성 실패, 직접 IP 사용`, error);
+    }
+    
+    // 6. 유저에게 게임서버 정보 전달
     this.queueGateway.broadcastMatchFound(participants, {
-      roomId: newRoomId,
-			 matchToken,
-			 gameUrl: `https://${host}:${port}`,
-       host,
-       port,
-       gameServerName: gameserverName,
-			 mode: 'NORMAL',
+        roomId: newRoomId,
+        matchToken,
+        gameUrl: `https://${host}:${port}`,
+        host,
+        port,
+        gameServerName: gameserverName,
+        mode: 'NORMAL',
     });
   }
 
@@ -206,7 +185,6 @@ export class MatchingWorker {
   // 보스모드 매칭 워커
   // ============================================
 
-  // 보스모드 매칭 워커 (1초마다 실행)
   @Interval(1000)
   async handleBossMatchmaking() {
 
@@ -235,7 +213,7 @@ export class MatchingWorker {
 
       if (participants && participants.length === maxPlayers) {
         this.logger.log(
-          `[보스모드] ${maxPlayers}명 풀 매칭 ${participants.join(', ')} (인원: ${participants.length})`,
+          `[보스모드] ${maxPlayers}명 풀 매칭 ${participants.join(', ')}`,
         );
 
         await this.createBossRoomAndNotify(participants);
@@ -244,23 +222,19 @@ export class MatchingWorker {
 
       // 2. 큐가 비었으면 아무 것도 안 함
       const queueLen = await this.queueService.getBossQueueLength();
-      if (queueLen === 0) {
-        return;
-      }
+      if (queueLen === 0) return;
 
       // 3. 마지막 유저 입장 시각 확인
       const lastJoinedAt = await this.queueService.getBossLastJoinedAt();
-      if (!lastJoinedAt) {
-        return;
-      }
+      if (!lastJoinedAt) return;
 
       const now = Date.now();
       const diff = now - lastJoinedAt;
 
-      // 타임아웃 전이면 기다리기만 함
+      // 타임아웃 전이면 대기
       if (diff < this.TIMEOUT_MS) {
         this.logger.debug(
-          `[보스모드] 대기열 인원=${queueLen}, 마지막 입장 이후 ${diff}ms 경과 (타임아웃 전)`,
+          `[보스모드] 대기열 인원=${queueLen}, 타임아웃 전(${diff}ms)`,
         );
         return;
       }
@@ -268,25 +242,18 @@ export class MatchingWorker {
       // 4. 타임아웃 후 부분 매칭 실행
       participants = await this.queueService.extractBossMatchUpTo(maxPlayers);
 
-      if (!participants || participants.length === 0) {
-        return;
-      }
+      if (!participants || participants.length === 0) return;
 
       this.logger.log(
-        `[보스모드 부분 매칭] 타임아웃 후 매칭: ${participants.join(
-          ', ',
-        )} (인원: ${participants.length})`,
+        `[보스모드 부분 매칭] 타임아웃 후 매칭: ${participants.join(', ')}`,
       );
 
       await this.createBossRoomAndNotify(participants);
     } catch (error) {
       this.logger.error('[보스모드] 매칭 처리 중 에러 발생', error);
 
-      // 실패 시 롤백 -> 추출된 유저들을 다시 큐에 복구
       if (participants && participants.length > 0) {
-        this.logger.warn(
-          `[보스모드] 롤백 실행: 유저 [${participants.join(', ')}] 재삽입`,
-        );
+        this.logger.warn(`[보스모드] 롤백 실행`);
         await this.queueService.rollbackBossParticipants(participants);
       }
     } finally {
@@ -294,43 +261,69 @@ export class MatchingWorker {
     }
   }
 
-  // 보스모드: 방 생성 + 상태 변경 + 웹소켓 통지
+  // ============================================
+  // 보스 모드 처리 로직 (Agones 적용됨)
+  // ============================================
   private async createBossRoomAndNotify(participants: string[]): Promise<void> {
     const newRoomId = uuidv4();
-    const maxPlayers =
-      this.configService.get<number>('BOSS_MATCH_PLAYER_COUNT') ?? 5;
-    const humanCount = participants.length;
-    const botsToAdd = Math.max(0, maxPlayers - humanCount);
+    const maxPlayers = this.configService.get<number>('BOSS_MATCH_PLAYER_COUNT') ?? 5;
 
     // 1. 상태를 IN_GAME 으로 변경
     for (const userId of participants) {
       await this.queueService.updateStatus(userId, PlayerStatus.IN_GAME);
     }
 
-    // 2. 게임 룸 생성 요청
-    const gameServerUrl = this.configService.get<string>('GAME_SERVER_URL');
+    // 2. Agones Allocator 호출 (보스모드도 Agones 사용)
+    const allocation = await this.agonesAllocatorService.allocate();
+    const gameserverIp = allocation?.gameserverIp;
+    const gameserverName = allocation?.gameserverName;
+    const port = allocation?.port;
 
-    const response = await axios.post(`${gameServerUrl}/internal/room`, {
-      roomId: newRoomId,
-      users: participants,
-      botCount: botsToAdd,
-      maxPlayers,
-      mode: 'BOSS',
+    if (!gameserverIp || !port || !gameserverName) {
+        throw new Error(`[Agones-Boss] GameServer 할당 실패`);
+    }
+
+    // 3. 게임 룸 생성 요청 (API 호출)
+    try {
+        const gameApiUrl = `http://${gameserverIp}:${port}/internal/room`;
+        await axios.post(gameApiUrl, {
+            roomId: newRoomId,
+            users: participants,
+            maxPlayers: maxPlayers,
+            mode: 'BOSS',
+        });
+        this.logger.log(`[API-Boss] 룸 생성 요청 성공: ${newRoomId}`);
+    } catch (error) {
+        this.logger.error(`[API-Boss] 룸 생성 요청 실패: ${error.message}`);
+    }
+
+    // 4. 매칭 토큰 발급
+    const matchToken = this.matchingTokenService.issueToken({
+        userIds: participants,
+        roomId: newRoomId,
+        expiresIn: '30s',
     });
 
-    this.logger.log(
-      `[보스모드] 목표 인원: ${maxPlayers}, 매칭 된 유저 수: ${humanCount}, 봇 추가: ${botsToAdd}`,
-    );
-    const roomInfo = response.data;
+    // 5. Route53 DNS (선택)
+    let host = gameserverIp;
+    try {
+        host = await this.route53Service.upsertGameServerARecord(
+            gameserverName,
+            gameserverIp,
+        );
+    } catch (error) {
+        this.logger.error(`[Route53-Boss] 실패, IP 사용`, error);
+    }
 
-    this.logger.log(`[보스모드] 게임 룸 생성 완료: ${newRoomId}`);
-
-    // 3. 매칭된 유저들에게 웹소켓으로 접속 정보 전송
+    // 6. 유저 통지
     this.queueGateway.broadcastMatchFound(participants, {
       roomId: newRoomId,
+      matchToken,
+      host, // DNS 혹은 IP
+      port,
+      gameUrl: `https://${host}:${port}`, // 클라에서 사용하는 주소
+      gameServerName: gameserverName,
       mode: 'BOSS',
-      host: roomInfo.ip || 'localhost',
-      port: roomInfo.port || 3001,
     });
   }
 }

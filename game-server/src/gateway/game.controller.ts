@@ -5,16 +5,20 @@ import {
   BadRequestException,
   Req,
   UseGuards,
+  Logger,
 } from '@nestjs/common';
 import { GameService } from './game.service';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller()
 export class GameController {
+  private readonly logger = new Logger(GameController.name);
+
   constructor(private readonly gameService: GameService) {}
 
   // =========================
-  // 게임 룸 생성 (매칭 서버 → 게임 서버)
+  // [중요] 게임 룸 초기화 및 봇 생성
+  // 요청자: 매칭 서버 (Agones 할당 직후 호출됨)
   // =========================
   @Post('internal/room')
   createRoom(
@@ -33,10 +37,12 @@ export class GameController {
     }
 
     const gameMode = mode || 'NORMAL';
-    console.log(
-      `🏠 [ROOM CREATE] ${roomId}, users=${users.join(',')}, mode=${gameMode}`,
+    
+    this.logger.log(
+      `🏠 [API] 룸 생성 요청 수신: roomId=${roomId}, 유저=${users.length}명, 모드=${gameMode}`,
     );
 
+    // GameService를 통해 봇을 부족한 만큼 채워넣고 방을 만듭니다.
     const result = this.gameService.createRoomWithBots(
       roomId,
       users,
@@ -44,59 +50,32 @@ export class GameController {
       gameMode,
     );
 
+    // 매칭 서버가 응답을 받아 로깅용으로 사용합니다.
     return {
-      message: '게임룸이 생성되었습니다.',
+      message: 'Game room initialized successfully',
       roomId: result.roomId,
       botsAdded: result.botsToAdd,
-      ip: 'localhost',
-      port: 3001,
     };
   }
 
-	
-
   // =========================
-  // 게임 강제 종료 (새로고침 / 탭 닫기)
+  // 유저의 강제 나가기 / 탭 닫기 요청
+  // 요청자: 클라이언트 (HTTP)
   // =========================
   @UseGuards(AuthGuard('jwt'))
   @Post('api/game/leave')
   leaveGame(@Req() req) {
-    const googleSub = req.user?.googleSub;
+    // JWT에서 유저 ID 추출 (Google Sub 등)
+    const googleSub = req.user?.googleSub || req.user?.sub;
 
     if (!googleSub) {
-      throw new BadRequestException('googleSub가 없습니다.');
+      throw new BadRequestException('유저 정보를 찾을 수 없습니다.');
     }
 
-    console.log(`🚪 [GAME LEAVE] googleSub=${googleSub}`);
+    this.logger.log(`🚪 [API] 유저 나가기 요청: ${googleSub}`);
 
+    // 해당 유저의 소켓 연결을 끊어버림
     this.gameService.handleUserLeave(googleSub);
-
-    return { ok: true };
-  }
-
-  // =========================
-// 게임 종료 알림 (게임 서버 → 매칭 서버)
-// =========================
-@Post('internal/game-finished')
-  async gameFinished(
-    @Body()
-    body: {
-      roomId: string;
-      userIds: string[];
-    },
-  ) {
-    const { roomId, userIds } = body;
-
-    if (!roomId || !userIds || userIds.length === 0) {
-      throw new BadRequestException('roomId와 userIds는 필수입니다.');
-    }
-
-    console.log(
-      `🏁 [GAME FINISHED] roomId=${roomId}, users=${userIds.join(',')}`,
-    );
-
-    // 🔥 여기서 "매칭 서버로 알림"만 한다
-    await this.gameService.notifyGameFinished(roomId, userIds);
 
     return { ok: true };
   }
