@@ -4,7 +4,7 @@ metadata:
   name: matching-deploy
   namespace: matching
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: matching
@@ -74,7 +74,7 @@ spec:
 
             - name: AGONES_ALLOCATOR_ENDPOINT
               # 환경변수 분리 필수
-              value: "https://k8s-agonessy-agonesal-3401dfe366-a0554574c75db365.elb.ap-northeast-2.amazonaws.com"
+              value: "https://k8s-agonessy-agonesal-449f948e7f-03ea70379dce07f5.elb.ap-northeast-2.amazonaws.com"
             - name: AGONES_CLIENT_CERT_PATH
               value: "/etc/agones/allocator/client/tls.crt"
             - name: AGONES_CLIENT_KEY_PATH
@@ -84,6 +84,18 @@ spec:
 
             - name: ROUTE53_HOSTED_ZONE_ID
               value: Z03982962I5Q4PS90RDSK
+            - name: AWS_REGION
+              value: us-east-1
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: AWS_SECRET_ACCESS_KEY
 
           readinessProbe:
             httpGet:
