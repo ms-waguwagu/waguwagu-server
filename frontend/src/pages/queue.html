@@ -5,16 +5,16 @@
 		<link rel="stylesheet" href="../styles/queue.css">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script type="module">
-    // 🔒 로그인 체크
+    // 로그인 체크
     const token = localStorage.getItem("accessToken");
     if (!token) {
       location.href = "./login.html";
     }
 
-    // ❌ 게임 중 잔존 roomId 있으면 홈으로
+    // 게임 중 잔존 roomId 있으면 홈으로
     const roomId = localStorage.getItem("waguwagu_room_id");
     if (roomId) {
-      console.warn("❗ 잔존 roomId 감지 → 홈으로 이동");
+      console.warn("잔존 roomId 감지 → 홈으로 이동");
       localStorage.removeItem("waguwagu_room_id");
       location.replace("./home.html");
     }

@@ -6,6 +6,8 @@ export class AgonesService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AgonesService.name);
   private readonly agonesSDK: any;
   private healthTimer?: NodeJS.Timeout;
+  private shutdownTimer?: NodeJS.Timeout;
+  private gameStarted = false;
 
   constructor() {
     this.agonesSDK = new AgonesSDK();
@@ -16,7 +18,7 @@ export class AgonesService implements OnModuleInit, OnModuleDestroy {
       await this.agonesSDK.connect();
       this.logger.log('Agones에 연결되었습니다.');
 
-      //주기적으로 health ping 보내기 (2초마다 )
+      // 2초마다 health ping
       this.healthTimer = setInterval(() => {
         try {
           this.agonesSDK.health();
@@ -32,7 +34,22 @@ export class AgonesService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  // 임시: 게임 시작 시 호출
+  // (첫 유저 WebSocket 접속 시)
+  onGameStart() {
+    if (this.gameStarted) return;
+
+    this.gameStarted = true;
+    this.logger.warn('게임 시작 감지 → 20초 후 shutdown 예약');
+
+    this.shutdownTimer = setTimeout(() => {
+      this.logger.warn('개발용 타임아웃(20초) → Agones Shutdown');
+      this.agonesSDK.shutdown();
+    }, 20_000);
+  }
+
   onModuleDestroy() {
     if (this.healthTimer) clearInterval(this.healthTimer);
+    if (this.shutdownTimer) clearTimeout(this.shutdownTimer);
   }
 }

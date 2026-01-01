@@ -101,17 +101,17 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { userId, nickname } = client.data;
 
     try {
+      await this.queueService.recoverStaleInGameSession(userId);
+
       await this.queueService.enterQueue(userId, nickname);
 
-      // 성공 응답 전송
       client.emit('queue_joined', { message: '대기열 진입 성공' });
-
-      // 대기열 상태 갱신하여 모두에게 푸시
       this.broadcastQueueStatus();
     } catch (error) {
       client.emit('error', { message: error.message });
     }
   }
+
 
   // 대기열 취소 요청
   @SubscribeMessage('cancel_queue')
@@ -148,6 +148,8 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { userId, nickname } = client.data;
 
     try {
+      await this.queueService.recoverStaleInGameSession(userId);
+      
       await this.queueService.enterBossQueue(userId, nickname);
 
       // 성공 응답 전송
@@ -190,13 +192,19 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Worker가 호출할 함수. 매칭 성사 알림
   broadcastMatchFound(userIds: string[], roomInfo: any) {
+    this.logger.log(`[broadcastMatchFound] userIds: ${userIds.join(', ')}`);
+    this.logger.log(`[broadcastMatchFound] 연결된유저: ${JSON.stringify([...this.connectedUsers.entries()])}`);
+    
     userIds.forEach((userId) => {
       const socketId = this.connectedUsers.get(userId);
       if (socketId) {
+        this.logger.log(`[broadcastMatchFound] Sending match_found to userId=${userId}, socketId=${socketId}`);
         this.server.to(socketId).emit('match_found', {
           message: '매칭 성공! 게임 서버로 이동합니다.',
           ...roomInfo,
         });
+      } else {
+        this.logger.warn(`[broadcastMatchFound] userId=${userId} not found in connectedUsers map`);
       }
     });
   }

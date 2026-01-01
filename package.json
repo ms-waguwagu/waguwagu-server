@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@aws-sdk/client-route-53": "^3.958.0",
     "@grpc/grpc-js": "^1.14.3",
     "@grpc/proto-loader": "^0.8.0",
     "@nestjs/config": "^4.0.2",

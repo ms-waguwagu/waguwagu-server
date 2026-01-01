@@ -1,16 +1,14 @@
-export const CONFIG = {
-	// 전부 수정 필요
-  API_URL: "/api/game", // NestJS REST API
-  SOCKET_URL: "/api/game/game", // WebSocket 서버
-  BOSS_GAME_URL: "/api/game/boss", // ‼️보스테스트‼️
-};
-
 export const MATCHING_CONFIG = {
-	API_BASE_URL: "https://matching.waguwagu.cloud",
+  API_BASE_URL: "https://matching.waguwagu.cloud",
+  WS_BASE_URL: "wss://matching.waguwagu.cloud",
 
-  // WebSocket (ALB 직결)
-  WS_MATCHING_URL: "https://matching.waguwagu.cloud/queue",
-	
   GOOGLE_CLIENT_ID:
     "154265017834-ekukrom3qijqqks90uetmptji64bhto4.apps.googleusercontent.com",
+};
+
+export const CONFIG = {
+  API_URL: `${MATCHING_CONFIG.API_BASE_URL}/api/game`,
+  SOCKET_URL: `${MATCHING_CONFIG.WS_BASE_URL}/api/game/game`,
+  BOSS_GAME_URL: `${MATCHING_CONFIG.API_BASE_URL}/api/game/boss`,
+  WS_MATCHING_URL: `${MATCHING_CONFIG.WS_BASE_URL}/queue`,
 };

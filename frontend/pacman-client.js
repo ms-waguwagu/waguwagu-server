@@ -6,8 +6,15 @@ const token = localStorage.getItem("accessToken");
 const nickname = localStorage.getItem("waguwagu_nickname");
 
 if (!token || !nickname) {
+	// 게임 관련 localStorage 정리 후 로그인 페이지로
+  localStorage.removeItem("waguwagu_room_id");
+  localStorage.removeItem("waguwagu_match_token");
+  localStorage.removeItem("waguwagu_game_host");
+  localStorage.removeItem("waguwagu_game_port");
   alert("닉네임을 입력해주세요.");
   window.location.href = "src/pages/login.html";
+
+  throw new Error("Authentication required"); // 스크립트 실행 중단
 }
 
 // ====== DOM 요소 ======
