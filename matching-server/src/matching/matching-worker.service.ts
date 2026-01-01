@@ -174,6 +174,8 @@ export class MatchingWorker {
 				userIds: participants,
 				roomId: newRoomId,
 				expiresIn: '30s',
+        maxPlayers,
+        mode: 'NORMAL',
 			});
 			
 			this.logger.log(`매칭 토큰 생성: ${matchToken}`);
@@ -307,30 +309,40 @@ export class MatchingWorker {
       await this.queueService.updateStatus(userId, PlayerStatus.IN_GAME);
     }
 
-    // 2. 게임 룸 생성 요청
-    const gameServerUrl = this.configService.get<string>('GAME_SERVER_URL');
+    // // 2. 게임 룸 생성 요청
+    // const gameServerUrl = this.configService.get<string>('GAME_SERVER_URL');
 
-    const response = await axios.post(`${gameServerUrl}/internal/room`, {
+    // const response = await axios.post(`${gameServerUrl}/internal/room`, {
+    //   roomId: newRoomId,
+    //   users: participants,
+    //   botCount: botsToAdd,
+    //   maxPlayers,
+    //   mode: 'BOSS',
+    // });
+
+    // this.logger.log(
+    //   `[보스모드] 목표 인원: ${maxPlayers}, 매칭 된 유저 수: ${humanCount}, 봇 추가: ${botsToAdd}`,
+    // );
+    // const roomInfo = response.data;
+
+    // this.logger.log(`[보스모드] 게임 룸 생성 완료: ${newRoomId}`);
+
+    // 3. 매칭된 유저들에게 웹소켓으로 접속 정보 전송
+    const matchToken = this.matchingTokenService.issueToken({
+      userIds: participants,
       roomId: newRoomId,
-      users: participants,
-      botCount: botsToAdd,
+      expiresIn: '30s',
       maxPlayers,
       mode: 'BOSS',
     });
 
-    this.logger.log(
-      `[보스모드] 목표 인원: ${maxPlayers}, 매칭 된 유저 수: ${humanCount}, 봇 추가: ${botsToAdd}`,
-    );
-    const roomInfo = response.data;
-
-    this.logger.log(`[보스모드] 게임 룸 생성 완료: ${newRoomId}`);
-
-    // 3. 매칭된 유저들에게 웹소켓으로 접속 정보 전송
     this.queueGateway.broadcastMatchFound(participants, {
       roomId: newRoomId,
+      matchToken,
       mode: 'BOSS',
-      host: roomInfo.ip || 'localhost',
-      port: roomInfo.port || 3001,
+      // host: roomInfo.ip || 'localhost',
+      // port: roomInfo.port || 3001,
+      // Agones 연동 시 실제 호스트/포트 정보를 어떻게 가져올지 체크 필요
     });
   }
 }

@@ -25,6 +25,7 @@ interface RoomWrapper {
   engine: GameEngineService;
   users: string[];
   finished?: boolean;
+  countdownStarted?: boolean;
 }
 
 type GameMode = 'NORMAL' | 'BOSS';
@@ -57,7 +58,7 @@ export class GameGateway
     private bossManagerService: BossManagerService,
   ) {}
 
-	private verifyMatchToken(token: string): { userIds: string[]; roomId: string; nickname?: string; mode?: 'NORMAL' | 'BOSS' } {
+	private verifyMatchToken(token: string): { userIds: string[]; roomId: string; nickname?: string; mode?: 'NORMAL' | 'BOSS'; maxPlayers?: number } {
 		const secret = process.env.MATCH_TOKEN_SECRET || 'match-token-secret';
 
 		const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
@@ -74,6 +75,7 @@ export class GameGateway
 			roomId,
 			nickname: decoded.nickname as string | undefined,
 			mode: decoded.mode as 'NORMAL' | 'BOSS' | undefined,
+      maxPlayers: decoded.maxPlayers as number | undefined,
 		};
 	}
 
@@ -109,6 +111,7 @@ export class GameGateway
 
         if (payload.nickname) socket.data.nickname = payload.nickname;
         if (payload.mode) socket.data.mode = payload.mode as GameMode;
+        if (payload.maxPlayers) socket.data.maxPlayers = payload.maxPlayers;
 
         return next();
       } catch (err) {
@@ -122,13 +125,13 @@ export class GameGateway
 
   handleConnection(client: Socket) {
     this.logger.log(
-      `Client connected socketId=${client.id} userId=${client.data?.userId} roomId=${client.data?.roomId}`,
+      `Client connected socketId=${client.id} userIds=${client.data?.userIds.join(',')} roomId=${client.data?.roomId}`,
     );
   }
 
   async handleDisconnect(client: Socket) {
     this.logger.log(
-      `Client disconnected socketId=${client.id} userId=${client.data?.userId} roomId=${client.data?.roomId}`,
+      `Client disconnected socketId=${client.id} userIds=${client.data?.userIds.join(',')} roomId=${client.data?.roomId}`,
     );
 
     const roomId = client.data.roomId as string | undefined;
@@ -277,6 +280,9 @@ export class GameGateway
       data?.mode ??
       'NORMAL';
 
+    const maxPlayers = (client.data.maxPlayers as number | undefined) ?? 5;
+
+    const isNewRoom = !this.rooms[roomId];
     const roomWrapper = this.ensureRoom(roomId, mode);
     const room = roomWrapper.engine;
 
@@ -291,6 +297,19 @@ export class GameGateway
     }
 
     room.addPlayer(client.id, userId, nickname);
+
+    // [New] 봇 자동 추가 로직 (Agones 흐름 복구)
+    // 방이 처음 생성되었고, 토큰 등으로 전달받은 예상 유저수보다 부족한 경우 봇으로 채움
+    if (isNewRoom && !room.isBossMode()) {
+      const playersInToken = tokenUserIds.length;
+      const botsToAdd = Math.max(0, maxPlayers - playersInToken);
+      
+      this.logger.log(`[Agones Flow] Initializing room. roomId: ${roomId}, botsToAdd: ${botsToAdd}, maxPlayers: ${maxPlayers}, Players: ${playersInToken}`);
+      
+      for (let i = 0; i < botsToAdd; i++) {
+        room.addBotPlayer(); // BotManager에서 내부적으로 번호 매김
+      }
+    }
 
     // init-game 전송
     client.emit('init-game', {
@@ -313,13 +332,16 @@ export class GameGateway
         room.startBossMode();
       }
     } else {
-      if (totalPlayers === 5) {
+      // maxPlayers(봇 포함 5명)가 모이면 카운트다운 시작
+      if (totalPlayers >= maxPlayers && !roomWrapper.countdownStarted) {
+        roomWrapper.countdownStarted = true;
         this.startCountdown(roomId);
       }
     }
   }
 
   private startCountdown(roomId: string) {
+    this.logger.log(`[Countdown] Starting for room ${roomId}`);
     let count = 3;
 
     const interval = setInterval(() => {

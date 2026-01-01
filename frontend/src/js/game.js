@@ -144,10 +144,18 @@ export class GameManager {
 
     this.socket = io(`${socketUrl}/game`, {
       path: "/socket.io",
-      // transports 제거하여 polling과 websocket 모두 허용
+      reconnection: true,             // 재연결 활성화
+      reconnectionAttempts: 10,       // 최대 10번 시도
+      reconnectionDelay: 1000,        // 1초 간격
+      reconnectionDelayMax: 5000,     // 최대 5초 대기
+      timeout: 10000,                 // 연결 타임아웃 10초
       auth: {
         matchToken: this.matchToken,
       },
+    });
+
+    this.socket.on("connect_error", (err) => {
+      console.warn(`[GameManager] Connection Error: ${err.message}. Retrying...`);
     });
 
     this.socket.on("connect", () => {
@@ -204,7 +212,7 @@ export class GameManager {
       if (!serverState) return;
 
       // ‼️보스 테스트‼️
-      console.log("state.boss:", serverState.boss);
+      // console.log("state.boss:", serverState.boss);
 
       // 타이머 갱신 코드 추가
       const timerEl = document.getElementById("game-timer");

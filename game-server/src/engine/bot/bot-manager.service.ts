@@ -27,22 +27,25 @@ export class BotManagerService {
   }
 
   getBotCount(roomId: string): number {
-		this.ensureRoom(roomId);
-    return this.botCount[roomId];
+    this.ensureRoom(roomId);
+    return this.botPlayers[roomId].length;
   }
 
   getNextBotNumber(roomId: string): number {
-		this.ensureRoom(roomId);
+    this.ensureRoom(roomId);
     this.botCount[roomId] += 1;
     return this.botCount[roomId];
   }
 
   addBotPlayer(roomId: string, nickname?: string) {
-		this.ensureRoom(roomId);
+    this.ensureRoom(roomId);
     const spawnCol = 1;
     const spawnRow = 1;
     const offset = (TILE_SIZE - PLAYER_SIZE) / 2;
-    const botName = nickname ?? `bot-${this.botCount[roomId]}`;
+    
+    // 봇은 번호로 생성
+    const botNum = this.getNextBotNumber(roomId);
+    const botName = `bot-${botNum}`;
 
     this.botPlayers[roomId].push({
       id: botName,
