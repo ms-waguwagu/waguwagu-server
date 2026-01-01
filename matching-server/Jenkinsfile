@@ -6,9 +6,11 @@ pipeline {
   environment {
     AWS_REGION   = "ap-northeast-2"
 
-    
-    ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
-    
+    // ECR
+    ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
+    //061039804626
+
+
     // waguwagu-infra
     INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
     INFRA_BRANCH   = "main"

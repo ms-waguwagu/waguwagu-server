@@ -14,5 +14,5 @@ export class AppController {
     console.log('health check');
     return 'OK';
   }
-  //주석처리아무거나.
+  //주석처리아무거나
 }
