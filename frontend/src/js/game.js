@@ -179,6 +179,12 @@ export class GameManager {
       console.log("Map data received:", mapData);
       console.log(`My ID: ${playerId}, Joined Room: ${roomId}`);
 
+      // 로딩 화면 제거
+      const loadingOverlay = document.getElementById("loading-overlay");
+      if (loadingOverlay) {
+        loadingOverlay.classList.add("fade-out");
+      }
+
       this.renderer = new Renderer("pacman-canvas", mapData);
       this.renderer.draw(initialState);
     });
