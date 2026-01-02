@@ -58,7 +58,7 @@ export class GameGateway
     private bossManagerService: BossManagerService,
   ) {}
 
-	private verifyMatchToken(token: string): { userIds: string[]; roomId: string; nickname?: string; mode?: 'NORMAL' | 'BOSS'; maxPlayers?: number } {
+	private verifyMatchToken(token: string): { userIds: string[]; roomId: string; nickname?: string; mode?: 'NORMAL' | 'BOSS'; maxPlayers?: number; userNicknames?: Record<string, string> } {
 		const secret = process.env.MATCH_TOKEN_SECRET || 'match-token-secret';
 
 		const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
@@ -73,9 +73,9 @@ export class GameGateway
 		return {
 			userIds,
 			roomId,
-			nickname: decoded.nickname as string | undefined,
 			mode: decoded.mode as 'NORMAL' | 'BOSS' | undefined,
       maxPlayers: decoded.maxPlayers as number | undefined,
+      userNicknames: decoded.userNicknames as Record<string, string> | undefined,
 		};
 	}
 
@@ -109,7 +109,7 @@ export class GameGateway
         socket.data.userIds = payload.userIds;
         socket.data.roomId = payload.roomId;
 
-        if (payload.nickname) socket.data.nickname = payload.nickname;
+        if (payload.userNicknames) socket.data.userNicknames = payload.userNicknames;
         if (payload.mode) socket.data.mode = payload.mode as GameMode;
         if (payload.maxPlayers) socket.data.maxPlayers = payload.maxPlayers;
 
@@ -270,7 +270,9 @@ export class GameGateway
     const roomId = tokenRoomId;
 
     // nickname/mode도 가능하면 토큰 기준
+    const userNicknames = client.data.userNicknames as Record<string, string> | undefined;
     const nickname =
+      userNicknames?.[userId] ??
       (client.data.nickname as string | undefined) ??
       data?.nickname ??
       `user-${String(userId).slice(-6)}`;

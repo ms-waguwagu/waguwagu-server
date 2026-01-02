@@ -8,6 +8,7 @@ export interface MatchTokenPayload {
   expiresIn: string;
   maxPlayers?: number;
   mode?: 'NORMAL' | 'BOSS';
+  userNicknames?: Record<string, string>;
 }
 
 @Injectable()
@@ -44,6 +45,7 @@ export class MatchingTokenService {
         expiresIn: decoded.expiresIn,
         maxPlayers: decoded.maxPlayers,
         mode: decoded.mode,
+        userNicknames: decoded.userNicknames,
       };
     } catch (err) {
       throw new Error('INVALID_OR_EXPIRED_MATCH_TOKEN');
