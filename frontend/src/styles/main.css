@@ -157,9 +157,12 @@ body {
   filter: brightness(1.05);
 }
 
-#app button:active {
-  transform: translateY(1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.9), 0 0 8px rgba(255, 216, 77, 0.7);
+#user-info {
+  margin-bottom: 24px;
+  font-size: clamp(16px, 1.8vw, 24px);
+  color: #ffdd39;
+  text-shadow: 0 0 10px rgba(255, 221, 57, 0.4);
+  font-weight: bold;
 }
 
 #status-message {
@@ -169,11 +172,10 @@ body {
 }
 
 /*  창이 작아질수록, 오른쪽 밀림을 자동으로 줄여서 “항상 자연스럽게”  임시로 주석 처리 */
-@media (max-width: 1200px) {
+/* @media (max-width: 1200px) {
   :root {
-    /* --hero-shift-y: 1vh; */
   }
-}
+} */
 
 @media (max-width: 980px) {
   :root {

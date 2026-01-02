@@ -5,7 +5,10 @@ import * as jwt from 'jsonwebtoken';
 export interface MatchTokenPayload {
   userIds: string[];
   roomId: string;
-	expiresIn: string;
+  expiresIn: string;
+  maxPlayers?: number;
+  mode?: 'NORMAL' | 'BOSS';
+  userNicknames?: Record<string, string>;
 }
 
 @Injectable()
@@ -39,7 +42,10 @@ export class MatchingTokenService {
       return {
         userIds: decoded.userIds,
         roomId: decoded.roomId,
-				expiresIn: decoded.expiresIn,
+        expiresIn: decoded.expiresIn,
+        maxPlayers: decoded.maxPlayers,
+        mode: decoded.mode,
+        userNicknames: decoded.userNicknames,
       };
     } catch (err) {
       throw new Error('INVALID_OR_EXPIRED_MATCH_TOKEN');

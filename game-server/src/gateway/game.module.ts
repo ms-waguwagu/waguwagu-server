@@ -8,16 +8,18 @@ import { CoreModule } from 'src/engine/core/core.module';
 import { GameController } from './game.controller';
 import { GameService } from './game.service';
 import { BossModule } from '../boss/boss.module';
-
+import { AgonesModule } from '../agones/agones.module';
 
 @Module({
   imports: [
-		RankingModule, 
-		GhostModule, 
-		PlayerModule, 
-		BotModule, 
-		CoreModule,
-		BossModule],
+    RankingModule,
+    GhostModule,
+    PlayerModule,
+    BotModule,
+    CoreModule,
+    BossModule,
+    AgonesModule,
+  ],
   controllers: [GameController],
   providers: [GameGateway, GameService],
   exports: [GameGateway],

@@ -26,8 +26,8 @@ startButton.addEventListener("click", async () => {
 
     console.log("닉네임 설정 & 토큰 교체 완료:", nickname);
 
-    // 매칭 큐 페이지로 이동
-    window.location.href = "queue.html";
+    // 홈 화면으로 이동하여 닉네임 확인
+    window.location.href = "home.html";
   } catch (error) {
     statusMessage.textContent = error.message;
   }

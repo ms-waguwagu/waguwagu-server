@@ -5,7 +5,6 @@ console.log("[Queue.js] Loaded");
 const timerEl = document.getElementById("queue-timer");
 const cancelBtn = document.getElementById("cancel-queue-btn");
 const currentQueueCountEl = document.getElementById("current-queue-count");
-// const maxQueueCountEl = document.getElementById("max-queue-count"); // 필요 시 사용
 
 let seconds = 0;
 let timerInterval = null;

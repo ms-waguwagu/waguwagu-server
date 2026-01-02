@@ -27,6 +27,9 @@
             <div id="game-title">WAGUWAGU</div>
 
             <div id="app">
+              <div id="user-info">
+                <span id="display-nickname"></span>
+              </div>
               <button id="start-button">게임 시작</button>
               <button id="boss-start-button">보스 테스트</button>
               <button id="logout-button">로그아웃</button>
@@ -45,8 +48,14 @@
         location.href = "./login.html";
       }
 
-      // 🧹 홈 진입 시 게임 잔존 정보 정리
+      // 홈 진입 시 게임 잔존 정보 정리
       localStorage.removeItem("waguwagu_room_id");
+
+      // 닉네임 표시
+      const nickname = localStorage.getItem("waguwagu_nickname");
+      if (nickname) {
+        document.getElementById("display-nickname").textContent = nickname;
+      }
 
       // 게임 시작
       document.getElementById("start-button").onclick = () => {

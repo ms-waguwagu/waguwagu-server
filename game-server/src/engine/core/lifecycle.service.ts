@@ -116,10 +116,11 @@ export class LifecycleService {
   
     this.sendGameOverEvent(roomId);
   
+    /*
     // 여기서 매칭 서버에 알림
     try {
       const players = this.playerService.getPlayers(roomId);
-      const userIds = players.map(p => p.googleSub); // ⚠️ userId = googleSub
+      const userIds = players.map(p => p.googleSub); // userId = googleSub
   
       await axios.post(
         `${process.env.MATCHING_SERVER_URL}/internal/game-finished`,
@@ -135,6 +136,7 @@ export class LifecycleService {
         err,
       );
     }
+    */
   
     // Gateway에도 방 삭제 요청
     setTimeout(() => {

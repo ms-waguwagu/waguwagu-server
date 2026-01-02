@@ -144,10 +144,18 @@ export class GameManager {
 
     this.socket = io(`${socketUrl}/game`, {
       path: "/socket.io",
-      // transports 제거하여 polling과 websocket 모두 허용
+      reconnection: true,             // 재연결 활성화
+      reconnectionAttempts: 10,       // 최대 10번 시도
+      reconnectionDelay: 1000,        // 1초 간격
+      reconnectionDelayMax: 5000,     // 최대 5초 대기
+      timeout: 10000,                 // 연결 타임아웃 10초
       auth: {
         matchToken: this.matchToken,
       },
+    });
+
+    this.socket.on("connect_error", (err) => {
+      console.warn(`[GameManager] Connection Error: ${err.message}. Retrying...`);
     });
 
     this.socket.on("connect", () => {
@@ -162,6 +170,7 @@ export class GameManager {
       this.socket.emit("join-room", {
         roomId: this.roomId,
         userId: this.googlesub, // googlesub을 userId로 전송
+        nickname: this.nickname, // 닉네임 추가 실시간 점수판용
       });
     });
 
@@ -169,6 +178,12 @@ export class GameManager {
       const { playerId, roomId, mapData, initialState } = data;
       console.log("Map data received:", mapData);
       console.log(`My ID: ${playerId}, Joined Room: ${roomId}`);
+
+      // 로딩 화면 제거
+      const loadingOverlay = document.getElementById("loading-overlay");
+      if (loadingOverlay) {
+        loadingOverlay.classList.add("fade-out");
+      }
 
       this.renderer = new Renderer("pacman-canvas", mapData);
       this.renderer.draw(initialState);
@@ -204,7 +219,7 @@ export class GameManager {
       if (!serverState) return;
 
       // ‼️보스 테스트‼️
-      console.log("state.boss:", serverState.boss);
+      // console.log("state.boss:", serverState.boss);
 
       // 타이머 갱신 코드 추가
       const timerEl = document.getElementById("game-timer");
@@ -230,6 +245,7 @@ export class GameManager {
       }
 
       this.latestGameState = serverState;
+      this.updateScoreboard(serverState);
     });
 
     this.socket.on("game-over", (data) => {
@@ -246,27 +262,34 @@ export class GameManager {
     });
   }
 
-  showGameEndModal(state) {
-    // 1. 점수판 업데이트
+  updateScoreboard(state) {
     const scoreEntries = document.getElementById("score-entries");
     if (scoreEntries && state.players) {
       const allPlayers = [
-        ...Object.values(state.players || {}), // 일반 플레이어
-        ...(state.botPlayers || []), // 봇 플레이어는 배열이므로 그대로 펼치기
+        ...Object.values(state.players || {}),
+        ...(state.botPlayers || []),
       ];
-      console.log("GAME OVER - 최종 점수 확인:", allPlayers);
 
-      const players = allPlayers.sort((a, b) => b.score - a.score);
+      const players = allPlayers
+        .filter((p) => p.score !== undefined)
+        .sort((a, b) => b.score - a.score);
 
       scoreEntries.innerHTML = "";
       players.forEach((player, i) => {
         scoreEntries.innerHTML += `
-              <div>
-                ${i + 1}위 - ${player.nickname} : ${player.score}
-              </div>
-            `;
+          <div class="score-row">
+            <span class="rank">${i + 1}위</span>
+            <span class="nickname">${player.nickname}</span>
+            <span class="score">${player.score}</span>
+          </div>
+        `;
       });
     }
+  }
+
+  showGameEndModal(state) {
+    // 1. 점수판 업데이트
+    this.updateScoreboard(state);
 
     // 2. 점수판 중앙 이동 애니메이션
     const scoreboard = document.getElementById("scoreboard");
