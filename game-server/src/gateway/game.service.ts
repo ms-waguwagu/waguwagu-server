@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { GameGateway } from './game.gateway';
-import axios from 'axios'; 
+import axios from 'axios';
 
 @Injectable()
 export class GameService {
@@ -81,10 +81,7 @@ export class GameService {
         `🏁 [GAME FINISHED] roomId=${roomId}, users=${userIds.join(',')}`,
       );
     } catch (err) {
-      this.logger.error(
-        `[GAME FINISHED FAIL] roomId=${roomId}`,
-        err?.message,
-      );
+      this.logger.error(`[GAME FINISHED FAIL] roomId=${roomId}`, err?.message);
     }
   }
 }

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable } from '@nestjs/common';
 import { Direction } from '../types/direction.type';
 import { TILE_SIZE, MAP_DESIGN } from '../map/map.data';
@@ -144,7 +146,7 @@ export class GameEngineService {
 
   getAllPlayerScores() {
     return this.playerService.getPlayers(this.roomId).map((p) => ({
-      playerId: p.id,
+      userId: p.id,
       nickname: p.nickname,
       score: p.score,
     }));
