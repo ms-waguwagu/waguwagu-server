@@ -62,6 +62,7 @@ export class GameService {
   // =========================
   // 게임 종료 → 매칭 서버 알림
   // =========================
+  /*
   async notifyGameFinished(roomId: string, userIds: string[]) {
     try {
       await axios.post(
@@ -78,7 +79,7 @@ export class GameService {
       );
 
       this.logger.log(
-        `🏁 [GAME FINISHED] roomId=${roomId}, users=${userIds.join(',')}`,
+        `[GAME FINISHED] roomId=${roomId}, users=${userIds.join(',')}`,
       );
     } catch (err) {
       this.logger.error(
@@ -87,4 +88,5 @@ export class GameService {
       );
     }
   }
+  */
 }

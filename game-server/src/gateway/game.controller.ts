@@ -96,7 +96,7 @@ export class GameController {
     );
 
     // 여기서 "매칭 서버로 알림"만 한다
-    await this.gameService.notifyGameFinished(roomId, userIds);
+    // await this.gameService.notifyGameFinished(roomId, userIds);
 
     return { ok: true };
   }

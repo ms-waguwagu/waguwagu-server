@@ -9,6 +9,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import axios from 'axios';
+import { AgonesService } from '../agones/agones.service';
 
 import { GameEngineService } from '../engine/game-engine.service';
 import { RankingService } from '../ranking/ranking.service';
@@ -56,6 +57,7 @@ export class GameGateway
     private lifecycleService: LifecycleService,
     private gameLoopService: GameLoopService,
     private bossManagerService: BossManagerService,
+    private agonesService: AgonesService,
   ) {}
 
 	private verifyMatchToken(token: string): { userIds: string[]; roomId: string; nickname?: string; mode?: 'NORMAL' | 'BOSS'; maxPlayers?: number; userNicknames?: Record<string, string> } {
@@ -131,38 +133,48 @@ export class GameGateway
 
   async handleDisconnect(client: Socket) {
     this.logger.log(
-      `Client disconnected socketId=${client.id} userIds=${client.data?.userIds.join(',')} roomId=${client.data?.roomId}`,
+      `Client disconnected socketId=${client.id} userId=${client.data?.userId} roomId=${client.data?.roomId}`,
     );
 
     const roomId = client.data.roomId as string | undefined;
-    if (!roomId) return;
+    if (roomId) {
+      const roomWrapper = this.rooms[roomId];
+      if (roomWrapper) {
+        const room = roomWrapper.engine;
+        room.removePlayer(client.id);
+        client.leave(roomId);
 
-    const roomWrapper = this.rooms[roomId];
-    if (!roomWrapper) return;
+        this.logger.log(`Room ${roomId} human players left: ${room.playerCount()}`);
 
-    const room = roomWrapper.engine;
-
-    // 플레이어 제거
-    room.removePlayer(client.id);
-    client.leave(roomId);
-
-    // 방에 아무도 없으면 종료 처리
-    if (room.playerCount() === 0) {
-      if (roomWrapper.finished) return;
-      roomWrapper.finished = true;
-
-      const userIds = Array.from(new Set(roomWrapper.users));
-
-      await this.notifyGameFinished(roomId, userIds);
-
-      room.stopInterval();
-      delete this.rooms[roomId];
-      return;
+        // 만약 방에 사람이 없고 아직 정리가 안 된 경우 간단 정리
+        if (room.playerCount() === 0 && !roomWrapper.finished) {
+          this.logger.log(`Room ${roomId} is now empty. Stopping interval.`);
+          roomWrapper.finished = true;
+          room.stopInterval();
+          // delete this.rooms[roomId]; // LifecycleService에서 지우므로 여기선 굳이 안 지워도 됨
+        }
+        
+        // 남아있는 플레이어들에게 상태 전송 (방이 떠 있는 경우만)
+        if (this.rooms[roomId]) {
+          this.server.to(roomId).emit('state', room.getState());
+        }
+      }
     }
-    // 남아있는 플레이어들에게 상태 전송
-    this.server.to(roomId).emit('state', room.getState());
+
+    // 어떤 유저가 나가든 항상 전체 서버 인원 체크
+    await this.checkPodShutdown();
   }
 
+  private async checkPodShutdown() {
+    const connectedSockets = await this.server.fetchSockets();
+    const count = connectedSockets.length;
+    this.logger.log(`[PodShutdownCheck] 현재 연결된 총 소켓 수: ${count}`);
+
+    if (count === 0) {
+      this.logger.warn('[PodShutdownCheck] 서버에 더 이상 연결된 유저가 없습니다. Agones Shutdown 호출');
+      await this.agonesService.shutdown();
+    }
+  }
   // HTTP에서 강퇴/나가기 처리할 때 사용
   handleHttpLeave(userId: string) {
     for (const socket of this.server.sockets.sockets.values()) {
@@ -196,6 +208,9 @@ export class GameGateway
     this.server.in(roomId).disconnectSockets();
 
     delete this.rooms[roomId];
+    this.logger.log(`Room ${roomId} removed from GameGateway.`);
+
+    this.checkPodShutdown();
   }
 
   // 내부: 방 엔진 생성
@@ -377,7 +392,7 @@ export class GameGateway
 
         const userIds = Array.from(new Set(roomWrapper.users));
 
-        await this.notifyGameFinished(roomId, userIds);
+        // await this.notifyGameFinished(roomId, userIds);
 
         room.stopInterval();
         delete this.rooms[roomId];
@@ -419,6 +434,7 @@ export class GameGateway
   // ============================
   // matching 서버로 종료 알림
   // ============================
+  /*
   private async notifyGameFinished(roomId: string, userIds: string[]) {
     if (!roomId || !userIds || userIds.length === 0) {
       this.logger.warn('game-finished: invalid payload');
@@ -443,4 +459,5 @@ export class GameGateway
       this.logger.error('game-finished notify failed', err as any);
     }
   }
+  */
 }
