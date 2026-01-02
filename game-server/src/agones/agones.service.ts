@@ -34,18 +34,21 @@ export class AgonesService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  // 임시: 게임 시작 시 호출
-  // (첫 유저 WebSocket 접속 시)
+  // 게임 시작 시 호출 (Agones 상태 관리용)
   onGameStart() {
     if (this.gameStarted) return;
-
     this.gameStarted = true;
-    this.logger.warn('게임 시작 감지 → 20초 후 shutdown 예약');
+    this.logger.log('게임 시작 감지 (Agones 상태 유지)');
+  }
 
-    this.shutdownTimer = setTimeout(() => {
-      this.logger.warn('개발용 타임아웃(20초) → Agones Shutdown');
-      this.agonesSDK.shutdown();
-    }, 20_000);
+  // 명시적 셧다운 (방에 유저가 없을 때 호출)
+  async shutdown() {
+    this.logger.warn('인원 0명 감지 -> Agones Shutdown 실행');
+    try {
+      await this.agonesSDK.shutdown();
+    } catch (e) {
+      this.logger.error('Agones shutdown 호출 실패', e);
+    }
   }
 
   onModuleDestroy() {

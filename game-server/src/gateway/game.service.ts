@@ -5,7 +5,6 @@ import {
   Logger,
 } from '@nestjs/common';
 import { GameGateway } from './game.gateway';
-import axios from 'axios';
 
 @Injectable()
 export class GameService {
@@ -13,75 +12,53 @@ export class GameService {
 
   constructor(private readonly gameGateway: GameGateway) {}
 
+  // =========================================
+  // 룸 생성 + 봇 자동 추가
+  // =========================================
   createRoomWithBots(
     roomId: string,
     users: string[],
     maxPlayers = 5,
     mode: 'NORMAL' | 'BOSS' = 'NORMAL',
   ) {
-    // 1. 방 생성
-    const isCreated = this.gameGateway.ensureRoom(roomId, mode);
-
-    if (!isCreated) {
+    // 1️⃣ 이미 방이 존재하면 거부
+    const existingRoom = this.gameGateway.getRoom(roomId);
+    if (existingRoom) {
       throw new ConflictException('이미 존재하는 방 ID입니다.');
     }
 
-    // 2. 방 엔진 가져오기
-    const room = this.gameGateway.getRoom(roomId);
+    // 2️⃣ 방 생성
+    const roomWrapper = this.gameGateway.ensureRoom(roomId, mode);
+    const room = roomWrapper.engine;
+
     if (!room) {
-      throw new InternalServerErrorException('게임 엔진 생성에 실패했습니다.');
+      throw new InternalServerErrorException('게임 엔진 생성 실패');
     }
 
-    // 3. 사람 수 기준으로 부족한 봇 수 계산
+    // 3️⃣ 봇 수 계산
     const humanCount = users.length;
     const botsToAdd = Math.max(0, maxPlayers - humanCount);
 
-    this.logger.debug(
-      `[${mode}] 유저 ${humanCount}명, 목표 ${maxPlayers}명 → 봇 ${botsToAdd}개 추가`,
+    this.logger.log(
+      `[ROOM INIT] roomId=${roomId}, humans=${humanCount}, bots=${botsToAdd}, mode=${mode}`,
     );
 
-    // 4. 봇 추가
+    // 4️⃣ 봇 추가
     for (let i = 0; i < botsToAdd; i++) {
-      const botNumber = room.getNextBotNumber();
-      const botName = `bot-${botNumber}`;
-      room.addBotPlayer(botName);
-
-      this.logger.debug(`🤖 BOT 생성: ${botName}`);
+      room.addBotPlayer();
     }
 
-    return { roomId, botsToAdd };
+    return {
+      roomId,
+      botsToAdd,
+    };
   }
 
-  // =========================
-  // 새로고침 / 탭 닫기 처리
-  // =========================
+  // =========================================
+  // 새로고침 / 뒤로가기 / 탭 닫기
+  // =========================================
   handleUserLeave(googleSub: string) {
+    this.logger.log(`[GAME LEAVE] user=${googleSub}`);
     this.gameGateway.handleHttpLeave(googleSub);
-  }
-
-  // =========================
-  // 게임 종료 → 매칭 서버 알림
-  // =========================
-  async notifyGameFinished(roomId: string, userIds: string[]) {
-    try {
-      await axios.post(
-        `${process.env.MATCHING_INTERNAL_URL}/internal/game-finished`,
-        {
-          roomId,
-          userIds,
-        },
-        {
-          headers: {
-            'x-internal-token': process.env.INTERNAL_TOKEN,
-          },
-        },
-      );
-
-      this.logger.log(
-        `🏁 [GAME FINISHED] roomId=${roomId}, users=${userIds.join(',')}`,
-      );
-    } catch (err) {
-      this.logger.error(`[GAME FINISHED FAIL] roomId=${roomId}`, err?.message);
-    }
   }
 }

@@ -169,6 +169,9 @@ export class MatchingWorker {
 				throw new Error(`[Agones] GameServer 할당 실패: ${gameserverName}(${gameserverIp}:${port})`);
 			}
 		
+			// 매칭된 유저들의 닉네임 정보 가져오기
+			const userNicknames = await this.getUserNicknames(participants);
+
 			// 매칭 완료 후
 			const matchToken = this.matchingTokenService.issueToken({
 				userIds: participants,
@@ -176,6 +179,7 @@ export class MatchingWorker {
 				expiresIn: '30s',
         maxPlayers,
         mode: 'NORMAL',
+				userNicknames,
 			});
 			
 			this.logger.log(`매칭 토큰 생성: ${matchToken}`);
@@ -327,6 +331,9 @@ export class MatchingWorker {
 
     // this.logger.log(`[보스모드] 게임 룸 생성 완료: ${newRoomId}`);
 
+    // 매칭된 유저들의 닉네임 정보 가져오기
+    const userNicknames = await this.getUserNicknames(participants);
+
     // 3. 매칭된 유저들에게 웹소켓으로 접속 정보 전송
     const matchToken = this.matchingTokenService.issueToken({
       userIds: participants,
@@ -334,6 +341,7 @@ export class MatchingWorker {
       expiresIn: '30s',
       maxPlayers,
       mode: 'BOSS',
+      userNicknames,
     });
 
     this.queueGateway.broadcastMatchFound(participants, {
@@ -344,5 +352,18 @@ export class MatchingWorker {
       // port: roomInfo.port || 3001,
       // Agones 연동 시 실제 호스트/포트 정보를 어떻게 가져올지 체크 필요
     });
+  }
+
+  private async getUserNicknames(
+    userIds: string[],
+  ): Promise<Record<string, string>> {
+    const nicknames: Record<string, string> = {};
+    for (const userId of userIds) {
+      const session = await this.queueService.getSessionInfo(userId);
+      if (session && session.nickname) {
+        nicknames[userId] = session.nickname;
+      }
+    }
+    return nicknames;
   }
 }

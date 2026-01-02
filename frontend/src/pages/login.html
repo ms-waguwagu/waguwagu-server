@@ -37,18 +37,17 @@
           <div id="center-area">
             <div id="game-title">WAGUWAGU</div>
 
-            <!-- 🔥 구글 로그인 버튼 영역 -->
+            <!-- 구글 로그인 버튼 영역 -->
             <div id="google-login-area"></div>
 
-            <!-- 🔥 OAuth 이후 신규 유저만 쓰는 닉네임 카드 -->
+            <!-- OAuth 이후 신규 유저만 쓰는 닉네임 카드 -->
             <div id="app">
               <input
                 type="text"
                 id="nickname-input"
-                placeholder="닉네임 입력"
+                placeholder="닉네임을 입력해주세요"
               />
-              <button id="start-button">게임 시작</button>
-              <button id="boss-start-button">보스 테스트</button>
+              <button id="start-button">준비 완료</button>
               <p id="status-message"></p>
             </div>
           </div>
@@ -83,8 +82,8 @@
                 document.getElementById("google-login-area").style.display =
                   "none";
               } else {
-                // 기존 유저 → 바로 큐로
-                location.href = "./queue.html";
+                // 기존 유저 → 바로 홈으로 (닉네임 확인용)
+                location.href = "./home.html";
               }
             } catch (e) {
               alert(e.message);
