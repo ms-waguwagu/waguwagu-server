@@ -1,7 +1,7 @@
 // boss-game.js
 
 import { GameManager } from "./game.js";
-import { CONFIG } from "../../config.js";
+import { CONFIG } from "/config.js";
 
 // ---------------------------------------------
 // 1) URL에서 roomId 가져오기

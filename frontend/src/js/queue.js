@@ -1,4 +1,4 @@
-import { MATCHING_CONFIG } from "../../config.js";
+import { MATCHING_CONFIG } from "/config.js";
 console.log("[Queue.js] Loaded");
 
 // DOM 요소 가져오기
@@ -15,6 +15,7 @@ function formatTime(sec) {
   const s = String(sec % 60).padStart(2, "0");
   return `0:${s}`;
 }
+
 
 // 타이머 시작
 function startTimer() {
@@ -94,9 +95,14 @@ export function initQueueScreen(socket, onMatchFound, isBossMode = false) {
   const onMatchFoundEvent = (data) => {
     console.log("매칭 성공!", data);
     stopTimer();
-    removeListeners(); // 대기열 관련 리스너 정리
+    removeListeners();
 
-    // 매칭 성공 콜백 실행 (게임 화면으로 전환 & 접속 Handoff)
+    localStorage.setItem("waguwagu_room_id", data.roomId);
+    localStorage.setItem("waguwagu_match_token", data.matchToken);
+    localStorage.setItem("waguwagu_game_host", data.host);
+    localStorage.setItem("waguwagu_game_port", data.port);
+    localStorage.setItem("waguwagu_game_mode", data.mode || "NORMAL");
+
     if (onMatchFound) {
       onMatchFound(data);
     }
@@ -174,13 +180,12 @@ if (document.getElementById("queue-screen")) {
 		
     // socket.io-client가 로드되어 있어야 함 (CDN)
     if (typeof io !== "undefined") {
-			const MATCHING_WS_URL = "https://matching.waguwagu.cloud"; // 고정 도메인
-      const socket = io(`${MATCHING_WS_URL}/queue`,{
+      const socket = io(`${MATCHING_CONFIG.WS_BASE_URL}/queue`, {
         path: "/socket.io",
         auth: { token },
         transports: ["websocket"],
       });
-      console.log(`[Queue] Connecting to Matching Server: ${MATCHING_WS_URL}/queue`);
+
 
       // 소켓 연결되면 대기열 진입
       socket.on("connect", () => {

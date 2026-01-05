@@ -21,6 +21,7 @@ import { CollisionService } from 'src/engine/core/collision.service';
 import { LifecycleService } from 'src/engine/core/lifecycle.service';
 import { GameLoopService } from 'src/engine/core/game-loop.service';
 import { BossManagerService } from '../boss/boss-manager.service';
+import { GameResultProducer } from './producer/game-result.producer';
 
 interface RoomWrapper {
   engine: GameEngineService;
@@ -59,6 +60,7 @@ export class GameGateway
     private gameLoopService: GameLoopService,
     private bossManagerService: BossManagerService,
     private agonesService: AgonesService,
+    private readonly gameResultProducer: GameResultProducer,
   ) {}
 
   private verifyMatchToken(token: string): {
@@ -139,7 +141,7 @@ export class GameGateway
   }
 
   // ✅ 새로고침/뒤로가기/탭닫기 = 소켓 끊김 → "탈주" 취급 → 결과 전송 X
-  async handleDisconnect(client: Socket) {
+  handleDisconnect(client: Socket) {
     const roomId = client.data.roomId as string | undefined;
     const googleSub = client.data.userId as string | undefined;
 
@@ -468,20 +470,20 @@ export class GameGateway
       return;
     }
 
-    const url =
-      process.env.MATCHING_INTERNAL_URL ||
-      'http://matching:3000/internal/game-finished';
-
     try {
-      await axios.post(url, { roomId, results }, { timeout: 3000 });
+      await this.gameResultProducer.sendGameFinished({
+        roomId,
+        endedAt: Date.now(),
+        results,
+      });
 
       this.logger.log(
-        `🏁 game-finished notified roomId=${roomId} results=${results
+        `🏁 GAME_FINISHED sent roomId=${roomId} results=${results
           .map((r) => `${r.userId}:${r.score}`)
           .join(', ')}`,
       );
-    } catch (err: any) {
-      this.logger.error('game-finished notify failed', err);
+    } catch (err) {
+      this.logger.error('GAME_FINISHED send failed', err);
     }
   }
 }

@@ -8,6 +8,7 @@ import { GameController } from './game.controller';
 import { GameService } from './game.service';
 import { BossModule } from '../boss/boss.module';
 import { AgonesModule } from '../agones/agones.module';
+import { GameResultProducer } from './producer/game-result.producer';
 
 @Module({
   imports: [
@@ -19,7 +20,7 @@ import { AgonesModule } from '../agones/agones.module';
     AgonesModule,
   ],
   controllers: [GameController],
-  providers: [GameGateway, GameService],
+  providers: [GameGateway, GameService, GameResultProducer],
   exports: [GameGateway],
 })
 export class GameModule {}

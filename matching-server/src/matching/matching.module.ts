@@ -7,7 +7,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { MatchingWorker } from './matching-worker.service';
 import { MatchingGameLoopController } from './matching-gameloop.controller';
 
-import { GameFinishedController } from '../internal/game-finished.controller';
 import { GameFinishedService } from '../internal/game-finished.service';
 
 import { RankingService } from '../ranking/ranking.service';
@@ -17,6 +16,7 @@ import { QueueModule } from '../queue/queue.module';
 import { AgonesAllocatorModule } from '../agones-allocator/agoness-allocator.module';
 import { MatchingTokenService } from './matching-token.service';
 import { Route53Service } from '../agones-allocator/route53.service';
+import { GameFinishedConsumer } from 'src/ranking/game-finished.consumer';
 
 @Module({
   imports: [
@@ -26,14 +26,12 @@ import { Route53Service } from '../agones-allocator/route53.service';
     // ⭐ RDS(GameRecord) 사용
     TypeOrmModule.forFeature([GameRecord]),
   ],
-  controllers: [
-    MatchingGameLoopController,
-    GameFinishedController, // ⭐ 추가
-  ],
+  controllers: [MatchingGameLoopController],
   providers: [
     MatchingWorker,
     MatchingTokenService,
     Route53Service,
+    GameFinishedConsumer,
 
     // ⭐ game-finished 파이프라인
     GameFinishedService,

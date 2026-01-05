@@ -29,7 +29,6 @@ export class MatchingWorker {
   // 1초마다 실행
   @Interval(1000)
   async handleMatchmaking() {
-
     //클러스터 전역 리더 락
     const leader = await this.queueService.acquireLock(
       'matchmaking:leader',
@@ -45,7 +44,6 @@ export class MatchingWorker {
       return;
     }
     this.isProcessing = true;
-
 
     let participants: string[] | null = null;
 
@@ -165,46 +163,51 @@ export class MatchingWorker {
     // this.logger.log(`게임 룸 생성 완료: ${newRoomId}`);
 
     // 3. 매칭된 유저들에게 웹소켓으로 접속 정보 전송
-			if (!gameserverIp || !port || !gameserverName) {
-				throw new Error(`[Agones] GameServer 할당 실패: ${gameserverName}(${gameserverIp}:${port})`);
-			}
-		
-			// 매칭된 유저들의 닉네임 정보 가져오기
-			const userNicknames = await this.getUserNicknames(participants);
+    if (!gameserverIp || !port || !gameserverName) {
+      throw new Error(
+        `[Agones] GameServer 할당 실패: ${gameserverName}(${gameserverIp}:${port})`,
+      );
+    }
 
-			// 매칭 완료 후
-			const matchToken = this.matchingTokenService.issueToken({
-				userIds: participants,
-				roomId: newRoomId,
-				expiresIn: '30s',
-        maxPlayers,
-        mode: 'NORMAL',
-				userNicknames,
-			});
-			
-			this.logger.log(`매칭 토큰 생성: ${matchToken}`);
+    // 매칭된 유저들의 닉네임 정보 가져오기
+    const userNicknames = await this.getUserNicknames(participants);
 
-      // Route53 DNS 레코드 생성 (실패 시 fallback으로 직접 IP 사용)
-      let host = gameserverIp; // 기본값: 직접 IP
-      try {
-        host = await this.route53Service.upsertGameServerARecord(
-          gameserverName,
-          gameserverIp,
-        );
-        this.logger.log(`[Route53] DNS 레코드 생성 완료: ${host}`);
-      } catch (error) {
-        this.logger.error(`[Route53] DNS 레코드 생성 실패, 직접 IP 사용: ${gameserverIp}`, error);
-      }
-			
-			// 유저에게 게임서버 정보 전달
+    // 매칭 완료 후
+    const matchToken = this.matchingTokenService.issueToken({
+      userIds: participants,
+      roomId: newRoomId,
+      expiresIn: '30s',
+      maxPlayers,
+      mode: 'NORMAL',
+      userNicknames,
+    });
+
+    this.logger.log(`매칭 토큰 생성: ${matchToken}`);
+
+    // Route53 DNS 레코드 생성 (실패 시 fallback으로 직접 IP 사용)
+    let host = gameserverIp; // 기본값: 직접 IP
+    try {
+      host = await this.route53Service.upsertGameServerARecord(
+        gameserverName,
+        gameserverIp,
+      );
+      this.logger.log(`[Route53] DNS 레코드 생성 완료: ${host}`);
+    } catch (error) {
+      this.logger.error(
+        `[Route53] DNS 레코드 생성 실패, 직접 IP 사용: ${gameserverIp}`,
+        error,
+      );
+    }
+
+    // 유저에게 게임서버 정보 전달
     this.queueGateway.broadcastMatchFound(participants, {
       roomId: newRoomId,
-			 matchToken,
-			 gameUrl: `https://${host}:${port}`,
-       host,
-       port,
-       gameServerName: gameserverName,
-			 mode: 'NORMAL',
+      matchToken,
+      gameUrl: `https://${host}:${port}`,
+      host,
+      port,
+      gameServerName: gameserverName,
+      mode: 'NORMAL',
     });
   }
 
@@ -215,7 +218,6 @@ export class MatchingWorker {
   // 보스모드 매칭 워커 (1초마다 실행)
   @Interval(1000)
   async handleBossMatchmaking() {
-
     // 1️⃣ Pod 내부 중복 방지
     if (this.isBossProcessing) {
       return;

@@ -1,13 +1,22 @@
-// matching-server/src/ranking/ranking.controller.ts
-import { Controller, Get } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+import { Controller, Get, Query, Logger } from '@nestjs/common';
 import { RankingService } from './ranking.service';
 
-@Controller('api/game/ranking')
+@Controller('ranking')
 export class RankingController {
+  private readonly logger = new Logger(RankingController.name);
+
   constructor(private readonly rankingService: RankingService) {}
 
   @Get('top')
-  getTopRanking() {
-    return this.rankingService.getTopRanking();
+  async getTopRanking(@Query('limit') limit?: string) {
+    const limitNum = limit ? parseInt(limit, 10) : 100;
+    const records = await this.rankingService.getTopRanking(limitNum);
+
+    return records.map((record, index) => ({
+      rank: index + 1,
+      nickname: record.nickname,
+      score: record.score,
+    }));
   }
 }

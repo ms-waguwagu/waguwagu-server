@@ -40,7 +40,7 @@
     </div>
 
     <script type="module">
-      import { CONFIG } from "../../config.js";
+      import { CONFIG } from "/config.js";
 
       // 로그인 유지 체크
       const token = localStorage.getItem("accessToken");
@@ -56,6 +56,7 @@
       if (nickname) {
         document.getElementById("display-nickname").textContent = nickname;
       }
+      const res = await fetch(`${CONFIG.RANKING_API_URL}/ranking/top`);
 
       // 게임 시작
       document.getElementById("start-button").onclick = () => {
@@ -75,33 +76,32 @@
 
       // 랭킹 로드 (login.html과 동일 로직)
       async function loadRanking() {
-        try {
-          const res = await fetch(CONFIG.API_URL + "/ranking/top");
-          const data = await res.json();
+  try {
+    const res = await fetch(`${CONFIG.RANKING_API_URL}/ranking/top`);
+    const data = await res.json();
 
-          const list = document.getElementById("ranking-list");
-          if (!data || data.length === 0) {
-            list.innerHTML = "<div class='empty-ranking'>데이터 없음</div>";
-            return;
-          }
+    const list = document.getElementById("ranking-list");
+    if (!data || data.length === 0) {
+      list.innerHTML = "<div class='empty-ranking'>데이터 없음</div>";
+      return;
+    }
 
-          list.innerHTML = data
-            .map(
-              (item) => `
-              <div class="ranking-item">
-                <div class="rank">${item.rank}</div>
-                <div class="nick">${item.nickname}</div>
-                <div class="score">${item.score}</div>
-              </div>
-            `
-            )
-            .join("");
-        } catch (e) {
-          document.getElementById("ranking-list").innerHTML =
-            "<div class='empty-ranking'>랭킹 로드 실패</div>";
-        }
-      }
-
+    list.innerHTML = data
+      .map(
+        (item) => `
+        <div class="ranking-item">
+          <div class="rank">${item.rank}</div>
+          <div class="nick">${item.nickname}</div>
+          <div class="score">${item.score}</div>
+        </div>
+      `
+      )
+      .join("");
+  } catch (e) {
+    document.getElementById("ranking-list").innerHTML =
+      "<div class='empty-ranking'>랭킹 로드 실패</div>";
+  }
+}
       loadRanking();
       setInterval(loadRanking, 30000);
     </script>
