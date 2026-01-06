@@ -18,7 +18,7 @@ export class RankingController {
       rank: index + 1,
       nickname: record.nickname,
       score: record.score,
-      playedAt: record.playedAt, // 추가
+      playedAt: record.playedAt,
     }));
   }
 }
