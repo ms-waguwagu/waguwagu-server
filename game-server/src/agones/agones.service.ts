@@ -38,7 +38,17 @@ export class AgonesService implements OnModuleInit, OnModuleDestroy {
   onGameStart() {
     if (this.gameStarted) return;
     this.gameStarted = true;
-    this.logger.log('로그인/입장 감지');
+    this.logger.log('로그인/입장 감지 - 2분 자동 종료 타이머 시작');
+
+    // 2분 후 자동 종료
+    this.shutdownTimer = setTimeout(async () => {
+      this.logger.warn('게임 시작 후 2분 경과 -> Agones Shutdown 실행');
+      try {
+        await this.agonesSDK.shutdown();
+      } catch (e) {
+        this.logger.error('Agones shutdown 호출 실패', e);
+      }
+    }, 2 * 60 * 1000); // 2분 
   }
 
   // 명시적 셧다운 (방에 유저가 없을 때 호출)

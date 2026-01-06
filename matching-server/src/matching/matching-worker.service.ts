@@ -31,8 +31,8 @@ export class MatchingWorker {
     this.logger.log('매칭 워커 서비스가 시작되었습니다');
   }
 
-  // 1초마다 실행
-  @Interval(1000)
+  // 2초마다 실행
+  @Interval(2000)
   async handleMatchmaking() {
     const ns = AWSXRay.getNamespace();
     if (!ns) {
@@ -166,25 +166,7 @@ export class MatchingWorker {
       );
     }
 
-    // // 2. 게임 룸 생성 요청 (기존 API 호출 일단 유지)
-    // const gameServerUrl = this.configService.get<string>('GAME_SERVER_URL');
-
-    // const response = await axios.post(`${gameServerUrl}/internal/room`, {
-    //   roomId: newRoomId,
-    //   users: participants,
-    //   botCount: botsToAdd,
-    //   maxPlayers,
-    // });
-
-    //디버깅용
-    // this.logger.log(
-    //   `목표 인원: ${maxPlayers}, 매칭 된 유저 수: ${humanCount}, 봇 추가: ${botsToAdd}`,
-    // );
-    // const roomInfo = response.data;
-
-    // this.logger.log(`게임 룸 생성 완료: ${newRoomId}`);
-
-    // 3. 매칭된 유저들에게 웹소켓으로 접속 정보 전송
+    // 2. 매칭된 유저들에게 웹소켓으로 접속 정보 전송
 			if (!gameserverIp || !port || !gameserverName) {
 				throw new Error(`[Agones] GameServer 할당 실패: ${gameserverName}(${gameserverIp}:${port})`);
 			}
