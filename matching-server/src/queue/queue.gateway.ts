@@ -12,6 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 import { PlayerStatus } from '../common/constants';
+import * as AWSXRay from 'aws-xray-sdk-core';
 
 @WebSocketGateway({ 
 	namespace: '/queue', 
@@ -100,6 +101,7 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleJoinQueue(@ConnectedSocket() client: Socket) {
     const { userId, nickname } = client.data;
 
+    const segment = new AWSXRay.Segment('MatchingStartFlow');
     try {
       await this.queueService.recoverStaleInGameSession(userId);
 
@@ -107,7 +109,10 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       client.emit('queue_joined', { message: '대기열 진입 성공' });
       this.broadcastQueueStatus();
+      segment.close();
     } catch (error) {
+      segment.addError(error);
+      segment.close();
       client.emit('error', { message: error.message });
     }
   }
@@ -147,6 +152,7 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleJoinBossQueue(@ConnectedSocket() client: Socket) {
     const { userId, nickname } = client.data;
 
+    const segment = new AWSXRay.Segment('BossMatchingStartFlow');
     try {
       await this.queueService.recoverStaleInGameSession(userId);
       
@@ -159,7 +165,10 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // 대기열 상태 갱신하여 모두에게 푸시
       this.broadcastBossQueueStatus();
+      segment.close();
     } catch (error) {
+      segment.addError(error);
+      segment.close();
       client.emit('error', { message: error.message });
     }
   }

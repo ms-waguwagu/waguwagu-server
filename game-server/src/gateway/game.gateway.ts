@@ -10,6 +10,7 @@ import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import axios from 'axios';
 import { AgonesService } from '../agones/agones.service';
+import * as AWSXRay from 'aws-xray-sdk-core';
 
 import { GameEngineService } from '../engine/game-engine.service';
 import { RankingService } from '../ranking/ranking.service';
@@ -299,61 +300,69 @@ export class GameGateway
 
     const maxPlayers = (client.data.maxPlayers as number | undefined) ?? 5;
 
-    const isNewRoom = !this.rooms[roomId];
-    const roomWrapper = this.ensureRoom(roomId, mode);
-    const room = roomWrapper.engine;
+    const segment = new AWSXRay.Segment('GameServerJoinFlow');
+    try {
+      const isNewRoom = !this.rooms[roomId];
+      const roomWrapper = this.ensureRoom(roomId, mode);
+      const room = roomWrapper.engine;
 
-    client.join(roomId);
-    client.data.roomId = roomId;
-    client.data.nickname = nickname;
-    client.data.userId = userId;
+      client.join(roomId);
+      client.data.roomId = roomId;
+      client.data.nickname = nickname;
+      client.data.userId = userId;
 
-    // 접속한 유저 기록(최소한)
-    if (!roomWrapper.users.includes(userId)) {
-      roomWrapper.users.push(userId);
-    }
-
-    room.addPlayer(client.id, userId, nickname);
-
-    // [New] 봇 자동 추가 로직 (Agones 흐름 복구)
-    // 방이 처음 생성되었고, 토큰 등으로 전달받은 예상 유저수보다 부족한 경우 봇으로 채움
-    if (isNewRoom && !room.isBossMode()) {
-      const playersInToken = tokenUserIds.length;
-      const botsToAdd = Math.max(0, maxPlayers - playersInToken);
-      
-      this.logger.log(`[Agones Flow] Initializing room. roomId: ${roomId}, botsToAdd: ${botsToAdd}, maxPlayers: ${maxPlayers}, Players: ${playersInToken}`);
-      
-      for (let i = 0; i < botsToAdd; i++) {
-        room.addBotPlayer(); // BotManager에서 내부적으로 번호 매김
+      // 접속한 유저 기록(최소한)
+      if (!roomWrapper.users.includes(userId)) {
+        roomWrapper.users.push(userId);
       }
-    }
 
-    // init-game 전송
-    client.emit('init-game', {
-      playerId: client.id,
-      roomId,
-      mapData: room.getMapData(),
-      initialState: room.getState(),
-    });
+      room.addPlayer(client.id, userId, nickname);
 
-    // 전체 상태 전파
-    this.server.to(roomId).emit('state', room.getState());
-
-    // 시작 조건
-    const humanPlayers = room.playerCount();
-    const botPlayers = room.getBotCount();
-    const totalPlayers = humanPlayers + botPlayers;
-
-    if (room.isBossMode()) {
-      if (!room.intervalRunning) {
-        room.startBossMode();
+      // [New] 봇 자동 추가 로직 (Agones 흐름 복구)
+      // 방이 처음 생성되었고, 토큰 등으로 전달받은 예상 유저수보다 부족한 경우 봇으로 채움
+      if (isNewRoom && !room.isBossMode()) {
+        const playersInToken = tokenUserIds.length;
+        const botsToAdd = Math.max(0, maxPlayers - playersInToken);
+        
+        this.logger.log(`[Agones Flow] Initializing room. roomId: ${roomId}, botsToAdd: ${botsToAdd}, maxPlayers: ${maxPlayers}, Players: ${playersInToken}`);
+        
+        for (let i = 0; i < botsToAdd; i++) {
+          room.addBotPlayer(); // BotManager에서 내부적으로 번호 매김
+        }
       }
-    } else {
-      // maxPlayers(봇 포함 5명)가 모이면 카운트다운 시작
-      if (totalPlayers >= maxPlayers && !roomWrapper.countdownStarted) {
-        roomWrapper.countdownStarted = true;
-        this.startCountdown(roomId);
+
+      // init-game 전송
+      client.emit('init-game', {
+        playerId: client.id,
+        roomId,
+        mapData: room.getMapData(),
+        initialState: room.getState(),
+      });
+
+      // 전체 상태 전파
+      this.server.to(roomId).emit('state', room.getState());
+
+      // 시작 조건
+      const humanPlayers = room.playerCount();
+      const botPlayers = room.getBotCount();
+      const totalPlayers = humanPlayers + botPlayers;
+
+      if (room.isBossMode()) {
+        if (!room.intervalRunning) {
+          room.startBossMode();
+        }
+      } else {
+        // maxPlayers(봇 포함 5명)가 모이면 카운트다운 시작
+        if (totalPlayers >= maxPlayers && !roomWrapper.countdownStarted) {
+          roomWrapper.countdownStarted = true;
+          this.startCountdown(roomId);
+        }
       }
+      segment.close();
+    } catch (error) {
+      segment.addError(error);
+      segment.close();
+      this.logger.error(`Error in handleJoinRoom: ${error.message}`, error.stack);
     }
   }
 
