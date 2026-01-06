@@ -93,7 +93,6 @@ export class GameFinishedConsumer implements OnModuleInit {
       return;
     }
 
-    // 🔹 타입 가드 (확장 대비)
     if (payload.type && payload.type !== 'GAME_FINISHED') {
       this.logger.warn(`알 수 없는 메시지 타입입니다: ${payload.type}`);
       await this.deleteMessage(message);

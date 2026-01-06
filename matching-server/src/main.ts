@@ -1,6 +1,5 @@
 import * as AWSXRay from 'aws-xray-sdk-core';
 
-// ⭐ 전역 X-Ray 설정
 AWSXRay.enableAutomaticMode(); 
 AWSXRay.captureHTTPsGlobal(require('http'));
 AWSXRay.captureHTTPsGlobal(require('https'));
