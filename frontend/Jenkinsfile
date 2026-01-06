@@ -1,9 +1,18 @@
 pipeline {
   agent any
 
+  parameters {
+    booleanParam(
+      name: 'ALLOW_MAIN',
+      defaultValue: true,
+      description: 
+    )
+  }
+
   environment {
     AWS_REGION = "ap-northeast-2"
-    S3_BUCKET  = "t3-wagu-s3-bucket" 
+    S3_BUCKET  = "t3-wagu-s3-bucket"
+
     CF_SECRET_ID  = "T3-Wagu-Secrets"
     CF_SECRET_KEY = "CLOUDFRONT_DISTRIBUTION_ID"
   }
@@ -18,6 +27,30 @@ pipeline {
       steps { checkout scm }
     }
 
+    stage("Branch guard + preview prefix") {
+      steps {
+        script {
+          def b = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: "").trim()
+          if (b.startsWith("origin/")) b = b.substring("origin/".length())
+          if (!b || b == "HEAD") {
+            b = sh(returnStdout: true, script: "git rev-parse --abbrev-ref HEAD").trim()
+          }
+          env.BRANCH_SIMPLE = b
+          echo "Current branch = ${env.BRANCH_SIMPLE}"
+
+          if (env.BRANCH_SIMPLE == "main" && !params.ALLOW_MAIN) {
+            error("Blocked: main branch deploy is not allowed for test. Set ALLOW_MAIN=true only for production runs.")
+          }
+
+          // ✅ main이면 루트 배포, feature면 preview/<branch>/에 배포
+          def safe = env.BRANCH_SIMPLE.replaceAll('[^A-Za-z0-9._-]+', '-')
+          env.BRANCH_SAFE = safe
+          env.DEPLOY_PREFIX = (env.BRANCH_SIMPLE == "main") ? "" : "preview/${env.BRANCH_SAFE}/"
+          echo "DEPLOY_PREFIX = ${env.DEPLOY_PREFIX}"
+        }
+      }
+    }
+
     stage('Change check (frontend only)') {
       steps {
         script {
@@ -25,20 +58,19 @@ pipeline {
           def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
           echo "Diff range: ${range}"
 
-          // frontend 변경만 감지 + frontend/Jenkinsfile만 바뀐 경우는 제외
           def changed = sh(
-            script: """
+            script: """#!/usr/bin/env bash
               set -e
               git diff --name-only ${range} \
                 | grep -E '^frontend/' \
-                | grep -v '^frontend/Jenkinsfile\$' \
+                | grep -v '^frontend/Jenkinsfile\\$' \
                 || true
             """,
             returnStdout: true
           ).trim()
 
           if (!changed) {
-            echo "No deployable changes in frontend/ -> SKIP S3/CloudFront"
+            echo "No deployable changes in frontend/ -> SKIP"
             env.FRONTEND_CHANGED = "false"
           } else {
             echo "Frontend changes detected -> proceed"
@@ -49,18 +81,21 @@ pipeline {
       }
     }
 
-    stage('Deploy to S3 (include src/)') {
+    stage('Deploy to S3') {
       when { expression { env.FRONTEND_CHANGED == "true" } }
       steps {
-        sh '''
+        sh '''#!/usr/bin/env bash
           set -euo pipefail
-          DEST="s3://$S3_BUCKET/"
+
+          DEST="s3://${S3_BUCKET}/${DEPLOY_PREFIX}"
+          echo "[INFO] Deploy to: ${DEST}"
 
           aws s3 sync "frontend/" "$DEST" --delete --region "$AWS_REGION" \
             --exclude "Jenkinsfile" \
             --exclude ".git/*" \
             --exclude "*.md"
 
+          # html은 캐시 강제 무효화
           find frontend -type f -name "*.html" -print0 | while IFS= read -r -d '' f; do
             rel="${f#frontend/}"
             aws s3 cp "$f" "${DEST}${rel}" --region "$AWS_REGION" \
@@ -72,10 +107,10 @@ pipeline {
       }
     }
 
-    stage('Invalidate CloudFront (ALL)') {
+    stage('Invalidate CloudFront') {
       when { expression { env.FRONTEND_CHANGED == "true" } }
       steps {
-        sh '''
+        sh '''#!/usr/bin/env bash
           set -euo pipefail
 
           SECRET_JSON="$(aws secretsmanager get-secret-value \
@@ -85,16 +120,22 @@ pipeline {
             --region "$AWS_REGION")"
 
           CF_ID="$(echo "$SECRET_JSON" | jq -r --arg k "$CF_SECRET_KEY" '.[$k]')"
-
           if [ -z "$CF_ID" ] || [ "$CF_ID" = "null" ]; then
             echo "[ERROR] CloudFront Distribution ID not found. secret=$CF_SECRET_ID key=$CF_SECRET_KEY"
             exit 1
           fi
 
-          echo "[INFO] Invalidate CloudFront: $CF_ID"
+          if [ -z "${DEPLOY_PREFIX}" ]; then
+            PATHS="/*"
+          else
+            # preview/<branch>/만 invalidate
+            PATHS="/${DEPLOY_PREFIX}*"
+          fi
+
+          echo "[INFO] Invalidate CloudFront: $CF_ID paths=$PATHS"
           aws cloudfront create-invalidation \
             --distribution-id "$CF_ID" \
-            --paths "/*"
+            --paths "$PATHS"
         '''
       }
     }

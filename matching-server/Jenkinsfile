@@ -1,19 +1,23 @@
-/* 하나 변경시 다 빌드되는 문제를 고쳐야 한다  */
-
 pipeline {
   agent any
+
+  parameters {
+    booleanParam(
+      name: 'ALLOW_MAIN',
+      defaultValue: true,
+      description:
+    )
+  }
 
   environment {
     AWS_REGION   = "ap-northeast-2"
 
     // ECR
     ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
-   
-
 
     // waguwagu-infra
     INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
-    INFRA_BRANCH   = "main"
+    INFRA_BRANCH   = "feature/karpenter"  
     INFRA_MANIFEST = "k8s/matching/matching-deploy.yaml"
 
     // Secrets Manager (PAT)
@@ -27,6 +31,7 @@ pipeline {
 
   options {
     skipDefaultCheckout(true)
+    disableConcurrentBuilds()
   }
 
   stages {
@@ -34,18 +39,33 @@ pipeline {
       steps { checkout scm }
     }
 
+    stage("Branch guard (no main)") {
+      steps {
+        script {
+          def b = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: "").trim()
+          if (b.startsWith("origin/")) b = b.substring("origin/".length())
+          if (!b || b == "HEAD") {
+            b = sh(returnStdout: true, script: "git rev-parse --abbrev-ref HEAD").trim()
+          }
+          env.BRANCH_SIMPLE = b
+          echo "Current branch = ${env.BRANCH_SIMPLE}"
+
+          if (env.BRANCH_SIMPLE == "main" && !params.ALLOW_MAIN) {
+            error("Blocked: main branch build is not allowed for test. Set ALLOW_MAIN=true only for production runs.")
+          }
+        }
+      }
+    }
+
     stage("Change check (matching-server only)") {
       steps {
         script {
-          echo "=== MATCHING JENKINSFILE ==="
-
           def base  = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT
           def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
           echo "Diff range: ${range}"
 
-          // matching-server/ 변경만, Jenkinsfile만 바뀐 경우는 스킵
           def changed = sh(
-            script: """
+            script: """#!/usr/bin/env bash
               set -e
               git diff --name-only ${range} \
                 | grep -E '^matching-server/' \
@@ -70,7 +90,7 @@ pipeline {
     stage("ECR Login") {
       when { expression { env.MATCHING_CHANGED == "true" } }
       steps {
-        sh '''
+        sh '''#!/usr/bin/env bash
           set -e
           aws ecr get-login-password --region "${AWS_REGION}" \
             | docker login --username AWS --password-stdin "${ECR_REPO_URI%/*}"
@@ -88,7 +108,7 @@ pipeline {
           echo "IMAGE_URI = ${env.IMAGE_URI}"
         }
 
-        sh '''
+        sh '''#!/usr/bin/env bash
           set -e
           cd matching-server
           docker build -t "${ECR_REPO_URI}:${IMAGE_TAG}" .
@@ -100,7 +120,7 @@ pipeline {
     stage("Update waguwagu-infra manifest (commit/push)") {
       when { expression { env.MATCHING_CHANGED == "true" } }
       steps {
-        sh '''
+        sh '''#!/usr/bin/env bash
           set -euo pipefail
 
           rm -rf infra
@@ -113,7 +133,6 @@ pipeline {
           git config --global --unset-all credential.helper || true
           git config --global credential.helper ""
 
-          #  토큰/헤더 다루는 구간은 로그 숨김
           set +x
           TOK="$(aws secretsmanager get-secret-value \
               --secret-id "${GH_SECRET_ID}" \
@@ -121,37 +140,30 @@ pipeline {
               --query SecretString \
               --output text \
               | jq -r --arg k "${GH_SECRET_KEY}" '.[$k]' \
-              | tr -d '\r\n')"
+              | tr -d '\\r\\n')"
 
           AUTH="$(printf 'x-access-token:%s' "$TOK" | base64 | tr -d '\\n')"
           EXTRA="http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH"
 
-          GIT_TERMINAL_PROMPT=0 git -c "$EXTRA" clone --branch "${INFRA_BRANCH}" "${INFRA_REPO_URL}" infra
+          # ✅ 브랜치가 없으면 main에서 새로 만들어서 테스트 브랜치로 푸시
+          GIT_TERMINAL_PROMPT=0 git -c "$EXTRA" clone "${INFRA_REPO_URL}" infra
           cd infra
+          git fetch origin "+refs/heads/*:refs/remotes/origin/*"
+
+          if git show-ref --verify --quiet "refs/remotes/origin/${INFRA_BRANCH}"; then
+            git checkout -B "${INFRA_BRANCH}" "origin/${INFRA_BRANCH}"
+          else
+            echo "[WARN] origin/${INFRA_BRANCH} not found. Create from origin/main"
+            git checkout -B "${INFRA_BRANCH}" "origin/main"
+          fi
           set -x
 
-          # ====== (추가) Jenkins가 실제로 보는 매니페스트 내용 확인 ======
-          echo "=== DEBUG: infra repo current branch & status ==="
-          git rev-parse --abbrev-ref HEAD || true
-          git log -1 --oneline || true
-          echo "=== DEBUG: list k8s/matching dir ==="
-          ls -al k8s || true
-          ls -al k8s/matching || true
-
-          echo "=== DEBUG: show manifest head (first 40 lines) ==="
-          cat "${INFRA_MANIFEST}" | head -n 40 || true
-
-          echo "=== DEBUG: image lines in manifest ==="
-          grep -n "image:" "${INFRA_MANIFEST}" || true
-          echo "=== END DEBUG ==="
-          # ============================================================
-
-          echo "[BEFORE] image line (target repo uri match):"
+          echo "[BEFORE] image line:"
           grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
 
           sed -i "s#\\(image:[[:space:]]*${ECR_REPO_URI}:\\).*#\\1${IMAGE_TAG}#g" "${INFRA_MANIFEST}"
 
-          echo "[AFTER] image line (target repo uri match):"
+          echo "[AFTER] image line:"
           grep -n "image:.*${ECR_REPO_URI}:" "${INFRA_MANIFEST}" || true
 
           if git diff --quiet; then
@@ -160,7 +172,7 @@ pipeline {
           fi
 
           git add "${INFRA_MANIFEST}"
-          git commit -m "ci(matching): bump image to ${IMAGE_TAG}"
+          git commit -m "ci(matching): bump image to ${IMAGE_TAG} (from ${BRANCH_SIMPLE})"
 
           set +x
           GIT_TERMINAL_PROMPT=0 git -c "$EXTRA" push origin HEAD:"${INFRA_BRANCH}"
@@ -176,5 +188,3 @@ pipeline {
     }
   }
 }
-
-/* 하나 변경시 다 빌드되는 오류를 고쳐야 한다 .. */
