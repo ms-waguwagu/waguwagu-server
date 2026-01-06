@@ -38,7 +38,7 @@ export class AgonesService implements OnModuleInit, OnModuleDestroy {
   onGameStart() {
     if (this.gameStarted) return;
     this.gameStarted = true;
-    this.logger.log('게임 시작 감지 (Agones 상태 유지)');
+    this.logger.log('로그인/입장 감지');
   }
 
   // 명시적 셧다운 (방에 유저가 없을 때 호출)

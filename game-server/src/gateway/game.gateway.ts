@@ -98,7 +98,7 @@ export class GameGateway
     // 1) 연결 단계에서 matchToken 검증
     nsp.use((socket: Socket, next: (err?: any) => void) => {
       const token = socket.handshake.auth?.matchToken;
-      this.logger.log(`[Middleware] Connection attempt, token exists: ${!!token}`);
+      this.logger.log(`[미들웨어] 연결 시도, 토큰 존재: ${!!token}`);
 
       if (!token) {
         this.logger.warn('[Middleware] NO_MATCH_TOKEN - rejecting connection');
@@ -107,7 +107,7 @@ export class GameGateway
 
       try {
         const payload = this.verifyMatchToken(token);
-        this.logger.log(`[Middleware] Token verified for userIds=${payload.userIds.join(',')}, roomId=${payload.roomId}`);
+        this.logger.log(`[미들웨어] 토큰 검증 완료: userIds=${payload.userIds.join(',')}, roomId=${payload.roomId}`);
 
         socket.data.userIds = payload.userIds;
         socket.data.roomId = payload.roomId;
@@ -118,7 +118,7 @@ export class GameGateway
 
         return next();
       } catch (err) {
-        this.logger.error(`[Middleware] INVALID_MATCH_TOKEN: ${err.message}`);
+        this.logger.error(`[미들웨어] 유효하지 않은 매치 토큰: ${err.message}`);
         return next(new Error('INVALID_MATCH_TOKEN'));
       }
     });
@@ -169,10 +169,10 @@ export class GameGateway
   private async checkPodShutdown() {
     const connectedSockets = await this.server.fetchSockets();
     const count = connectedSockets.length;
-    this.logger.log(`[PodShutdownCheck] 현재 연결된 총 소켓 수: ${count}`);
+    this.logger.log(`[파드셧다운체크] 현재 연결된 총 소켓 수: ${count}`);
 
     if (count === 0) {
-      this.logger.warn('[PodShutdownCheck] 서버에 더 이상 연결된 유저가 없습니다. Agones Shutdown 호출');
+      this.logger.warn('서버에 더 이상 연결된 유저가 없습니다. Agones Shutdown 호출');
       await this.agonesService.shutdown();
     }
   }
@@ -306,6 +306,9 @@ export class GameGateway
       const roomWrapper = this.ensureRoom(roomId, mode);
       const room = roomWrapper.engine;
 
+      // Agones 셧다운 타이머 해제
+      this.agonesService.onGameStart();
+
       client.join(roomId);
       client.data.roomId = roomId;
       client.data.nickname = nickname;
@@ -324,7 +327,7 @@ export class GameGateway
         const playersInToken = tokenUserIds.length;
         const botsToAdd = Math.max(0, maxPlayers - playersInToken);
         
-        this.logger.log(`[Agones Flow] Initializing room. roomId: ${roomId}, botsToAdd: ${botsToAdd}, maxPlayers: ${maxPlayers}, Players: ${playersInToken}`);
+        this.logger.log(`[Agones 흐름] 방 초기화 중. roomId: ${roomId}, botsToAdd: ${botsToAdd}, maxPlayers: ${maxPlayers}, Players: ${playersInToken}`);
         
         for (let i = 0; i < botsToAdd; i++) {
           room.addBotPlayer(); // BotManager에서 내부적으로 번호 매김
@@ -367,7 +370,7 @@ export class GameGateway
   }
 
   private startCountdown(roomId: string) {
-    this.logger.log(`[Countdown] Starting for room ${roomId}`);
+    this.logger.log(`[카운트다운] 방 ID ${roomId} 시작`);
     let count = 3;
 
     const interval = setInterval(() => {

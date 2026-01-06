@@ -6,6 +6,7 @@ import { PlayerService, Player, Dot } from '../player/player.service';
 import { BotManagerService, Bot } from '../bot/bot-manager.service';
 import { Logger } from '@nestjs/common';
 import { BossManagerService } from '../../boss/boss-manager.service';
+import { ResultQueueService } from '../../result-queue/result-queue.service';
 import axios from 'axios';
 
 interface LifecycleState {
@@ -41,6 +42,7 @@ export class LifecycleService {
     private readonly playerService: PlayerService,
     private readonly botManager: BotManagerService,
 		private readonly bossManager: BossManagerService,
+    private readonly resultQueueService: ResultQueueService,
   ) {}
 
 	// 방 상태 초기화
@@ -113,6 +115,24 @@ export class LifecycleService {
     }
     state.gameOver = true;
     state.gameOverReason = reason;
+
+    // SQS로 게임 결과 전송
+    try {
+      const players = this.playerService.getPlayers(roomId);
+      const gameResults = players
+        .filter(p => !!p.googleSub)
+        .map(p => ({
+          userId: p.googleSub!,
+          nickname: p.nickname,
+          score: p.score
+        }));
+
+      if (gameResults.length > 0) {
+        await this.resultQueueService.sendGameResult(roomId, gameResults);
+      }
+    } catch (err) {
+      this.logger.error(`[SQS] 게임 결과 전송 트리거 실패: roomId=${roomId}`, err);
+    }
   
     this.sendGameOverEvent(roomId);
   
