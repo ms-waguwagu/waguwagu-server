@@ -4,6 +4,7 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
@@ -13,18 +14,29 @@ import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 import { PlayerStatus } from '../common/constants';
 
-@WebSocketGateway({ 
-	namespace: '/queue', 
-	path: '/socket.io',
-	cors: { origin: '*' } })
-export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
+// ✅ Socket.IO Redis Adapter (멀티 파드 브로드캐스트 동기화)
+import { createAdapter } from '@socket.io/redis-adapter';
+import { createClient, RedisClientType } from 'redis';
+
+@WebSocketGateway({
+  namespace: '/queue',
+  path: '/socket.io',
+  cors: { origin: '*' },
+})
+export class QueueGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
   private readonly logger = new Logger(QueueGateway.name);
 
-  // 핵심!! UserId와 SocketId를 연결하는 맵
-  private connectedUsers: Map<string, string> = new Map();
+  // ✅ Redis adapter init guard (afterInit이 여러 번 불릴 수 있는 환경 방어)
+  private adapterReady = false;
+
+  // ✅ node-redis clients for adapter
+  private pubClient?: RedisClientType;
+  private subClient?: RedisClientType;
 
   constructor(
     private readonly queueService: QueueService,
@@ -32,193 +44,245 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly configService: ConfigService,
   ) {}
 
+  /**
+   * ✅ 멀티 파드 환경에서 server.emit / room broadcast가 전체 파드로 공유되게 함
+   */
+  async afterInit(server: Server) {
+    if (this.adapterReady) return;
+
+    const redisUrl =
+      this.configService.get<string>('REDIS_URL') || process.env.REDIS_URL;
+
+    if (!redisUrl) {
+      this.logger.warn(
+        'REDIS_URL not set. Socket.IO will NOT be synchronized across pods. (replica>1이면 1/5 문제 재발)',
+      );
+      return;
+    }
+
+    try {
+      this.pubClient = createClient({ url: redisUrl });
+      this.subClient = this.pubClient.duplicate();
+
+      await this.pubClient.connect();
+      await this.subClient.connect();
+
+      server.adapter(createAdapter(this.pubClient, this.subClient));
+
+      this.adapterReady = true;
+      this.logger.log('✅ Socket.IO Redis Adapter attached (multi-pod ready)');
+    } catch (err: any) {
+      this.logger.error(
+        `❌ Failed to attach Socket.IO Redis Adapter: ${err?.message}`,
+        err,
+      );
+    }
+  }
+
   async handleConnection(client: Socket) {
     try {
       this.logger.log('WS CONNECT 시도');
+
       const token = client.handshake.auth?.token;
       if (!token) throw new Error('토큰 없음');
 
-      const decoded = this.jwtService.verify(token);
-      const userId = decoded.googleSub;
-      const nickname = decoded.nickname;
+      const decoded: any = this.jwtService.verify(token);
+      const userId: string | undefined = decoded.googleSub;
+      const nickname: string | undefined = decoded.nickname;
 
-      // 연결될 때 맵에 적어둠
-      this.connectedUsers.set(userId, client.id);
+      if (!userId) throw new Error('googleSub 없음');
+
       client.data.userId = userId;
       client.data.nickname = nickname;
 
+      // ✅ 핵심: userId 기반 room에 조인
+      // 멀티 파드여도 adapter 덕분에 room broadcast가 동작
+      client.join(`user:${userId}`);
+
       this.logger.log(
-        `클라이언트 연결 성공: ${decoded.nickname}, 소켓 연결 세션 ID: ${client.id}`,
+        `클라이언트 연결 성공: ${nickname ?? userId}, socketId=${client.id}, userRoom=user:${userId}`,
       );
-    } catch (error) {
-      this.logger.warn(`클라이언트 연결 실패: ${error.message}`);
-      client.emit('error', { message: error.message });
+
+      // 접속 직후 현재 상태를 한 번 보내주면 UI가 덜 흔들림(선택)
+      // const status = await this.getQueueStatusData();
+      // client.emit('queue_status', status);
+    } catch (error: any) {
+      this.logger.warn(`클라이언트 연결 실패: ${error?.message}`);
+      client.emit('error', { message: error?.message ?? 'WS 연결 실패' });
       client.disconnect();
     }
   }
 
   async handleDisconnect(client: Socket) {
-    // 나갈 때 맵에서 지움
-    const userId = client.data.userId;
-
+    const userId: string | undefined = client.data.userId;
     if (!userId) return;
 
-    this.connectedUsers.delete(userId);
     try {
       const session = await this.queueService.getSessionInfo(userId);
       const status = session?.status;
 
-      //이미 매칭되었거나 게임 중이면 큐 취소를 시도하지 않음
+      // ✅ 이미 매칭되었거나 게임 중이면 큐 취소 시도하지 않음
       if (status !== PlayerStatus.WAITING) {
         this.logger.log(`disconnect: userId=${userId}, status=${status}`);
         return;
       }
 
-      // 일반모드 큐와 보스모드 큐 모두 확인하여 취소 시도
+      // 일반/보스 큐 모두 확인하여 취소 시도
       try {
         await this.queueService.cancelQueue(userId);
         this.logger.log(`연결 끊김으로 인한 일반모드 매칭 취소: ${userId}`);
       } catch (normalError: any) {
-        // 일반모드 큐에 없으면 보스모드 큐 확인
         try {
           await this.queueService.cancelBossQueue(userId);
           this.logger.log(`연결 끊김으로 인한 보스모드 매칭 취소: ${userId}`);
         } catch (bossError: any) {
-          // 둘 다 실패하면 로그만 남김 (이미 매칭되었을 수 있음)
           this.logger.debug(
-            `연결 끊김 처리: 일반모드 큐 취소 실패 (${normalError.message}), 보스모드 큐 취소 실패 (${bossError.message})`,
+            `연결 끊김 처리: 일반 큐 취소 실패(${normalError?.message}), 보스 큐 취소 실패(${bossError?.message})`,
           );
         }
       }
+
+      // 상태 갱신 푸시(선택)
+      await this.broadcastQueueStatus();
+      await this.broadcastBossQueueStatus();
     } catch (e: any) {
       this.logger.error(`disconnect 처리 중 에러 (userId=${userId})`, e);
     }
   }
 
-  // 대기열 입장 요청
+  // ============================
+  // 일반 매칭 큐
+  // ============================
+
   @SubscribeMessage('join_queue')
   async handleJoinQueue(@ConnectedSocket() client: Socket) {
-    const { userId, nickname } = client.data;
+    const { userId, nickname } = client.data as {
+      userId?: string;
+      nickname?: string;
+    };
 
     try {
-      await this.queueService.recoverStaleInGameSession(userId);
+      if (!userId) throw new Error('userId 없음');
 
-      await this.queueService.enterQueue(userId, nickname);
+      await this.queueService.recoverStaleInGameSession(userId);
+      await this.queueService.enterQueue(userId, nickname ?? 'unknown');
 
       client.emit('queue_joined', { message: '대기열 진입 성공' });
-      this.broadcastQueueStatus();
-    } catch (error) {
-      client.emit('error', { message: error.message });
+      await this.broadcastQueueStatus();
+    } catch (error: any) {
+      client.emit('error', { message: error?.message ?? 'join_queue 실패' });
     }
   }
 
-
-  // 대기열 취소 요청
   @SubscribeMessage('cancel_queue')
   async handleCancelQueue(@ConnectedSocket() client: Socket) {
-    const { userId } = client.data;
+    const { userId } = client.data as { userId?: string };
 
     try {
-      await this.queueService.cancelQueue(userId);
+      if (!userId) throw new Error('userId 없음');
 
+      await this.queueService.cancelQueue(userId);
       client.emit('queue_cancelled', { message: '대기열 취소 성공' });
 
-      // 상태 갱신 푸시
-      this.broadcastQueueStatus();
-    } catch (error) {
-      client.emit('error', { message: error.message });
+      await this.broadcastQueueStatus();
+    } catch (error: any) {
+      client.emit('error', { message: error?.message ?? 'cancel_queue 실패' });
     }
   }
 
-  // 대기열 상태 조회
-  // 클라이언트가 요청할 수도 있고, 서버가 변경될 때마다 뿌릴 수도 있음
   @SubscribeMessage('request_queue_status')
   async handleRequestQueueStatus(@ConnectedSocket() client: Socket) {
     const status = await this.getQueueStatusData();
     client.emit('queue_status', status);
   }
 
-  // ============================================
-  // 보스모드 큐 관련 이벤트 핸들러
-  // ============================================
+  // ============================
+  // 보스모드 큐
+  // ============================
 
-  // 보스모드 대기열 입장 요청
   @SubscribeMessage('join_boss_queue')
   async handleJoinBossQueue(@ConnectedSocket() client: Socket) {
-    const { userId, nickname } = client.data;
+    const { userId, nickname } = client.data as {
+      userId?: string;
+      nickname?: string;
+    };
 
     try {
-      await this.queueService.recoverStaleInGameSession(userId);
-      
-      await this.queueService.enterBossQueue(userId, nickname);
+      if (!userId) throw new Error('userId 없음');
 
-      // 성공 응답 전송
+      await this.queueService.recoverStaleInGameSession(userId);
+      await this.queueService.enterBossQueue(userId, nickname ?? 'unknown');
+
       client.emit('boss_queue_joined', {
         message: '보스모드 대기열 진입 성공',
       });
 
-      // 대기열 상태 갱신하여 모두에게 푸시
-      this.broadcastBossQueueStatus();
-    } catch (error) {
-      client.emit('error', { message: error.message });
+      await this.broadcastBossQueueStatus();
+    } catch (error: any) {
+      client.emit('error', {
+        message: error?.message ?? 'join_boss_queue 실패',
+      });
     }
   }
 
-  // 보스모드 대기열 취소 요청
   @SubscribeMessage('cancel_boss_queue')
   async handleCancelBossQueue(@ConnectedSocket() client: Socket) {
-    const { userId } = client.data;
+    const { userId } = client.data as { userId?: string };
 
     try {
+      if (!userId) throw new Error('userId 없음');
+
       await this.queueService.cancelBossQueue(userId);
 
       client.emit('boss_queue_cancelled', {
         message: '보스모드 대기열 취소 성공',
       });
 
-      // 상태 갱신 푸시
-      this.broadcastBossQueueStatus();
-    } catch (error) {
-      client.emit('error', { message: error.message });
+      await this.broadcastBossQueueStatus();
+    } catch (error: any) {
+      client.emit('error', {
+        message: error?.message ?? 'cancel_boss_queue 실패',
+      });
     }
   }
 
-  // 보스모드 대기열 상태 조회
   @SubscribeMessage('request_boss_queue_status')
   async handleRequestBossQueueStatus(@ConnectedSocket() client: Socket) {
     const status = await this.getBossQueueStatusData();
     client.emit('boss_queue_status', status);
   }
 
-  // Worker가 호출할 함수. 매칭 성사 알림
+  // ============================
+  // Worker → 매칭 성사 알림
+  // ============================
+
+  /**
+   * ✅ 멀티 파드에서도 user room으로 정확히 라우팅 됨
+   * - 기존: userId → socketId(Map) (❌ 멀티 파드에서 깨짐)
+   * - 변경: userId room(`user:${userId}`) (✅ 어느 파드에 붙어도 받음)
+   */
   broadcastMatchFound(userIds: string[], roomInfo: any) {
     this.logger.log(`[broadcastMatchFound] userIds: ${userIds.join(', ')}`);
-    this.logger.log(`[broadcastMatchFound] 연결된유저: ${JSON.stringify([...this.connectedUsers.entries()])}`);
-    
+
     userIds.forEach((userId) => {
-      const socketId = this.connectedUsers.get(userId);
-      if (socketId) {
-        this.logger.log(`[broadcastMatchFound] Sending match_found to userId=${userId}, socketId=${socketId}`);
-        this.server.to(socketId).emit('match_found', {
-          message: '매칭 성공! 게임 서버로 이동합니다.',
-          ...roomInfo,
-        });
-      } else {
-        this.logger.warn(`[broadcastMatchFound] userId=${userId} not found in connectedUsers map`);
-      }
+      this.server.to(`user:${userId}`).emit('match_found', {
+        message: '매칭 성공! 게임 서버로 이동합니다.',
+        ...roomInfo,
+      });
     });
   }
 
-  // 헬퍼: 현재 큐 상태 데이터 생성
+  // ============================
+  // Queue status helpers
+  // ============================
+
   private async getQueueStatusData() {
     const totalLength = await this.queueService.getQueueLength();
     const MAX_PLAYERS_COUNT =
       this.configService.get<number>('MATCH_PLAYER_COUNT') ?? 5;
-    let currentCount = totalLength % MAX_PLAYERS_COUNT;
 
-    if (currentCount === 0 && totalLength > 0) {
-      currentCount = MAX_PLAYERS_COUNT;
-    }
+    let currentCount = totalLength % MAX_PLAYERS_COUNT;
+    if (currentCount === 0 && totalLength > 0) currentCount = MAX_PLAYERS_COUNT;
 
     return {
       currentCount,
@@ -226,26 +290,19 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
   }
 
-  // 헬퍼: 모든 접속자에게 큐 상태 푸시 (인원 변동 시 호출)
   async broadcastQueueStatus() {
     const status = await this.getQueueStatusData();
-    this.server.emit('queue_status', status); // namespace 전체 방송
+    // ✅ adapter 붙으면 멀티 파드 전체에 브로드캐스트
+    this.server.emit('queue_status', status);
   }
 
-  // ============================================
-  // 보스모드 큐 상태 관련 헬퍼 메서드
-  // ============================================
-
-  // 헬퍼: 보스모드 큐 상태 데이터 생성
   private async getBossQueueStatusData() {
     const totalLength = await this.queueService.getBossQueueLength();
     const MAX_PLAYERS_COUNT =
       this.configService.get<number>('BOSS_MATCH_PLAYER_COUNT') ?? 5;
-    let currentCount = totalLength % MAX_PLAYERS_COUNT;
 
-    if (currentCount === 0 && totalLength > 0) {
-      currentCount = MAX_PLAYERS_COUNT;
-    }
+    let currentCount = totalLength % MAX_PLAYERS_COUNT;
+    if (currentCount === 0 && totalLength > 0) currentCount = MAX_PLAYERS_COUNT;
 
     return {
       currentCount,
@@ -253,7 +310,6 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
   }
 
-  // 헬퍼: 모든 접속자에게 보스모드 큐 상태 푸시
   async broadcastBossQueueStatus() {
     const status = await this.getBossQueueStatusData();
     this.server.emit('boss_queue_status', status);

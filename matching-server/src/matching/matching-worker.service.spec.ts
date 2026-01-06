@@ -58,7 +58,11 @@ describe('MatchingWorkerService', () => {
 
   it('5명 매칭되고 할당 성공하면 broadcastMatchFound 호출', async () => {
     queueService.extractMatchParticipants.mockResolvedValue([
-      'u1', 'u2', 'u3', 'u4', 'u5',
+      'u1',
+      'u2',
+      'u3',
+      'u4',
+      'u5',
     ]);
     agonesAllocatorService.allocate.mockResolvedValue({
       gameserverIp: '1.2.3.4',
@@ -72,7 +76,11 @@ describe('MatchingWorkerService', () => {
 
   it('할당 실패 시(null 반환) 롤백 실행', async () => {
     queueService.extractMatchParticipants.mockResolvedValue([
-      'u1', 'u2', 'u3', 'u4', 'u5',
+      'u1',
+      'u2',
+      'u3',
+      'u4',
+      'u5',
     ]);
     // 할당 실패 시뮬레이션
     agonesAllocatorService.allocate.mockResolvedValue(null);
@@ -83,7 +91,11 @@ describe('MatchingWorkerService', () => {
     expect(gateway.broadcastMatchFound).not.toHaveBeenCalled();
     // 롤백은 호출되어야 함
     expect(queueService.rollbackParticipants).toHaveBeenCalledWith([
-      'u1', 'u2', 'u3', 'u4', 'u5',
+      'u1',
+      'u2',
+      'u3',
+      'u4',
+      'u5',
     ]);
   });
 });
