@@ -5,7 +5,7 @@ pipeline {
     booleanParam(
       name: 'ALLOW_MAIN',
       defaultValue: true,
-      description: 
+      description: 'Allow main branch run (prod only)'
     )
   }
 
@@ -42,7 +42,6 @@ pipeline {
             error("Blocked: main branch deploy is not allowed for test. Set ALLOW_MAIN=true only for production runs.")
           }
 
-       
           def safe = env.BRANCH_SIMPLE.replaceAll('[^A-Za-z0-9._-]+', '-')
           env.BRANCH_SAFE = safe
           env.DEPLOY_PREFIX = (env.BRANCH_SIMPLE == "main") ? "" : "preview/${env.BRANCH_SAFE}/"
@@ -58,24 +57,26 @@ pipeline {
           def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
           echo "Diff range: ${range}"
 
-          def changed = sh(
-            script: """#!/usr/bin/env bash
-              set -e
-              git diff --name-only ${range} \
-                | grep -E '^frontend/' \
-                | grep -v '^frontend/Jenkinsfile\\$' \
-                || true
-            """,
-            returnStdout: true
-          ).trim()
+          withEnv(["RANGE=${range}"]) {
+            def changed = sh(
+              returnStdout: true,
+              script: '''#!/usr/bin/env bash
+                set -e
+                git diff --name-only "$RANGE" \
+                  | grep -E '^frontend/' \
+                  | grep -v '^frontend/Jenkinsfile$' \
+                  || true
+              '''
+            ).trim()
 
-          if (!changed) {
-            echo "No deployable changes in frontend/ -> SKIP"
-            env.FRONTEND_CHANGED = "false"
-          } else {
-            echo "Frontend changes detected -> proceed"
-            echo "Changed files:\\n${changed}"
-            env.FRONTEND_CHANGED = "true"
+            if (!changed) {
+              echo "No deployable changes in frontend/ -> SKIP"
+              env.FRONTEND_CHANGED = "false"
+            } else {
+              echo "Frontend changes detected -> proceed"
+              echo "Changed files:\n${changed}"
+              env.FRONTEND_CHANGED = "true"
+            }
           }
         }
       }
@@ -95,7 +96,6 @@ pipeline {
             --exclude ".git/*" \
             --exclude "*.md"
 
-          # html은 캐시 강제 무효화
           find frontend -type f -name "*.html" -print0 | while IFS= read -r -d '' f; do
             rel="${f#frontend/}"
             aws s3 cp "$f" "${DEST}${rel}" --region "$AWS_REGION" \
@@ -128,7 +128,6 @@ pipeline {
           if [ -z "${DEPLOY_PREFIX}" ]; then
             PATHS="/*"
           else
-            # preview/<branch>/만 invalidate
             PATHS="/${DEPLOY_PREFIX}*"
           fi
 

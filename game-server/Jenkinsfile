@@ -2,11 +2,12 @@ pipeline {
   agent any
 
   parameters {
-    booleanParam(
-      name: 'ALLOW_MAIN',
-      defaultValue: true,
-    )
-  }
+   booleanParam(
+    name: 'ALLOW_MAIN',
+    defaultValue: true,
+    description: 'Allow main branch run (prod only)'
+  )
+}
 
   environment {
     AWS_REGION = "ap-northeast-2"
@@ -56,22 +57,23 @@ pipeline {
       }
     }
 
-    stage("Change check (game-server only)") {
-      steps {
-        script {
-          def base  = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT
-          def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
-          echo "Diff range: ${range}"
+  stage("Change check (game-server only)") {
+    steps {
+      script {
+        def base  = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT
+        def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
+        echo "Diff range: ${range}"
 
+        withEnv(["RANGE=${range}"]) {
           def changed = sh(
             returnStdout: true,
-            script: """#!/usr/bin/env bash
+            script: '''#!/usr/bin/env bash
               set -e
-              git diff --name-only "${range}" \\
-                | grep -E '^game-server/' \\
-                | grep -v '^game-server/Jenkinsfile\\$' \\
+              git diff --name-only "$RANGE" \
+                | grep -E '^game-server/' \
+                | grep -v '^game-server/Jenkinsfile$' \
                 || true
-            """
+            '''
           ).trim()
 
           if (!changed) {
@@ -79,12 +81,13 @@ pipeline {
             env.GAME_CHANGED = "false"
           } else {
             echo "Changes detected -> proceed."
-            echo "Changed files:\\n${changed}"
+            echo "Changed files:\n${changed}"
             env.GAME_CHANGED = "true"
           }
         }
       }
     }
+}
 
     stage("ECR Login") {
       when { expression { env.GAME_CHANGED == "true" } }

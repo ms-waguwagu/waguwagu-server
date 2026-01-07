@@ -2,12 +2,13 @@ pipeline {
   agent any
 
   parameters {
-    booleanParam(
-      name: 'ALLOW_MAIN',
-      defaultValue: true,
-      description:
-    )
-  }
+  booleanParam(
+    name: 'ALLOW_MAIN',
+    defaultValue: true,
+    description: 'Allow main branch run (prod only)'
+  )
+}
+
 
   environment {
     AWS_REGION   = "ap-northeast-2"
