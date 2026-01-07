@@ -443,33 +443,5 @@ export class GameGateway
     this.server.to(roomId).emit('state', room.getState());
   }
 
-  // ============================
-  // matching 서버로 종료 알림
-  // ============================
-  /*
-  private async notifyGameFinished(roomId: string, userIds: string[]) {
-    if (!roomId || !userIds || userIds.length === 0) {
-      this.logger.warn('game-finished: invalid payload');
-      return;
-    }
 
-    const url =
-      process.env.MATCHING_INTERNAL_URL ||
-      'http://matching:3000/internal/game-finished';
-      
-
-    try {
-      await axios.post(
-        url,
-        { roomId, userIds },
-        { timeout: 3000 },
-      );
-      this.logger.log(
-        `🏁 game-finished notified roomId=${roomId} users=${userIds.join(',')}`,
-      );
-    } catch (err) {
-      this.logger.error('game-finished notify failed', err as any);
-    }
-  }
-  */
 }

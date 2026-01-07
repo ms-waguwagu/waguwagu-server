@@ -1,4 +1,4 @@
-import { CONFIG } from "./config.js";
+import { CONFIG } from "../../config.js";
 import { GameManager } from "./src/js/game.js";
 
 // ====== 초기화 및 인증 체크 ======
@@ -37,7 +37,7 @@ const gameManager = new GameManager({
   nickname,
   roomId,
   token,
-  socketUrl: CONFIG.SOCKET_URL,
+  socketUrl: null, // 소켓 URL은 GameManager 내부에서 처리
   gameScreen,
   gameEndModal,
   homeButton,

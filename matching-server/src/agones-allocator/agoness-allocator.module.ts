@@ -6,6 +6,6 @@ import { Route53Service } from './route53.service';
 @Module({
   controllers: [AgonesAllocatorController],
   providers: [AgonesAllocatorService, Route53Service],
-	exports: [AgonesAllocatorService, Route53Service]
+  exports: [AgonesAllocatorService, Route53Service],
 })
 export class AgonesAllocatorModule {}

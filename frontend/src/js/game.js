@@ -1,6 +1,6 @@
 import { Renderer } from "../game/renderer.js";
 import { io } from "https://cdn.socket.io/4.5.4/socket.io.esm.min.js";
-import { CONFIG } from "../../config.js";
+import { CONFIG } from "/config.js";
 
 export class GameManager {
   constructor({

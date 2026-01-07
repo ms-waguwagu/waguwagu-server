@@ -27,7 +27,6 @@
         <h2>WEEKLY TOP 10</h2>
         <div id="ranking-list">
           <div class="empty-ranking">로딩 중...</div>
-          <!-- JS로 .ranking-item 10개를 넣는 구조 -->
         </div>
       </aside>
 
@@ -57,8 +56,8 @@
 
     <!-- 🔥 로그인 로직 -->
     <script type="module">
-      import { googleLogin } from "../api/google-login-api.js";
-      import { MATCHING_CONFIG } from "../../config.js";
+      import { googleLogin } from "/src/api/google-login-api.js";
+      import { MATCHING_CONFIG } from "/config.js";
 
       //이미 로그인 한 사용자라면, home으로 리다이렉션
       const token = localStorage.getItem("accessToken");
@@ -101,7 +100,7 @@
       };
     </script>
 
-    <!-- 기존 닉네임/게임 시작 로직 -->
+    <!-- 기존 닉네임/게임 시작 로직 (랭킹 로드 포함) -->
     <script type="module" src="../js/login.js"></script>
   </body>
 </html>
