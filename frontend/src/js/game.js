@@ -1,6 +1,7 @@
 import { Renderer } from "../game/renderer.js";
 import { io } from "https://cdn.socket.io/4.5.4/socket.io.esm.min.js";
 import { CONFIG } from "/config.js";
+import { SoundManager } from "./sound.js";
 
 export class GameManager {
   constructor({
@@ -53,6 +54,7 @@ export class GameManager {
     this.gameOverHandled = false;
 
     this.setupEventListeners();
+    this.sound = new SoundManager();
   }
 
   showQueueScreen() {
@@ -196,6 +198,11 @@ export class GameManager {
       const el = document.getElementById("countdown-display");
 
       if (!el) return;
+
+        // 🔊 카운트다운 시작 사운드
+      if (count === 3) {
+        this.sound.playStart();
+      }
 
       if (count > 0) {
         el.style.display = "block";

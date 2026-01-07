@@ -1,146 +1,271 @@
 #ranking-panel {
-  /* flex에게: '폭은 내가 width로 정할게, 넌 그냥 그대로 써' */
   flex: 0 0 auto;
-
-  /* 🔸큰 화면에서는 320px, 작아질수록 20vw까지 같이 줄어듦
-     (최소 200px 밑으로는 안 내려가게) */
   width: 20vw;
   box-sizing: border-box;
-
   background: linear-gradient(
     135deg,
     rgba(30, 30, 50, 0.95),
     rgba(20, 20, 35, 0.95)
   );
-
   padding: 22px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 215, 77, 0.2);
+  border: 1px solid rgba(255, 215, 77, 0.25);
   backdrop-filter: blur(12px);
-
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6),
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
-
-  /* 세로 규칙은 그대로 유지 (1~10등 한 번에 보이게) */
   height: calc(100vh - 48px);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 배경 패턴 효과 */
+#ranking-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  background: radial-gradient(
+    circle at 50% 0%,
+    rgba(255, 216, 77, 0.1) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
 }
 
 #ranking-panel h2 {
   text-align: center;
-  margin: 0 0 14px 0;
+  margin: 0 0 18px 0;
   font-size: 22px;
   font-weight: 800;
-  letter-spacing: 2px;
+  letter-spacing: 3px;
   text-transform: uppercase;
-
   background: linear-gradient(135deg, #ffd84d, #ffed4e, #f9ca24);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-
-  padding-bottom: 10px;
+  padding-bottom: 12px;
   border-bottom: 2px solid rgba(255, 216, 77, 0.3);
+  position: relative;
+  text-shadow: 0 2px 10px rgba(255, 216, 77, 0.3);
+  animation: headerGlow 3s ease-in-out infinite;
 }
 
-/* ✅ “전체화면에서는 1~10을 한 번에”
-   - 리스트 높이를 패널 내부 남은 높이로 맞춤
-   - 필요하면(창 작아지면) 여기만 스크롤 */
+@keyframes headerGlow {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(255, 216, 77, 0.3)); }
+  50% { filter: drop-shadow(0 0 15px rgba(255, 216, 77, 0.5)); }
+}
+
+#ranking-panel h2::after {
+  content: "🏆";
+  position: absolute;
+  right: 0;
+  top: -2px;
+  font-size: 20px;
+  animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
 #ranking-list {
-  height: calc(100% - 56px); /* h2 영역 만큼 제외(대략) */
+  height: calc(100% - 64px);
   overflow-y: auto;
   padding-right: 8px;
 }
 
-/* 스크롤바 */
+/* 스크롤바 개선 */
 #ranking-list::-webkit-scrollbar {
-  width: 6px;
-}
-#ranking-list::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
-}
-#ranking-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 216, 77, 0.3);
-  border-radius: 10px;
-}
-#ranking-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 216, 77, 0.5);
+  width: 8px;
 }
 
-/* 랭킹 아이템(10개 한 화면 최적화를 위해 height/padding을 과하지 않게) */
+#ranking-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  margin: 4px 0;
+}
+
+#ranking-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, rgba(255, 216, 77, 0.4), rgba(255, 216, 77, 0.2));
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+#ranking-list::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, rgba(255, 216, 77, 0.6), rgba(255, 216, 77, 0.4));
+  background-clip: padding-box;
+}
+
+/* 랭킹 아이템 개선 */
 .ranking-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-
-  padding: 10px 10px;
-  margin-bottom: 8px;
-
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-
+  padding: 12px 12px;
+  margin-bottom: 10px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.02)
+  );
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   overflow: hidden;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 호버 시 빛나는 효과 */
+.ranking-item::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 216, 77, 0.1),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.ranking-item:hover::before {
+  left: 100%;
 }
 
 .ranking-item:hover {
-  background: rgba(255, 216, 77, 0.08);
-  border-color: rgba(255, 216, 77, 0.2);
-  transform: translateX(4px);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 216, 77, 0.12),
+    rgba(255, 216, 77, 0.06)
+  );
+  border-color: rgba(255, 216, 77, 0.3);
+  transform: translateX(6px) scale(1.02);
+  box-shadow: 
+    0 4px 12px rgba(255, 216, 77, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .ranking-item:last-child {
   margin-bottom: 0;
 }
 
+/* 순위 뱃지 개선 */
 .ranking-item .rank {
   display: flex;
   align-items: center;
   justify-content: center;
-
-  min-width: 32px;
-  height: 32px;
-
+  min-width: 36px;
+  height: 36px;
   font-weight: 800;
-  font-size: 14px;
-
+  font-size: 15px;
   background: linear-gradient(135deg, #ffd84d, #f9ca24);
   color: #1a1a2e;
-
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(255, 216, 77, 0.4);
-
+  border-radius: 10px;
+  box-shadow: 
+    0 2px 8px rgba(255, 216, 77, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+}
+
+.ranking-item:hover .rank {
+  transform: rotate(5deg) scale(1.1);
+}
+
+/* 1위 금메달 효과 */
+.ranking-item:nth-child(1) {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 215, 0, 0.15),
+    rgba(255, 215, 0, 0.05)
+  );
+  border-color: rgba(255, 215, 0, 0.3);
 }
 
 .ranking-item:nth-child(1) .rank {
   background: linear-gradient(135deg, #ffd700, #ffa500);
+  box-shadow: 
+    0 4px 12px rgba(255, 215, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  animation: goldPulse 2s ease-in-out infinite;
 }
+
+@keyframes goldPulse {
+  0%, 100% { 
+    box-shadow: 
+      0 4px 12px rgba(255, 215, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+  50% { 
+    box-shadow: 
+      0 4px 20px rgba(255, 215, 0, 0.9),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+}
+
+/* 2위 은메달 효과 */
+.ranking-item:nth-child(2) {
+  background: linear-gradient(
+    135deg,
+    rgba(192, 192, 192, 0.15),
+    rgba(192, 192, 192, 0.05)
+  );
+  border-color: rgba(192, 192, 192, 0.3);
+}
+
 .ranking-item:nth-child(2) .rank {
-  background: linear-gradient(135deg, #c0c0c0, #a8a8a8);
+  background: linear-gradient(135deg, #e8e8e8, #a8a8a8);
+  box-shadow: 
+    0 4px 12px rgba(192, 192, 192, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
+
+/* 3위 동메달 효과 */
+.ranking-item:nth-child(3) {
+  background: linear-gradient(
+    135deg,
+    rgba(205, 127, 50, 0.15),
+    rgba(205, 127, 50, 0.05)
+  );
+  border-color: rgba(205, 127, 50, 0.3);
+}
+
 .ranking-item:nth-child(3) .rank {
-  background: linear-gradient(135deg, #cd7f32, #a0522d);
+  background: linear-gradient(135deg, #cd7f32, #8b4513);
+  box-shadow: 
+    0 4px 12px rgba(205, 127, 50, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .ranking-item .nick {
-  width: 120px;
-  margin: 0 10px;
-
+  flex: 1;
+  margin: 0 12px;
   font-weight: 600;
   font-size: 15px;
   color: #ffffff;
-
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  transition: color 0.3s ease;
+}
 
-  flex: 1;
+.ranking-item:hover .nick {
+  color: #ffd84d;
 }
 
 .ranking-item .score-wrapper {
-  width: 120px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -149,22 +274,75 @@
 
 .ranking-item .score {
   font-weight: 800;
-  font-size: 16px;
+  font-size: 17px;
   color: #4ecca3;
-  text-shadow: 0 0 10px rgba(78, 204, 163, 0.4);
+  text-shadow: 
+    0 0 10px rgba(78, 204, 163, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.8);
   line-height: 1.1;
+  transition: all 0.3s ease;
+}
+
+.ranking-item:hover .score {
+  color: #5eddb4;
+  text-shadow: 
+    0 0 15px rgba(78, 204, 163, 0.8),
+    0 1px 2px rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
 }
 
 .ranking-item .played-at {
   margin-top: 4px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.5);
   white-space: nowrap;
 }
 
 .empty-ranking {
   text-align: center;
-  padding: 28px 12px;
-  color: rgba(255, 255, 255, 0.55);
+  padding: 40px 12px;
+  color: rgba(255, 255, 255, 0.4);
   font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.empty-ranking::before {
+  content: "🎮";
+  font-size: 32px;
+  opacity: 0.5;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* 반응형 조정 */
+@media (max-width: 1200px) {
+  #ranking-panel {
+    width: 280px;
+  }
+}
+
+@media (max-width: 980px) {
+  #ranking-panel {
+    width: 240px;
+    padding: 18px;
+  }
+  
+  #ranking-panel h2 {
+    font-size: 18px;
+  }
+  
+  .ranking-item .nick {
+    font-size: 14px;
+  }
+  
+  .ranking-item .score {
+    font-size: 15px;
+  }
 }

@@ -1,5 +1,5 @@
-/* 게임 화면 (Game Screen) 스타일 - FINAL FIX
-   
+/* 게임 화면 (Game Screen) 스타일 - VINTAGE VERSION */
+
 /* 1. 폰트 설정 */
 @font-face {
   font-family: "RoundedFixedsys";
@@ -18,11 +18,18 @@ input {
     "Segoe UI", sans-serif;
 }
 
+/* 캔버스 스타일 - 빈티지 */
 #pacman-canvas {
-  border: 2px solid #555;
-  background-color: black;
+  border: 3px solid #d97d54;
+  background: #2a3744;
   display: block;
   margin: 0 auto;
+  border-radius: 8px;
+  box-shadow: 
+    0 0 15px rgba(217, 125, 84, 0.3),
+    0 4px 20px rgba(0, 0, 0, 0.6),
+    inset 0 0 50px rgba(0, 0, 0, 0.3);
+  position: relative;
 }
 
 #game-info {
@@ -32,65 +39,40 @@ input {
   margin-bottom: 10px;
 }
 
-/*   스코어보드 메인 컨테이너 (최종 ) */
-
+/* 스코어보드 메인 컨테이너 - 빈티지 */
 #scoreboard {
   position: fixed;
   top: 80px;
   right: 30px;
-
   box-sizing: border-box;
-
-  /*  반응형 너비 설정 */
   width: min(340px, 20vw);
   min-width: 260px;
-
-  /* 배경 */
-  background: radial-gradient(
-      circle at 20% 30%,
-      rgba(255, 215, 77, 0.05) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      circle at 80% 70%,
-      rgba(100, 100, 255, 0.03) 0%,
-      transparent 50%
-    ),
-    linear-gradient(145deg, rgba(35, 35, 60, 0.96), rgba(25, 25, 45, 0.96));
-
+  background: linear-gradient(145deg, rgba(42, 55, 68, 0.95), rgba(32, 42, 52, 0.95));
   padding: 28px;
-  border-radius: 20px;
-  border: 2px solid rgba(255, 215, 77, 0.4);
-
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 215, 77, 0.2), 0 0 60px rgba(255, 215, 77, 0.12);
-
-  backdrop-filter: blur(18px);
+  border-radius: 16px;
+  border: 2px solid rgba(217, 125, 84, 0.4);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.7),
+    0 0 20px rgba(217, 125, 84, 0.15);
+  backdrop-filter: blur(12px);
   z-index: 9999;
-
-  /*  너비(width) 변경 시 렉 없애기
-     - 'all'을 제거하고 필요한 것만 지정 */
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 #scoreboard:hover {
-  transform: translateY(-6px);
-  border-color: rgba(255, 215, 77, 0.5);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7),
-    inset 0 1px 0 rgba(255, 215, 77, 0.25), 0 0 80px rgba(255, 215, 77, 0.18);
+  transform: translateY(-4px);
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.8),
+    0 0 30px rgba(217, 125, 84, 0.2);
 }
 
-/*  닉네임 / 방 번호 */
-
+/* 닉네임 / 방 번호 */
 #player-summary {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(217, 125, 84, 0.05);
   padding: 14px 16px;
   border-radius: 10px;
   margin-bottom: 16px;
-  border: 1px solid rgba(255, 215, 77, 0.15);
-  transition: all 0.3s ease;
+  border: 1px solid rgba(217, 125, 84, 0.2);
 }
 
 #player-summary .info-row {
@@ -100,6 +82,7 @@ input {
   gap: 12px;
   margin-bottom: 8px;
 }
+
 #player-summary .info-row:last-child {
   margin-bottom: 0;
 }
@@ -111,298 +94,262 @@ input {
   white-space: nowrap;
 }
 
-/* 닉네임 */
 #player-summary .info-value {
   font-size: 15px;
   font-weight: 700;
-  color: #ffed4e;
-  text-shadow: 0 0 10px rgba(255, 237, 78, 0.3);
-  /* 반응형 말줄임 */
+  color: #f4b183;
+  text-shadow: 0 0 8px rgba(244, 177, 131, 0.3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
 }
 
-/* 방 번호 (하늘색) */
 #player-summary .info-row:last-child .info-value {
   font-size: 11px;
-  color: #8ecae6;
+  color: #d9a66a;
   font-weight: 600;
   font-family: monospace;
-  text-shadow: 0 0 8px rgba(142, 202, 230, 0.4);
 }
 
 .copy-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(217, 125, 84, 0.15);
+  border: 1px solid rgba(217, 125, 84, 0.4);
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 11px;
-  color: #ffffff;
+  color: #f4b183;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
+
 .copy-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(217, 125, 84, 0.25);
+  border-color: rgba(217, 125, 84, 0.6);
   transform: translateY(-1px);
 }
+
 .copy-btn:active {
   transform: translateY(0);
 }
 
-/*  타이머  */
-
+/* 타이머 - 빈티지 */
 #game-timer {
-  position: relative;
-  overflow: hidden;
   text-align: center;
   font-size: 22px;
   font-weight: 800;
   margin-bottom: 18px;
   padding: 14px;
-  background: transparent;
-  border-radius: 12px;
-  border: none;
-  color: #ffffff;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  border-radius: 10px;
+  color: #f4b183;
+  text-shadow: 0 0 10px rgba(244, 177, 131, 0.4);
   transition: all 0.3s ease;
-  z-index: 1;
 }
 
-/* 주석처리 해도 되는 코드일 듯?? 일단은 남겨놓기 빨강색 타이머  */
 #game-timer.urgent {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 50, 50, 0.1),
-    rgba(255, 70, 70, 0.15),
-    rgba(255, 50, 50, 0.1)
-  );
-  border: 2px solid rgba(255, 70, 70, 0.5);
-  color: #ff4d4d;
-  text-shadow: 0 0 15px rgba(255, 77, 77, 0.8);
+  background: rgba(217, 90, 70, 0.15);
+  border: 2px solid rgba(217, 90, 70, 0.5);
+  color: #d95a46;
+  text-shadow: 0 0 12px rgba(217, 90, 70, 0.5);
   animation: timerUrgent 1s ease-in-out infinite;
-}
-#game-timer.urgent::after {
-  display: none;
 }
 
 @keyframes timerUrgent {
-  0%,
-  100% {
-    box-shadow: 0 0 15px rgba(255, 77, 77, 0.3);
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(217, 90, 70, 0.3);
   }
   50% {
-    box-shadow: 0 0 30px rgba(255, 77, 77, 0.5);
-    transform: scale(1.02);
+    box-shadow: 0 0 20px rgba(217, 90, 70, 0.5);
   }
 }
 
-/* 점수 랭킹 */
-
+/* 점수 랭킹 헤더 */
 #scoreboard h3 {
   margin: 0 0 18px 0;
   text-align: center;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 900;
-  letter-spacing: 3px;
-  color: #ffffff;
-  text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
-  padding-bottom: 14px;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+  letter-spacing: 2px;
+  color: #f4b183;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(244, 177, 131, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
 }
+
 #scoreboard h3::before {
   content: "🏆";
-  font-size: 24px;
-  filter: drop-shadow(0 0 8px gold);
-}
-#scoreboard h3::after {
-  content: none;
+  font-size: 22px;
+  filter: drop-shadow(0 0 8px rgba(244, 177, 131, 0.4));
+  animation: trophyFloat 2s ease-in-out infinite;
 }
 
-/* 🎯 점수 리스트 */
+@keyframes trophyFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
 
+/* 점수 리스트 */
 #score-entries div {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   margin-bottom: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.08);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.3s ease;
 }
 
 #score-entries div:hover {
-  background: rgba(255, 216, 77, 0.06);
-  border-color: rgba(255, 216, 77, 0.2);
-  transform: translateX(6px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  background: rgba(217, 125, 84, 0.1);
+  border-color: rgba(217, 125, 84, 0.25);
+  transform: translateX(4px);
 }
 
 #score-entries .player-name {
   font-weight: 700;
-  font-size: 17px;
+  font-size: 16px;
   color: #b0b0b0;
-  text-align: left;
   display: flex;
   align-items: center;
-  /* 반응형 말줄임 */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
 }
 
-/* 1등만 왕관 */
-#score-entries dgiv:nth-child(1) .player-name::before {
+/* 1등 왕관 */
+#score-entries div:nth-child(1) .player-name::before {
   content: "👑";
   margin-right: 8px;
-  font-size: 18px;
+  font-size: 16px;
 }
+
 #score-entries div:nth-child(n + 2) .player-name::before {
   content: "";
   display: inline-block;
-  width: 26px;
+  width: 24px;
 }
 
 #score-entries .player-score {
   font-weight: 800;
-  font-size: 20px;
+  font-size: 18px;
   color: #a8a8a8;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   text-align: right;
   font-variant-numeric: tabular-nums;
   min-width: 70px;
 }
 
-/* 1등 */
+/* 1등 - 빈티지 골드 */
 #score-entries div:nth-child(1) {
-  border-color: rgba(255, 216, 77, 0.5);
-  background: linear-gradient(
-    90deg,
-    rgba(255, 216, 77, 0.12),
-    rgba(255, 216, 77, 0.06)
-  );
-  box-shadow: 0 0 15px rgba(255, 216, 77, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-color: rgba(244, 177, 131, 0.5);
+  background: rgba(244, 177, 131, 0.08);
 }
+
 #score-entries div:nth-child(1) .player-name {
-  color: #ffd84d;
-  font-size: 18px;
-  font-weight: 800;
-  text-shadow: 0 0 15px rgba(255, 216, 77, 0.6);
+  color: #f4b183;
+  font-size: 17px;
+  text-shadow: 0 0 10px rgba(244, 177, 131, 0.4);
 }
+
 #score-entries div:nth-child(1) .player-score {
-  color: #ffd84d;
-  font-size: 24px;
-  font-weight: 900;
-  text-shadow: 0 0 20px rgba(255, 216, 77, 0.8);
+  color: #f4b183;
+  font-size: 22px;
+  text-shadow: 0 0 12px rgba(244, 177, 131, 0.5);
 }
 
-/* 2등 */
+/* 2등 - 빈티지 실버 */
 #score-entries div:nth-child(2) {
-  border-color: rgba(224, 224, 224, 0.6);
-  background: linear-gradient(
-    90deg,
-    rgba(224, 224, 224, 0.15),
-    rgba(224, 224, 224, 0.05)
-  );
-  box-shadow: 0 0 15px rgba(224, 224, 224, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-color: rgba(217, 166, 106, 0.4);
+  background: rgba(217, 166, 106, 0.06);
 }
+
 #score-entries div:nth-child(2) .player-name {
-  color: #ffffff;
-  font-weight: 800;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+  color: #d9a66a;
+  text-shadow: 0 0 8px rgba(217, 166, 106, 0.3);
 }
+
 #score-entries div:nth-child(2) .player-score {
-  color: #e0e0e0;
-  font-size: 22px;
-  font-weight: 900;
-  text-shadow: 0 0 10px rgba(224, 224, 224, 0.3);
+  color: #d9a66a;
+  font-size: 20px;
+  text-shadow: 0 0 10px rgba(217, 166, 106, 0.4);
 }
 
-/* 3등 */
+/* 3등 - 빈티지 브론즈 */
 #score-entries div:nth-child(3) {
-  border-color: rgba(220, 150, 80, 0.4);
-  background: linear-gradient(
-    90deg,
-    rgba(220, 150, 80, 0.1),
-    rgba(220, 150, 80, 0.05)
-  );
-  box-shadow: 0 0 12px rgba(220, 150, 80, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-color: rgba(205, 127, 84, 0.4);
+  background: rgba(205, 127, 84, 0.06);
 }
+
 #score-entries div:nth-child(3) .player-name {
-  color: #f5b97f;
-  font-weight: 800;
-  text-shadow: 0 0 12px rgba(245, 185, 127, 0.5);
+  color: #cd7f54;
+  text-shadow: 0 0 8px rgba(205, 127, 84, 0.3);
 }
+
 #score-entries div:nth-child(3) .player-score {
-  color: #f5b97f;
-  font-size: 22px;
-  font-weight: 900;
-  text-shadow: 0 0 15px rgba(245, 185, 127, 0.7);
+  color: #cd7f54;
+  font-size: 20px;
+  text-shadow: 0 0 10px rgba(205, 127, 84, 0.4);
 }
 
-/*  게임 종료  효과 */
-
+/* 게임 종료 */
 #scoreboard.game-over {
   position: fixed;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(1.35);
+  transform: translate(-50%, -50%) scale(1.3);
   width: 400px;
   padding: 32px;
-  background: linear-gradient(
-    145deg,
-    rgba(35, 35, 60, 0.98),
-    rgba(25, 25, 45, 0.98)
-  );
-  border: 3px solid rgba(120, 120, 140, 0.5);
+  background: linear-gradient(145deg, rgba(42, 55, 68, 0.98), rgba(32, 42, 52, 0.98));
+  border: 3px solid rgba(217, 125, 84, 0.5);
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(15px);
-  transition: all 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.8s ease;
 }
+
 #scoreboard .game-over-title,
 #scoreboard .game-over-message {
   display: none;
 }
+
 #scoreboard.game-over .game-over-title {
   display: block;
   font-size: 32px;
   font-weight: 900;
   text-align: center;
-  color: #ff6b6b;
+  color: #d95a46;
   margin-bottom: 12px;
-  text-shadow: 0 0 20px rgba(255, 107, 107, 0.6);
+  animation: gameOverPulse 1.5s ease-in-out infinite;
 }
+
+@keyframes gameOverPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
 #scoreboard.game-over .game-over-message {
   display: block;
   font-size: 16px;
   text-align: center;
-  color: #ccc;
+  color: #b89e8e;
   margin-top: 8px;
 }
+
 #scoreboard.game-over #game-timer,
 #scoreboard.game-over #player-summary {
   display: none;
 }
 
-/* 재시작 버튼??? */
-
+/* 모달 */
 .modal.hidden {
   display: none;
 }
+
 .modal {
   position: fixed;
   top: 0;
@@ -415,15 +362,16 @@ input {
   align-items: center;
   z-index: 10000;
 }
+
 .modal-content {
-  background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  background: linear-gradient(145deg, #2a3744, #1f2a34);
   padding: 35px;
   width: 450px;
   border-radius: 16px;
   text-align: center;
-  color: white;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.6), 0 0 50px rgba(255, 216, 77, 0.2);
-  border: 2px solid rgba(255, 216, 77, 0.3);
+  color: #f4e4d7;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
+  border: 2px solid rgba(217, 125, 84, 0.4);
 }
 
 #restart-btn {
@@ -431,22 +379,23 @@ input {
   padding: 12px;
   width: 220px;
   border: none;
-  background: linear-gradient(135deg, #f1c40f, #f39c12);
+  background: linear-gradient(135deg, #d97d54, #c46c44);
   font-size: 18px;
   font-weight: 800;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(241, 196, 15, 0.3);
+  box-shadow: 0 4px 15px rgba(217, 125, 84, 0.3);
+  color: #2a3744;
 }
+
 #restart-btn:hover {
-  background: linear-gradient(135deg, #f39c12, #e67e22);
+  background: linear-gradient(135deg, #e8936a, #d97d54);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(241, 196, 15, 0.4);
+  box-shadow: 0 6px 20px rgba(217, 125, 84, 0.4);
 }
 
-/* 게임 시작 전에 카운트다운 효과. */
-
+/* 카운트다운 */
 #countdown-display {
   position: fixed;
   top: 40%;
@@ -454,30 +403,45 @@ input {
   transform: translate(-50%, -50%);
   font-size: 160px;
   font-weight: 900;
-  color: #ffed4e;
-  text-shadow: 0 0 15px rgba(255, 235, 100, 1), 0 0 50px rgba(255, 200, 50, 0.7);
+  color: #f4b183;
+  text-shadow: 
+    0 0 20px rgba(244, 177, 131, 0.6), 
+    0 0 40px rgba(244, 177, 131, 0.4);
   display: none;
   z-index: 100000;
 }
+
 #countdown-display.start {
-  transform: translate(-50%, -50%) scale(1.4);
-  opacity: 1;
+  animation: countdownPulse 1s ease-out;
 }
 
-/* =========================================
-   로딩 오버레이 (Loading Overlay)
-   ========================================= */
+@keyframes countdownPulse {
+  0% { 
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* 로딩 오버레이 */
 #loading-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: #000016;
+  background: #2a3744;
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000000; /* 카운트다운(100000)보다 높아야 함 */
+  z-index: 1000000;
   opacity: 1;
   visibility: visible;
   transition: opacity 0.6s ease-out, visibility 0.6s ease-out;
@@ -496,14 +460,13 @@ input {
   gap: 30px;
 }
 
-/* 팩맨 스타일 로더 */
+/* 팩맨 로더 */
 .pacman-loader {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: #ffed4e;
+  background: #f4c54e;
   position: relative;
-  box-shadow: 0 0 30px rgba(255, 237, 78, 0.4);
   animation: mouthOpen 0.4s ease-in-out infinite alternate;
 }
 
@@ -515,7 +478,7 @@ input {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #000;
+  background: #2a3744;
 }
 
 @keyframes mouthOpen {
@@ -529,14 +492,21 @@ input {
 
 .loading-text {
   font-size: 24px;
-  color: #fff;
+  color: #f4b183;
   letter-spacing: 4px;
   font-weight: 800;
-  text-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
   animation: textBlink 1.5s infinite;
 }
 
 @keyframes textBlink {
   0%, 100% { opacity: 0.5; }
   50% { opacity: 1; }
+}
+
+/* 조작 안내 */
+p[style*="font-size: 0.9em"] {
+  font-size: 14px !important;
+  color: #d9a66a !important;
+  margin-top: 15px !important;
+  font-weight: 600 !important;
 }

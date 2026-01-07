@@ -1,25 +1,28 @@
 	<!DOCTYPE html>
 	<html>
-	<head>
-		<title>Queue</title>
-		<link rel="stylesheet" href="../styles/queue.css">
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script type="module">
-    // 로그인 체크
-    const token = localStorage.getItem("accessToken");
-    if (!token) {
-      location.href = "./login.html";
-    }
+    <head>
+      <title>Queue</title>
 
-    // 게임 중 잔존 roomId 있으면 홈으로
-    const roomId = localStorage.getItem("waguwagu_room_id");
-    if (roomId) {
-      console.warn("잔존 roomId 감지 → 홈으로 이동");
-      localStorage.removeItem("waguwagu_room_id");
-      location.replace("./home.html");
-    }
-  </script>
-	</head>
+      <!-- ✅ 공통 폰트 / 기본 스타일 -->
+      <link rel="stylesheet" href="../styles/main.css">
+
+      <!-- queue 전용 스타일 -->
+      <link rel="stylesheet" href="../styles/queue.css">
+
+      <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+      <script type="module">
+        const token = localStorage.getItem("accessToken");
+        if (!token) {
+          location.href = "./login.html";
+        }
+
+        const roomId = localStorage.getItem("waguwagu_room_id");
+        if (roomId) {
+          localStorage.removeItem("waguwagu_room_id");
+          location.replace("./home.html");
+        }
+      </script>
+    </head>
 	<body>
 		<!-- 대기열 화면	 -->
 			 <div id="queue-screen" >
