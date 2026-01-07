@@ -13,7 +13,6 @@ import { AgonesService } from '../agones/agones.service';
 import * as AWSXRay from 'aws-xray-sdk-core';
 
 import { GameEngineService } from '../engine/game-engine.service';
-import { RankingService } from '../ranking/ranking.service';
 import { PlayerService } from 'src/engine/player/player.service';
 import { GhostManagerService } from 'src/engine/ghost/ghost-manager.service';
 import { BotManagerService } from 'src/engine/bot/bot-manager.service';
@@ -50,7 +49,6 @@ export class GameGateway
   private rooms: Record<string, RoomWrapper> = {};
 
   constructor(
-    private rankingService: RankingService,
     private ghostManagerService: GhostManagerService,
     private playerService: PlayerService,
     private botManagerService: BotManagerService,

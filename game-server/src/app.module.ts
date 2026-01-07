@@ -18,7 +18,6 @@ import { ResultQueueModule } from './result-queue/result-queue.module';
     AgonesModule,
     AiModule,
     BossModule,
-    RankingModule, 
     GameModule, 
     ResultQueueModule,
   ],

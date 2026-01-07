@@ -106,7 +106,7 @@ export class LifecycleService {
     return state?.gameOver ?? false;
   }
 
-  triggerGameOver(roomId: string, reason: string) {
+  async triggerGameOver(roomId: string, reason: string) {
     if (!this.roomManager?.server) return;
 
     const state = this.rooms[roomId];
