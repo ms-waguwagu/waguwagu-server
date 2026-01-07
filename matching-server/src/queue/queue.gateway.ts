@@ -12,6 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 import { PlayerStatus } from '../common/constants';
+import * as AWSXRay from 'aws-xray-sdk-core';
 
 @WebSocketGateway({ 
 	namespace: '/queue', 
@@ -70,7 +71,7 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       //이미 매칭되었거나 게임 중이면 큐 취소를 시도하지 않음
       if (status !== PlayerStatus.WAITING) {
-        this.logger.log(`disconnect: userId=${userId}, status=${status}`);
+        this.logger.log(`연결 종료: userId=${userId}, 상태=${status}`);
         return;
       }
 
@@ -100,16 +101,31 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleJoinQueue(@ConnectedSocket() client: Socket) {
     const { userId, nickname } = client.data;
 
-    try {
-      await this.queueService.recoverStaleInGameSession(userId);
-
-      await this.queueService.enterQueue(userId, nickname);
-
-      client.emit('queue_joined', { message: '대기열 진입 성공' });
-      this.broadcastQueueStatus();
-    } catch (error) {
-      client.emit('error', { message: error.message });
+    const ns = AWSXRay.getNamespace();
+    if (!ns) {
+      await this.processJoinQueue(client, userId, nickname);
+      return;
     }
+
+    await ns.runPromise(async () => {
+      const segment = new AWSXRay.Segment('MatchingStartFlow');
+      AWSXRay.setSegment(segment);
+      try {
+        await this.processJoinQueue(client, userId, nickname);
+      } catch (error) {
+        segment.addError(error);
+        client.emit('error', { message: error.message });
+      } finally {
+        segment.close();
+      }
+    });
+  }
+
+  private async processJoinQueue(client: Socket, userId: string, nickname: string) {
+    await this.queueService.recoverStaleInGameSession(userId);
+    await this.queueService.enterQueue(userId, nickname);
+    client.emit('queue_joined', { message: '대기열 진입 성공' });
+    this.broadcastQueueStatus();
   }
 
 
@@ -147,21 +163,33 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleJoinBossQueue(@ConnectedSocket() client: Socket) {
     const { userId, nickname } = client.data;
 
-    try {
-      await this.queueService.recoverStaleInGameSession(userId);
-      
-      await this.queueService.enterBossQueue(userId, nickname);
-
-      // 성공 응답 전송
-      client.emit('boss_queue_joined', {
-        message: '보스모드 대기열 진입 성공',
-      });
-
-      // 대기열 상태 갱신하여 모두에게 푸시
-      this.broadcastBossQueueStatus();
-    } catch (error) {
-      client.emit('error', { message: error.message });
+    const ns = AWSXRay.getNamespace();
+    if (!ns) {
+      await this.processJoinBossQueue(client, userId, nickname);
+      return;
     }
+
+    await ns.runPromise(async () => {
+      const segment = new AWSXRay.Segment('BossMatchingStartFlow');
+      AWSXRay.setSegment(segment);
+      try {
+        await this.processJoinBossQueue(client, userId, nickname);
+      } catch (error) {
+        segment.addError(error);
+        client.emit('error', { message: error.message });
+      } finally {
+        segment.close();
+      }
+    });
+  }
+
+  private async processJoinBossQueue(client: Socket, userId: string, nickname: string) {
+    await this.queueService.recoverStaleInGameSession(userId);
+    await this.queueService.enterBossQueue(userId, nickname);
+    client.emit('boss_queue_joined', {
+      message: '보스모드 대기열 진입 성공',
+    });
+    this.broadcastBossQueueStatus();
   }
 
   // 보스모드 대기열 취소 요청
@@ -192,19 +220,19 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Worker가 호출할 함수. 매칭 성사 알림
   broadcastMatchFound(userIds: string[], roomInfo: any) {
-    this.logger.log(`[broadcastMatchFound] userIds: ${userIds.join(', ')}`);
-    this.logger.log(`[broadcastMatchFound] 연결된유저: ${JSON.stringify([...this.connectedUsers.entries()])}`);
+    this.logger.log(`[매칭성사] 대상 유저: ${userIds.join(', ')}`);
+    this.logger.log(`[매칭성사] 연결된 유저 목록: ${JSON.stringify([...this.connectedUsers.entries()])}`);
     
     userIds.forEach((userId) => {
       const socketId = this.connectedUsers.get(userId);
       if (socketId) {
-        this.logger.log(`[broadcastMatchFound] Sending match_found to userId=${userId}, socketId=${socketId}`);
+        this.logger.log(`[매칭성사] match_found 전송: userId=${userId}, socketId=${socketId}`);
         this.server.to(socketId).emit('match_found', {
           message: '매칭 성공! 게임 서버로 이동합니다.',
           ...roomInfo,
         });
       } else {
-        this.logger.warn(`[broadcastMatchFound] userId=${userId} not found in connectedUsers map`);
+        this.logger.warn(`[매칭성사] userId=${userId} 유저를 connectedUsers 맵에서 찾을 수 없습니다.`);
       }
     });
   }

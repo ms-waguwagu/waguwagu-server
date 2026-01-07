@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Controller, Get, Query, Logger } from '@nestjs/common';
 import { RankingService } from './ranking.service';
 
@@ -10,6 +9,7 @@ export class RankingController {
 
   @Get('top')
   async getTopRanking(@Query('limit') limit?: string) {
+    this.logger.log(`랭킹 조회 요청 수신 (limit: ${limit})`);
     const limitNum = limit ? parseInt(limit, 10) : 100;
     const records = await this.rankingService.getTopRanking(limitNum);
 
@@ -17,6 +17,7 @@ export class RankingController {
       rank: index + 1,
       nickname: record.nickname,
       score: record.score,
+      playedAt: record.playedAt,
     }));
   }
 }

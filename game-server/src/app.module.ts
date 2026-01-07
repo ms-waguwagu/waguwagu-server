@@ -8,6 +8,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
 import { AgonesModule } from './agones/agones.module';
+import { ResultQueueModule } from './result-queue/result-queue.module';
 
 @Module({
   imports: [
@@ -17,7 +18,9 @@ import { AgonesModule } from './agones/agones.module';
     AgonesModule,
     AiModule,
     BossModule,
-    GameModule,
+    RankingModule, 
+    GameModule, 
+    ResultQueueModule,
   ],
   controllers: [AppController],
   providers: [AppService],

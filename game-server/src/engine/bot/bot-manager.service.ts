@@ -85,7 +85,7 @@ export class BotManagerService {
 
   stunBot(bot: BotState) {
     bot.stunned = true;
-    bot.stunEndTime = Date.now() + 10000;
+    bot.stunEndTime = Date.now() + 5000;
     bot.alpha = 0.4;
     bot.score = Math.max(0, bot.score - 30);
   }

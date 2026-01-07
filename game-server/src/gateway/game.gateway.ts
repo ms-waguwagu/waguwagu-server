@@ -9,11 +9,11 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import axios from 'axios';
-import * as jwt from 'jsonwebtoken';
-
 import { AgonesService } from '../agones/agones.service';
+import * as AWSXRay from 'aws-xray-sdk-core';
 
 import { GameEngineService } from '../engine/game-engine.service';
+import { RankingService } from '../ranking/ranking.service';
 import { PlayerService } from 'src/engine/player/player.service';
 import { GhostManagerService } from 'src/engine/ghost/ghost-manager.service';
 import { BotManagerService } from 'src/engine/bot/bot-manager.service';
@@ -21,11 +21,11 @@ import { CollisionService } from 'src/engine/core/collision.service';
 import { LifecycleService } from 'src/engine/core/lifecycle.service';
 import { GameLoopService } from 'src/engine/core/game-loop.service';
 import { BossManagerService } from '../boss/boss-manager.service';
-import { GameResultProducer } from './producer/game-result.producer';
+import * as jwt from 'jsonwebtoken';
 
 interface RoomWrapper {
   engine: GameEngineService;
-  users: string[]; // googleSub list (참가자 기록)
+  users: string[];
   finished?: boolean;
   countdownStarted?: boolean;
 }
@@ -36,6 +36,7 @@ type GameMode = 'NORMAL' | 'BOSS';
   namespace: '/game',
   path: '/socket.io',
   cors: { origin: '*' },
+  // transports 제거하여 polling과 websocket 모두 허용
 })
 export class GameGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
@@ -45,13 +46,11 @@ export class GameGateway
 
   private readonly logger = new Logger(GameGateway.name);
 
-  // roomId -> room wrapper
+  // roomId → GameEngineService instance
   private rooms: Record<string, RoomWrapper> = {};
 
-  // googleSub -> roomId (HTTP leave용)
-  private userRoomMap = new Map<string, string>();
-
   constructor(
+    private rankingService: RankingService,
     private ghostManagerService: GhostManagerService,
     private playerService: PlayerService,
     private botManagerService: BotManagerService,
@@ -60,54 +59,46 @@ export class GameGateway
     private gameLoopService: GameLoopService,
     private bossManagerService: BossManagerService,
     private agonesService: AgonesService,
-    private readonly gameResultProducer: GameResultProducer,
   ) {}
 
-  private verifyMatchToken(token: string): {
-    userIds: string[];
-    roomId: string;
-    nickname?: string;
-    mode?: 'NORMAL' | 'BOSS';
-    maxPlayers?: number;
-  } {
-    const secret = process.env.MATCH_TOKEN_SECRET || 'match-token-secret';
+	private verifyMatchToken(token: string): { userIds: string[]; roomId: string; nickname?: string; mode?: 'NORMAL' | 'BOSS'; maxPlayers?: number; userNicknames?: Record<string, string> } {
+		const secret = process.env.MATCH_TOKEN_SECRET || 'match-token-secret';
 
-    const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
+		const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
 
-    const userIds = decoded?.userIds as string[] | undefined;
-    const roomId = decoded?.roomId as string | undefined;
+		const userIds = decoded?.userIds as string[] | undefined;
+		const roomId = decoded?.roomId as string | undefined;
 
-    if (!userIds || !roomId) {
-      throw new Error('INVALID_MATCH_TOKEN_PAYLOAD');
-    }
+		if (!userIds || !roomId) {
+			throw new Error('INVALID_MATCH_TOKEN_PAYLOAD');
+		}
 
-    return {
-      userIds,
-      roomId,
-      nickname: decoded.nickname as string | undefined,
-      mode: decoded.mode as 'NORMAL' | 'BOSS' | undefined,
+		return {
+			userIds,
+			roomId,
+			mode: decoded.mode as 'NORMAL' | 'BOSS' | undefined,
       maxPlayers: decoded.maxPlayers as number | undefined,
-    };
-  }
+      userNicknames: decoded.userNicknames as Record<string, string> | undefined,
+		};
+	}
+
 
   afterInit(server: Server) {
     this.lifecycleService.roomManager = this;
 
-    const nsp: any = (this.server as any).use
-      ? this.server
-      : (this.server as any).of?.('/game');
+    // namespace gateway일 때도 안전하게 미들웨어를 붙이기
+    const nsp: any =
+      (this.server as any).use ? this.server : (this.server as any).of?.('/game');
 
     if (!nsp?.use) {
       this.logger.warn('socket middleware(use)를 붙일 수 없습니다.');
       return;
     }
 
-    // 연결 단계에서 matchToken 검증
+    // 1) 연결 단계에서 matchToken 검증
     nsp.use((socket: Socket, next: (err?: any) => void) => {
       const token = socket.handshake.auth?.matchToken;
-      this.logger.log(
-        `[Middleware] Connection attempt, token exists: ${!!token}`,
-      );
+      this.logger.log(`[미들웨어] 연결 시도, 토큰 존재: ${!!token}`);
 
       if (!token) {
         this.logger.warn('[Middleware] NO_MATCH_TOKEN - rejecting connection');
@@ -116,17 +107,18 @@ export class GameGateway
 
       try {
         const payload = this.verifyMatchToken(token);
+        this.logger.log(`[미들웨어] 토큰 검증 완료: userIds=${payload.userIds.join(',')}, roomId=${payload.roomId}`);
 
         socket.data.userIds = payload.userIds;
         socket.data.roomId = payload.roomId;
 
-        if (payload.nickname) socket.data.nickname = payload.nickname;
+        if (payload.userNicknames) socket.data.userNicknames = payload.userNicknames;
         if (payload.mode) socket.data.mode = payload.mode as GameMode;
         if (payload.maxPlayers) socket.data.maxPlayers = payload.maxPlayers;
 
         return next();
-      } catch (err: any) {
-        this.logger.error(`[Middleware] INVALID_MATCH_TOKEN: ${err?.message}`);
+      } catch (err) {
+        this.logger.error(`[미들웨어] 유효하지 않은 매치 토큰: ${err.message}`);
         return next(new Error('INVALID_MATCH_TOKEN'));
       }
     });
@@ -136,81 +128,64 @@ export class GameGateway
 
   handleConnection(client: Socket) {
     this.logger.log(
-      `Client connected socketId=${client.id} roomId=${client.data?.roomId} tokenUsers=${(client.data?.userIds ?? []).join(',')}`,
+      `Client connected socketId=${client.id} userIds=${client.data?.userIds.join(',')} roomId=${client.data?.roomId}`,
     );
   }
 
-  // ✅ 새로고침/뒤로가기/탭닫기 = 소켓 끊김 → "탈주" 취급 → 결과 전송 X
-  handleDisconnect(client: Socket) {
-    const roomId = client.data.roomId as string | undefined;
-    const googleSub = client.data.userId as string | undefined;
-
+  async handleDisconnect(client: Socket) {
     this.logger.log(
-      `Client disconnected socketId=${client.id} userId=${googleSub} roomId=${roomId}`,
+      `Client disconnected socketId=${client.id} userId=${client.data?.userId} roomId=${client.data?.roomId}`,
     );
 
-    if (!roomId) return;
+    const roomId = client.data.roomId as string | undefined;
+    if (roomId) {
+      const roomWrapper = this.rooms[roomId];
+      if (roomWrapper) {
+        const room = roomWrapper.engine;
+        room.removePlayer(client.id);
+        client.leave(roomId);
 
-    const roomWrapper = this.rooms[roomId];
-    if (!roomWrapper) return;
+        this.logger.log(`Room ${roomId} human players left: ${room.playerCount()}`);
 
-    const room = roomWrapper.engine;
-
-    // 1) 플레이어 제거 (소켓 기준)
-    room.removePlayer(client.id);
-    client.leave(roomId);
-
-    // 2) 매핑 정리 (googleSub가 있으면)
-    if (googleSub) {
-      this.userRoomMap.delete(googleSub);
+        // 만약 방에 사람이 없고 아직 정리가 안 된 경우 간단 정리
+        if (room.playerCount() === 0 && !roomWrapper.finished) {
+          this.logger.log(`Room ${roomId} is now empty. Stopping interval.`);
+          roomWrapper.finished = true;
+          room.stopInterval();
+          // delete this.rooms[roomId]; // LifecycleService에서 지우므로 여기선 굳이 안 지워도 됨
+        }
+        
+        // 남아있는 플레이어들에게 상태 전송 (방이 떠 있는 경우만)
+        if (this.rooms[roomId]) {
+          this.server.to(roomId).emit('state', room.getState());
+        }
+      }
     }
 
-    // 3) 방에 아무도 없으면 방 정리 (⚠️ 결과 전송 X)
-    if (room.playerCount() === 0) {
-      if (roomWrapper.finished) return;
-      roomWrapper.finished = true;
-
-      room.stopInterval();
-      delete this.rooms[roomId];
-      this.lifecycleService.removeRoom(roomId);
-
-      this.logger.log(`[ROOM CLOSED by disconnect] roomId=${roomId}`);
-      return;
-    }
-
-    // 4) 남은 사람들에게 상태 전송
-    this.server.to(roomId).emit('state', room.getState());
+    // 어떤 유저가 나가든 항상 전체 서버 인원 체크
+    await this.checkPodShutdown();
   }
 
-  // ✅ HTTP에서 새로고침/뒤로가기 처리할 때 호출(= 탈주) → 결과 전송 X
-  handleHttpLeave(googleSub: string) {
-    const roomId = this.userRoomMap.get(googleSub);
-    if (!roomId) return;
+  private async checkPodShutdown() {
+    const connectedSockets = await this.server.fetchSockets();
+    const count = connectedSockets.length;
+    this.logger.log(`[파드셧다운체크] 현재 연결된 총 소켓 수: ${count}`);
 
-    const roomWrapper = this.rooms[roomId];
-    if (!roomWrapper) return;
-
-    const room = roomWrapper.engine;
-
-    // googleSub 기준으로 플레이어 제거가 불가능하면,
-    // room.removePlayerByUserId 같은 메서드가 있으면 그걸 쓰는 게 베스트.
-    // 현재는 "소켓 기반" removePlayer(client.id) 구조라서,
-    // 여기서는 "강제로 방을 정리"하는 방식이 안전함(탈주 처리).
-    this.logger.log(`[HTTP LEAVE] user=${googleSub}, room=${roomId}`);
-
-    this.userRoomMap.delete(googleSub);
-
-    // 남은 인원이 0이 되는 상황을 보장할 수 없으므로,
-    // 서버 측에서 특정 유저만 정확히 제거하려면
-    // 엔진에 removePlayerByUserId(googleSub) 추가하는게 정답.
-    // 일단은 "탈주 → 방 유지"를 원하면 아래를 주석 처리하고,
-    // "탈주 → 방 강제 종료"면 아래 유지.
-    // 👉 지금 요구사항(새로고침=나가기)면 강제 종료가 더 명확함.
-    room.stopInterval();
-    delete this.rooms[roomId];
-    this.lifecycleService.removeRoom(roomId);
-
-    this.logger.log(`[ROOM CLOSED by http leave] roomId=${roomId}`);
+    if (count === 0) {
+      this.logger.warn('서버에 더 이상 연결된 유저가 없습니다. Agones Shutdown 호출');
+      await this.agonesService.shutdown();
+    }
+  }
+  // HTTP에서 강퇴/나가기 처리할 때 사용
+  handleHttpLeave(userId: string) {
+    for (const socket of this.server.sockets.sockets.values()) {
+      if (socket.data?.userId === userId) {
+        this.logger.log(`HTTP leave -> socket disconnect userId=${userId}`);
+        socket.disconnect(true);
+        return;
+      }
+    }
+    this.logger.warn(`HTTP leave requested but no socket userId=${userId}`);
   }
 
   // 방 조회
@@ -218,29 +193,29 @@ export class GameGateway
     return this.rooms[roomId]?.engine;
   }
 
-  // 방 삭제(외부에서 호출)
+  // 방 삭제
   removeRoom(roomId: string) {
     const roomWrapper = this.rooms[roomId];
     if (!roomWrapper) return;
 
     const room = roomWrapper.engine;
+
     room.stopInterval();
 
     this.ghostManagerService.clearRoom(roomId);
     this.playerService.clearRoom(roomId);
     this.botManagerService.resetBots(roomId);
-    this.bossManagerService.removeBoss(roomId);
 
     this.server.in(roomId).disconnectSockets();
 
     delete this.rooms[roomId];
-    this.lifecycleService.removeRoom(roomId);
-
     this.logger.log(`Room ${roomId} removed from GameGateway.`);
+
+    this.checkPodShutdown();
   }
 
   // 내부: 방 엔진 생성
-  ensureRoom(roomId: string, mode: GameMode): RoomWrapper {
+   ensureRoom(roomId: string, mode: GameMode): RoomWrapper {
     if (this.rooms[roomId]) return this.rooms[roomId];
 
     const engine = new GameEngineService(
@@ -276,21 +251,15 @@ export class GameGateway
   // ============================
   // 1) 클라이언트 방 입장
   // ============================
+  // 클라이언트는 roomId만 보내는 걸 권장
   @SubscribeMessage('join-room')
-  handleJoinRoom(
-    client: Socket,
-    data: {
-      roomId?: string;
-      nickname?: string;
-      mode?: GameMode;
-      userId?: string;
-    },
-  ) {
+  handleJoinRoom(client: Socket, data: { roomId?: string; nickname?: string; mode?: GameMode; userId?: string }) {
+    // 토큰에서 내려온 값이 기준
     const tokenRoomId = client.data.roomId as string | undefined;
     const tokenUserIds = client.data.userIds as string[] | undefined;
 
-    const userId =
-      data?.userId || (client.handshake.query?.userId as string | undefined);
+    // userId는 클라이언트가 보내거나 쿼리에서 가져옴
+    const userId = data?.userId || (client.handshake.query?.userId as string | undefined);
 
     if (!tokenRoomId || !tokenUserIds) {
       this.logger.warn('join-room: token data missing');
@@ -298,14 +267,14 @@ export class GameGateway
       return;
     }
 
+    // userId가 토큰의 userIds에 포함되어야 함
     if (!userId || !tokenUserIds.includes(userId)) {
-      this.logger.warn(
-        `join-room: userId=${userId} not in token userIds=${tokenUserIds.join(',')}`,
-      );
+      this.logger.warn(`join-room: userId=${userId} not in token userIds=${tokenUserIds.join(',')}`);
       client.disconnect();
       return;
     }
 
+    // 클라가 roomId를 보내면, 토큰과 일치해야 함
     if (data?.roomId && data.roomId !== tokenRoomId) {
       this.logger.warn(
         `join-room roomId mismatch token=${tokenRoomId} client=${data.roomId}`,
@@ -316,80 +285,92 @@ export class GameGateway
 
     const roomId = tokenRoomId;
 
+    // nickname/mode도 가능하면 토큰 기준
+    const userNicknames = client.data.userNicknames as Record<string, string> | undefined;
     const nickname =
+      userNicknames?.[userId] ??
       (client.data.nickname as string | undefined) ??
       data?.nickname ??
       `user-${String(userId).slice(-6)}`;
 
     const mode =
-      (client.data.mode as GameMode | undefined) ?? data?.mode ?? 'NORMAL';
+      (client.data.mode as GameMode | undefined) ??
+      data?.mode ??
+      'NORMAL';
 
     const maxPlayers = (client.data.maxPlayers as number | undefined) ?? 5;
 
-    const isNewRoom = !this.rooms[roomId];
-    const roomWrapper = this.ensureRoom(roomId, mode);
-    const room = roomWrapper.engine;
+    const segment = new AWSXRay.Segment('GameServerJoinFlow');
+    try {
+      const isNewRoom = !this.rooms[roomId];
+      const roomWrapper = this.ensureRoom(roomId, mode);
+      const room = roomWrapper.engine;
 
-    // join
-    client.join(roomId);
-    client.data.roomId = roomId;
-    client.data.nickname = nickname;
-    client.data.userId = userId;
+      // Agones 셧다운 타이머 해제
+      this.agonesService.onGameStart();
 
-    // HTTP leave를 위해 googleSub -> roomId 기록
-    this.userRoomMap.set(userId, roomId);
+      client.join(roomId);
+      client.data.roomId = roomId;
+      client.data.nickname = nickname;
+      client.data.userId = userId;
 
-    // 참가자 기록
-    if (!roomWrapper.users.includes(userId)) {
-      roomWrapper.users.push(userId);
-    }
-
-    room.addPlayer(client.id, userId, nickname);
-
-    // 봇 자동 추가 (방 처음 생성 시)
-    if (isNewRoom && !room.isBossMode()) {
-      const playersInToken = tokenUserIds.length;
-      const botsToAdd = Math.max(0, maxPlayers - playersInToken);
-
-      this.logger.log(
-        `[Agones Flow] Initializing room. roomId=${roomId}, botsToAdd=${botsToAdd}, maxPlayers=${maxPlayers}, playersInToken=${playersInToken}`,
-      );
-
-      for (let i = 0; i < botsToAdd; i++) {
-        room.addBotPlayer();
+      // 접속한 유저 기록(최소한)
+      if (!roomWrapper.users.includes(userId)) {
+        roomWrapper.users.push(userId);
       }
-    }
 
-    // init-game
-    client.emit('init-game', {
-      playerId: client.id,
-      roomId,
-      mapData: room.getMapData(),
-      initialState: room.getState(),
-    });
+      room.addPlayer(client.id, userId, nickname);
 
-    // broadcast state
-    this.server.to(roomId).emit('state', room.getState());
-
-    // start condition
-    const humanPlayers = room.playerCount();
-    const botPlayers = room.getBotCount();
-    const totalPlayers = humanPlayers + botPlayers;
-
-    if (room.isBossMode()) {
-      if (!room.intervalRunning) {
-        room.startBossMode();
+      // [New] 봇 자동 추가 로직 (Agones 흐름 복구)
+      // 방이 처음 생성되었고, 토큰 등으로 전달받은 예상 유저수보다 부족한 경우 봇으로 채움
+      if (isNewRoom && !room.isBossMode()) {
+        const playersInToken = tokenUserIds.length;
+        const botsToAdd = Math.max(0, maxPlayers - playersInToken);
+        
+        this.logger.log(`[Agones 흐름] 방 초기화 중. roomId: ${roomId}, botsToAdd: ${botsToAdd}, maxPlayers: ${maxPlayers}, Players: ${playersInToken}`);
+        
+        for (let i = 0; i < botsToAdd; i++) {
+          room.addBotPlayer(); // BotManager에서 내부적으로 번호 매김
+        }
       }
-    } else {
-      if (totalPlayers >= maxPlayers && !roomWrapper.countdownStarted) {
-        roomWrapper.countdownStarted = true;
-        this.startCountdown(roomId);
+
+      // init-game 전송
+      client.emit('init-game', {
+        playerId: client.id,
+        roomId,
+        mapData: room.getMapData(),
+        initialState: room.getState(),
+      });
+
+      // 전체 상태 전파
+      this.server.to(roomId).emit('state', room.getState());
+
+      // 시작 조건
+      const humanPlayers = room.playerCount();
+      const botPlayers = room.getBotCount();
+      const totalPlayers = humanPlayers + botPlayers;
+
+      if (room.isBossMode()) {
+        if (!room.intervalRunning) {
+          room.startBossMode();
+        }
+      } else {
+        // maxPlayers(봇 포함 5명)가 모이면 카운트다운 시작
+        if (totalPlayers >= maxPlayers && !roomWrapper.countdownStarted) {
+          roomWrapper.countdownStarted = true;
+          this.startCountdown(roomId);
+        }
       }
+      segment.close();
+    } catch (error) {
+      segment.addError(error);
+      segment.close();
+      this.logger.error(`Error in handleJoinRoom: ${error.message}`, error.stack);
     }
   }
 
   private startCountdown(roomId: string) {
-    this.logger.log(`[Countdown] Starting for room ${roomId}`);
+    this.logger.log(`[카운트다운] 방 ID ${roomId} 시작`);
     let count = 3;
 
     const interval = setInterval(() => {
@@ -417,28 +398,20 @@ export class GameGateway
       room.update();
       this.server.to(roomId).emit('state', room.getState());
 
-      // ✅ 정상 종료(유일한 결과 전송 지점)
       if (this.lifecycleService.isGameOver(roomId)) {
         if (roomWrapper.finished) return;
         roomWrapper.finished = true;
 
-        // 1) 루프 중단
+        const userIds = Array.from(new Set(roomWrapper.users));
+
+        // await this.notifyGameFinished(roomId, userIds);
+
         room.stopInterval();
-
-        // 2) 결과 스냅샷
-        const results = [...room.getAllPlayerScores()];
-
-        // 3) 결과 있을 때만 전송
-        if (results.length > 0) {
-          await this.notifyGameFinished(roomId, results);
-        }
-
-        // 4) 정리
         delete this.rooms[roomId];
-        this.lifecycleService.removeRoom(roomId);
       }
     }, 1000 / 30);
   }
+
 
   // ============================
   // 2) 이동 입력
@@ -455,35 +428,20 @@ export class GameGateway
   }
 
   // ============================
-  // (reset은 이제 안 쓴다 했으니 필요 없으면 제거 가능)
+  // 3) 리셋(옵션)
   // ============================
+  @SubscribeMessage('reset')
+  handleReset(client: Socket, data: { roomId: string }) {
+    const roomId = data.roomId;
+    const roomWrapper = this.rooms[roomId];
+    if (!roomWrapper) return;
 
-  // ============================
-  // matching 서버로 종료 알림
-  // ============================
-  private async notifyGameFinished(
-    roomId: string,
-    results: { userId: string; nickname: string; score: number }[],
-  ) {
-    if (!roomId || !results || results.length === 0) {
-      this.logger.warn('game-finished: invalid payload');
-      return;
-    }
+    const room = roomWrapper.engine;
 
-    try {
-      await this.gameResultProducer.sendGameFinished({
-        roomId,
-        endedAt: Date.now(),
-        results,
-      });
-
-      this.logger.log(
-        `🏁 GAME_FINISHED sent roomId=${roomId} results=${results
-          .map((r) => `${r.userId}:${r.score}`)
-          .join(', ')}`,
-      );
-    } catch (err) {
-      this.logger.error('GAME_FINISHED send failed', err);
-    }
+    room.resetGame();
+    this.startCountdown(roomId);
+    this.server.to(roomId).emit('state', room.getState());
   }
+
+
 }

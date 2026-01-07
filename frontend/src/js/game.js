@@ -341,7 +341,7 @@ export class GameManager {
 
   async loadRanking() {
     try {
-      const response = await fetch(CONFIG.API_URL + "/ranking/top");
+      const response = await fetch(CONFIG.RANKING_API_URL + "/ranking/top");
       if (!response.ok) throw new Error("Failed to fetch");
 
       const data = await response.json();

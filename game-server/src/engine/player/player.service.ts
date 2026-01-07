@@ -156,7 +156,7 @@ export class PlayerService {
 
   applyStun(player: PlayerState) {
     player.stunned = true;
-    player.stunEndTime = Date.now() + 10000;
+    player.stunEndTime = Date.now() + 5000;
     player.alpha = 0.4;
     player.score = Math.max(0, player.score - 30);
   }

@@ -1,3 +1,10 @@
+import * as AWSXRay from 'aws-xray-sdk-core';
+
+AWSXRay.enableAutomaticMode(); 
+AWSXRay.captureHTTPsGlobal(require('http'));
+AWSXRay.captureHTTPsGlobal(require('https'));
+AWSXRay.setContextMissingStrategy('LOG_ERROR');
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';

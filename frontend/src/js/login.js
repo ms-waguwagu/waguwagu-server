@@ -19,10 +19,10 @@ window.addEventListener("DOMContentLoaded", () => {
       }
 
       try {
-        // ⭐ setNickname은 토큰을 발급받는 함수
+        // setNickname은 토큰을 발급받는 함수
         const { accessToken } = await setNickname(nickname);
         
-        // ⭐ 발급받은 토큰 저장
+        // 발급받은 토큰 저장
         localStorage.setItem("accessToken", accessToken);
         localStorage.setItem("waguwagu_nickname", nickname);
         
@@ -63,14 +63,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
 async function loadHomeRanking() {
   try {
-    const res = await fetch(
-      `${CONFIG.RANKING_API_URL}/ranking/top`,
-      { cache: "no-store" } // 🔥 이 한 줄로 304 자체를 방지
-    );
-
-    if (!res.ok) {
-      throw new Error("API 요청 실패");
-    }
+    const res = await fetch(CONFIG.RANKING_API_URL + "/ranking/top");
+    if (!res.ok) throw new Error("API 요청 실패");
 
     const data = await res.json();
     const list = document.getElementById("ranking-list");

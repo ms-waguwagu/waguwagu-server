@@ -1,6 +1,6 @@
 export interface PlayerState {
-    googleSub?: String;
-    id: string;
+    googleSub?: string;
+    id: string; // socket id
     nickname: string;
     x: number;
     y: number;
