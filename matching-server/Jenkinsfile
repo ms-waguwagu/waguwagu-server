@@ -13,7 +13,7 @@ pipeline {
     AWS_REGION   = "ap-northeast-2"
 
     // ECR
-    ECR_REPO_URI = "269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
+    ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server"
 
     // waguwagu-infra
     INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
@@ -145,7 +145,7 @@ pipeline {
           AUTH="$(printf 'x-access-token:%s' "$TOK" | base64 | tr -d '\\n')"
           EXTRA="http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH"
 
-          # ✅ 브랜치가 없으면 main에서 새로 만들어서 테스트 브랜치로 푸시
+          # 브랜치가 없으면 main에서 새로 만들어서 테스트 브랜치로 푸시
           GIT_TERMINAL_PROMPT=0 git -c "$EXTRA" clone "${INFRA_REPO_URL}" infra
           cd infra
           git fetch origin "+refs/heads/*:refs/remotes/origin/*"

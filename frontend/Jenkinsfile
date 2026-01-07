@@ -42,7 +42,7 @@ pipeline {
             error("Blocked: main branch deploy is not allowed for test. Set ALLOW_MAIN=true only for production runs.")
           }
 
-          // ✅ main이면 루트 배포, feature면 preview/<branch>/에 배포
+       
           def safe = env.BRANCH_SIMPLE.replaceAll('[^A-Za-z0-9._-]+', '-')
           env.BRANCH_SAFE = safe
           env.DEPLOY_PREFIX = (env.BRANCH_SIMPLE == "main") ? "" : "preview/${env.BRANCH_SAFE}/"
