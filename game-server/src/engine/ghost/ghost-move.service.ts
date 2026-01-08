@@ -2,7 +2,7 @@ import { GhostState } from '../../state/ghost-state';
 import { PlayerState } from 'src/state/player-state';
 import { randomDirection } from '../utils.service';
 import { getPathBFS, findRandomTarget } from '../../pathfinding/pathfinding';
-import { TILE_SIZE, GHOST_SIZE } from '../../map/map.data';
+import { TILE_SIZE } from '../../map/map.data';
 
 export class GhostMoveService {
   static updateGhost(
@@ -62,12 +62,12 @@ export class GhostMoveService {
 
       if (ghost.path && ghost.path.length > 0) {
         const nextStep = ghost.path.shift()!;
-        const offset = (TILE_SIZE - GHOST_SIZE) / 2;
+        const offset = TILE_SIZE / 2;
         ghost.targetX = nextStep.x * TILE_SIZE + offset;
         ghost.targetY = nextStep.y * TILE_SIZE + offset;
       } else {
         const dir = randomDirection();
-        const offset = (TILE_SIZE - GHOST_SIZE) / 2;
+        const offset = TILE_SIZE / 2;
         const currentTileX = Math.floor(ghost.x / TILE_SIZE);
         const currentTileY = Math.floor(ghost.y / TILE_SIZE);
         ghost.targetX = (currentTileX + dir.dx) * TILE_SIZE + offset;
