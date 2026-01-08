@@ -1,18 +1,24 @@
 pipeline {
   agent any
 
+  parameters {
+   booleanParam(
+    name: 'ALLOW_MAIN',
+    defaultValue: true,
+    description: 'Allow main branch run (prod only)'
+  )
+}
+
   environment {
     AWS_REGION = "ap-northeast-2"
 
     // ECR (game)
     ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
-    
-    
 
     // waguwagu-infra
     INFRA_REPO_URL = "https://github.com/ms-waguwagu/waguwagu-infra.git"
-    INFRA_BRANCH   = "main"
-    INFRA_MANIFEST = "k8s/agones/agones-fleet.yaml"   // 바꿀 manifest (Agones Fleet)
+    INFRA_BRANCH   = "main"   
+    INFRA_MANIFEST = "k8s/agones/agones-fleet.yaml"
 
     // Secrets Manager (PAT)
     GH_SECRET_ID  = "T3-Wagu-Secrets"
@@ -25,6 +31,7 @@ pipeline {
 
   options {
     skipDefaultCheckout(true)
+    disableConcurrentBuilds()
   }
 
   stages {
@@ -32,26 +39,41 @@ pipeline {
       steps { checkout scm }
     }
 
-    stage("Change check (game-server only)") {
+    stage("Branch guard (no main)") {
       steps {
         script {
-          echo "=== GAME JENKINSFILE ==="
+          def b = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: "").trim()
+          if (b.startsWith("origin/")) b = b.substring("origin/".length())
+          if (!b || b == "HEAD") {
+            b = sh(returnStdout: true, script: "git rev-parse --abbrev-ref HEAD").trim()
+          }
+          env.BRANCH_SIMPLE = b
+          echo "Current branch = ${env.BRANCH_SIMPLE}"
 
-          // 여러 커밋이 한 번에 들어와도 누락 없게 
-          def base  = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT
-          def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
-          echo "Diff range: ${range}"
+          if (env.BRANCH_SIMPLE == "main" && !params.ALLOW_MAIN) {
+            error("Blocked: main branch build is not allowed for test. Set ALLOW_MAIN=true only for production runs.")
+          }
+        }
+      }
+    }
 
-          //  game-server/ 변경만 감지, Jenkinsfile만 바뀐 경우는 제외
+  stage("Change check (game-server only)") {
+    steps {
+      script {
+        def base  = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT
+        def range = base ? "${base}..HEAD" : "HEAD~1..HEAD"
+        echo "Diff range: ${range}"
+
+        withEnv(["RANGE=${range}"]) {
           def changed = sh(
             returnStdout: true,
-            script: """#!/usr/bin/env bash
+            script: '''#!/usr/bin/env bash
               set -e
-              git diff --name-only "${range}" \\
-                | grep -E '^game-server/' \\
-                | grep -v '^game-server/Jenkinsfile\$' \\
+              git diff --name-only "$RANGE" \
+                | grep -E '^game-server/' \
+                | grep -v '^game-server/Jenkinsfile$' \
                 || true
-            """
+            '''
           ).trim()
 
           if (!changed) {
@@ -59,17 +81,18 @@ pipeline {
             env.GAME_CHANGED = "false"
           } else {
             echo "Changes detected -> proceed."
-            echo "Changed files:\\n${changed}"
+            echo "Changed files:\n${changed}"
             env.GAME_CHANGED = "true"
           }
         }
       }
     }
+}
 
     stage("ECR Login") {
       when { expression { env.GAME_CHANGED == "true" } }
       steps {
-        sh '''
+        sh '''#!/usr/bin/env bash
           set -e
           aws ecr get-login-password --region "${AWS_REGION}" \
             | docker login --username AWS --password-stdin "${ECR_REPO_URI%/*}"
@@ -87,7 +110,7 @@ pipeline {
           echo "IMAGE_URI = ${env.IMAGE_URI}"
         }
 
-        sh '''
+        sh '''#!/usr/bin/env bash
           set -e
           cd game-server
           docker build -t "${ECR_REPO_URI}:${IMAGE_TAG}" .
@@ -99,7 +122,7 @@ pipeline {
     stage("Update waguwagu-infra manifest (commit/push)") {
       when { expression { env.GAME_CHANGED == "true" } }
       steps {
-        sh '''
+        sh '''#!/usr/bin/env bash
           set -euo pipefail
 
           rm -rf infra
@@ -108,11 +131,9 @@ pipeline {
           git config --global user.name  "${GIT_USER_NAME}"
           git config --global user.email "${GIT_USER_EMAIL}"
 
-          # credential helper 꼬임 방지
           git config --global --unset-all credential.helper || true
           git config --global credential.helper ""
 
-          #  토큰/헤더 다루는 구간은 로그 숨김
           set +x
           TOK="$(aws secretsmanager get-secret-value \
               --secret-id "${GH_SECRET_ID}" \
@@ -125,8 +146,16 @@ pipeline {
           AUTH="$(printf 'x-access-token:%s' "$TOK" | base64 | tr -d '\\n')"
           EXTRA="http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH"
 
-          GIT_TERMINAL_PROMPT=0 git -c "$EXTRA" clone --branch "${INFRA_BRANCH}" "${INFRA_REPO_URL}" infra
+          GIT_TERMINAL_PROMPT=0 git -c "$EXTRA" clone "${INFRA_REPO_URL}" infra
           cd infra
+          git fetch origin "+refs/heads/*:refs/remotes/origin/*"
+
+          if git show-ref --verify --quiet "refs/remotes/origin/${INFRA_BRANCH}"; then
+            git checkout -B "${INFRA_BRANCH}" "origin/${INFRA_BRANCH}"
+          else
+            echo "[WARN] origin/${INFRA_BRANCH} not found. Create from origin/main"
+            git checkout -B "${INFRA_BRANCH}" "origin/main"
+          fi
           set -x
 
           echo "[BEFORE] image line:"
@@ -143,7 +172,7 @@ pipeline {
           fi
 
           git add "${INFRA_MANIFEST}"
-          git commit -m "ci(game): bump image to ${IMAGE_TAG}"
+          git commit -m "ci(game): bump image to ${IMAGE_TAG} (from ${BRANCH_SIMPLE})"
 
           set +x
           GIT_TERMINAL_PROMPT=0 git -c "$EXTRA" push origin HEAD:"${INFRA_BRANCH}"
@@ -159,103 +188,3 @@ pipeline {
     }
   }
 }
-
-/* 일단 주석 
-pipeline {
-  agent any
-
-  environment {
-    AWS_REGION   = "ap-northeast-2"
-
-    ECR_REPO_URI = "061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server"
-
-    CLUSTER_NAME = "T3-Wagu-Game-EKS"
-    NAMESPACE    = "game"
-
-    // Agones Fleet
-    FLEET_NAME   = "waguwagu-fleet"
-    CONTAINER_NAME = "game-server"
-  }
-
-  options {
-    skipDefaultCheckout(true)
-    // (옵션) 중복 checkout 방지하고 싶으면 켜도 됨
-    // skipDefaultCheckout(true)
-  }
-
-  stages {
-    stage("Checkout") {
-      steps {
-        checkout scm
-      }
-    }
-
-    // (선택) game-server 폴더 변경 체크 (하지만 이제 스킵/중단 안 함)
-    stage("Change check") {
-      steps {
-        script {
-          def changed = sh(
-            script: "git diff --name-only HEAD~1..HEAD | grep -E '^game-server/' || true",
-            returnStdout: true
-          ).trim()
-
-          // 변경 없어도 빌드를 막지 말고 그냥 진행
-          if (!changed) {
-            echo "No changes in game-server/, but continue (always Build & Push)."
-          } else {
-            echo "Changes detected in game-server/ -> proceed."
-          }
-        }
-      }
-    }
-
-    stage("ECR Login") {
-      steps {
-        sh '''
-          set -e
-          aws ecr get-login-password --region ${AWS_REGION} \
-            | docker login --username AWS --password-stdin ${ECR_REPO_URI%/*}
-        '''
-      }
-    }
-
-    stage("Build & Push") {
-      steps {
-        script {
-          // env.GIT_COMMIT이 null로 들어오는 Jenkins가 있어서 git으로 직접 뽑아 안정화
-          def sha7 = sh(returnStdout: true, script: "git rev-parse --short=7 HEAD").trim()
-          def tag = "${sha7}-${env.BUILD_NUMBER}"
-          env.IMAGE_TAG = tag
-          env.IMAGE_URI = "${env.ECR_REPO_URI}:${tag}"
-          echo "IMAGE_URI = ${env.IMAGE_URI}"
-        }
-
-        sh '''
-          set -e
-          cd game-server
-          docker build -t ${ECR_REPO_URI}:${IMAGE_TAG} .
-          docker push ${ECR_REPO_URI}:${IMAGE_TAG}
-        '''
-      }
-    }
-
-  }
-
-  post {
-    always {
-      sh 'docker image prune -f || true'
-    }
-  }
-}
-*/ 
-
-
-
-
-
-
-
-
-
-
-
