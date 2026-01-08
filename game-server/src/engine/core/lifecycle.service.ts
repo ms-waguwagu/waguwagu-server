@@ -6,6 +6,7 @@ import { PlayerService, Player, Dot } from '../player/player.service';
 import { BotManagerService, Bot } from '../bot/bot-manager.service';
 import { Logger } from '@nestjs/common';
 import { BossManagerService } from '../../boss/boss-manager.service';
+import { RankingService } from '../../ranking/ranking.service';
 import axios from 'axios';
 
 interface LifecycleState {
@@ -41,6 +42,7 @@ export class LifecycleService {
     private readonly playerService: PlayerService,
     private readonly botManager: BotManagerService,
 		private readonly bossManager: BossManagerService,
+    private readonly rankingService: RankingService,
   ) {}
 
 	// 방 상태 초기화
@@ -114,6 +116,28 @@ export class LifecycleService {
     state.gameOver = true;
     state.gameOverReason = reason;
   
+    // 매칭 서버로 결과 전송 (SQS)
+    try {
+      const players = this.playerService.getPlayers(roomId);
+      const results = players.map((p) => ({
+        userId: p.googleSub,
+        nickname: p.nickname,
+        score: p.score || 0,
+      }));
+
+      // 봇 플레이어도 포함할지 선택 가능 (현재는 봇 제외 필터링이 매칭 서버에 있음)
+      // results.push(...this.botManager.getBots(roomId).map(b => ({ userId: b.id, nickname: b.nickname, score: b.score })));
+
+      // rankingService가 생성자에 주입되어 있어야 함
+      if ((this as any).rankingService) {
+        (this as any).rankingService.saveResults(roomId, results);
+      } else {
+        this.logger.warn('RankingService가 LifecycleService에 주입되지 않았습니다.');
+      }
+    } catch (err) {
+      this.logger.error(`게임 결과 전송 중 오류 발생: roomId=${roomId}`, err);
+    }
+
     this.sendGameOverEvent(roomId);
   
     /*
