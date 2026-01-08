@@ -34,6 +34,7 @@ export class MatchingWorker {
   // 2초마다 실행
   @Interval(2000)
   async handleMatchmaking() {
+    this.logger.debug('========== [매칭워커] 실행 시작 ==========');
     const ns = AWSXRay.getNamespace();
     if (!ns) {
       // X-Ray 네임스페이스가 없으면 일반 실행
@@ -63,10 +64,14 @@ export class MatchingWorker {
       );
 
       if (!leader) {
+        this.logger.debug('[매칭워커] 리더 락 획득 실패 - 다른 워커가 처리 중');
         return;
       }
 
+      this.logger.debug('[매칭워커] 리더 락 획득 성공');
+
       if (this.isProcessing) {
+        this.logger.debug('[매칭워커] 이미 처리 중 - 스킵');
         return;
       }
       this.isProcessing = true;
@@ -77,62 +82,92 @@ export class MatchingWorker {
         const maxPlayers =
           this.configService.get<number>('MATCH_PLAYER_COUNT') ?? 5;
 
+        this.logger.debug(`[매칭워커] 최대 플레이어 수: ${maxPlayers}`);
+
         // 1. 먼저 5인 매칭 시도
+        this.logger.debug('[매칭워커] STEP 1: 풀 매칭 시도 중...');
         participants =
           await this.queueService.extractMatchParticipants(maxPlayers);
 
+        this.logger.debug(`[매칭워커] STEP 1 결과: ${participants ? `${participants.length}명 추출 (${participants.join(', ')})` : '추출 실패'}`);
+
         if (participants && participants.length === maxPlayers) {
-          this.logger.log(`5인 풀 매칭 성공: ${participants.join(', ')}`);
+          this.logger.log(`[매칭워커] ${maxPlayers}인 풀 매칭 성공: ${participants.join(', ')}`);
           await this.createRoomAndNotify(participants);
           return;
         }
 
         // 2. 큐 상태 확인
+        this.logger.debug('[매칭워커] STEP 2: 큐 상태 확인 중...');
         const queueLen = await this.queueService.getQueueLength();
+        this.logger.debug(`[매칭워커] STEP 2 결과: 현재 대기열 인원 = ${queueLen}명`);
+        
         if (queueLen === 0) {
+          this.logger.debug('[매칭워커] 대기열이 비어있음 - 종료');
           return;
         }
 
         // 3. 마지막 유저 입장 시각 확인
+        this.logger.debug('[매칭워커] STEP 3: 마지막 유저 입장 시각 확인 중...');
         const lastJoinedAt = await this.queueService.getLastJoinedAt();
+        
         if (!lastJoinedAt) {
+          this.logger.warn('[매칭워커]  마지막 입장 시각이 없음 (lastJoinedAt이 null)');
           return;
         }
 
         const now = Date.now();
         const diff = now - lastJoinedAt;
+        const diffSeconds = (diff / 1000).toFixed(2);
+
+        this.logger.log(
+          `[매칭워커] STEP 3 결과: 마지막 입장 후 ${diffSeconds}초 경과 (대기시간: ${this.TIMEOUT_MS}ms = ${this.TIMEOUT_MS / 1000}초)`,
+        );
+        this.logger.debug(`[매칭워커] 상세: now=${now}, lastJoinedAt=${lastJoinedAt}, diff=${diff}ms`);
 
         // 타임아웃 전이면 대기
         if (diff < this.TIMEOUT_MS) {
+          this.logger.log(
+            `[매칭워커] 타임아웃 대기 중... (${diffSeconds}초/${this.TIMEOUT_MS / 1000}초) - 남은 시간: ${((this.TIMEOUT_MS - diff) / 1000).toFixed(2)}초`,
+          );
           return;
         }
 
-        // 4. 15초 동안 아무도 안 들어왔을 때 -> 현재 인원(최대 maxPlayers명)으로 부분 매칭 실행
+        // 4. 타임아웃 후 부분 매칭 실행
+        this.logger.log(
+          `[매칭워커] STEP 4: 타임아웃 도달! 부분 매칭 시도 중... (대기 인원: ${queueLen}명)`,
+        );
         participants = await this.queueService.extractMatchUpTo(maxPlayers);
 
+        this.logger.debug(
+          `[매칭워커] STEP 4 결과: ${participants ? `${participants.length}명 추출 (${participants.join(', ')})` : '추출 실패'}`,
+        );
+
         if (!participants || participants.length === 0) {
+          this.logger.warn('[매칭워커] 부분 매칭 추출 실패 - 참가자 없음');
           return;
         }
 
         this.logger.log(
-          `[부분 매칭] 타임아웃 후 매칭: ${participants.join(', ')} (인원: ${participants.length})`,
+          `[부분 매칭] 타임아웃 후 매칭 성공: ${participants.join(', ')} (인원: ${participants.length}명)`,
         );
 
         await this.createRoomAndNotify(participants);
       } catch (error) {
-        this.logger.error('매칭 처리 중 에러 발생', error);
+        this.logger.error('[매칭워커] 매칭 처리 중 에러 발생', error);
         if (segment) segment.addError(error);
 
           // 실패 시 롤백 -> 추출된 유저들을 다시 큐에 복구
         if (participants && participants.length > 0) {
-          this.logger.warn(`롤백 실행: 유저 [${participants.join(', ')}] 재삽입`);
+          this.logger.warn(`[매칭워커] 롤백 실행: 유저 [${participants.join(', ')}] 재삽입`);
           await this.queueService.rollbackParticipants(participants);
         }
       } finally {
         this.isProcessing = false;
+        this.logger.debug('[매칭워커] isProcessing = false (처리 완료)');
       }
     } catch (e) {
-      this.logger.error('리더 락 획득 중 에러', e);
+      this.logger.error('[매칭워커] 리더 락 획득 중 에러', e);
       if (segment) segment.addError(e);
     }
   }
@@ -317,7 +352,7 @@ export class MatchingWorker {
         this.isBossProcessing = false;
       }
     } catch (e) {
-      this.logger.error('[보스모드] 리더 락 획득 중 에러', e);
+      // this.logger.error('[보스모드] 리더 락 획득 중 에러', e);
       if (segment) segment.addError(e);
     }
   }

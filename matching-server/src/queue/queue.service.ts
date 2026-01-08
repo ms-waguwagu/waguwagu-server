@@ -5,8 +5,9 @@ import {
   Injectable,
   InternalServerErrorException,
   OnModuleInit,
+  Inject,
 } from '@nestjs/common';
-import { getRedis } from '../common/redis';
+import { InjectRedis } from '@nestjs-modules/ioredis';
 import type { Redis } from 'ioredis';
 import fs from 'fs/promises';
 import path from 'path';
@@ -14,7 +15,9 @@ import { PlayerStatus } from '../common/constants';
 
 @Injectable()
 export class QueueService implements OnModuleInit {
-  constructor() {}
+  constructor(
+    @InjectRedis() private readonly redis: Redis,
+  ) {}
 
   private readonly SESSION_TTL = 3600; // 1시간
 
@@ -47,23 +50,7 @@ export class QueueService implements OnModuleInit {
     );
 
     // Redis 연결 확인
-    const redis = this.getRedisClient();
-    if (redis) {
-      console.log('✅ QueueService initialized with Redis');
-    } else {
-      console.warn('⚠️  QueueService initialized without Redis');
-    }
-  }
-
-  /**
-   * Redis 클라이언트를 가져오고, 없으면 예외 발생
-   */
-  private getRedisClient(): Redis {
-    const redis = getRedis();
-    if (!redis) {
-      throw new InternalServerErrorException('Redis unavailable');
-    }
-    return redis;
+    console.log(`QueueService initialized with Redis (상태: ${this.redis.status})`);
   }
 
   // ============================================
@@ -71,10 +58,12 @@ export class QueueService implements OnModuleInit {
   // ============================================
 
   async enterQueue(userId: string, nickname: string): Promise<string> {
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     const sessionKey = `session:${userId}`;
     const queueKey = 'match_queue';
     const now = Date.now().toString();
+
+    console.log(`[QueueService] enterQueue 호출: userId=${userId}, nickname=${nickname}, now=${now}`);
 
     const result = await redis.eval(
       this.ENTER_QUEUE_LUA,
@@ -87,6 +76,8 @@ export class QueueService implements OnModuleInit {
       userId,
     );
 
+    console.log(`[QueueService] enterQueue 결과:`, result);
+
     if (result === 'DUPLICATE_ENTRY') {
       throw new ConflictException('이미 대기열에 참여 중입니다.');
     }
@@ -98,7 +89,7 @@ export class QueueService implements OnModuleInit {
   }
 
   async extractMatchParticipants(count: number): Promise<string[] | null> {
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     const queueKey = 'match_queue';
 
     const result = await redis.eval(
@@ -112,16 +103,20 @@ export class QueueService implements OnModuleInit {
   }
 
   async getLastJoinedAt(): Promise<number | null> {
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     const queueKey = 'match_queue';
-    const value = await redis.get(`${queueKey}:lastJoinedAt`);
+    const key = `${queueKey}:lastJoinedAt`;
+    const value = await redis.get(key);
+    console.log(`[QueueService] getLastJoinedAt: key=${key}, value=${value}, parsed=${value ? Number(value) : null}`);
     return value ? Number(value) : null;
   }
 
   async extractMatchUpTo(count: number): Promise<string[] | null> {
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     const queueKey = 'match_queue';
 
+    console.log(`[QueueService] extractMatchUpTo 호출: count=${count}, queueKey=${queueKey}`);
+    
     const result = await redis.eval(
       this.EXTRACT_PARTIAL_MATCH_LUA,
       1,
@@ -129,17 +124,18 @@ export class QueueService implements OnModuleInit {
       count.toString(),
     );
 
+    console.log(`[QueueService] extractMatchUpTo 결과:`, result);
     return result ? (result as string[]) : null;
   }
 
   async acquireLock(key: string, ttlSeconds = 10): Promise<boolean> {
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     const result = await redis.set(key, '1', 'EX', ttlSeconds, 'NX');
     return result === 'OK';
   }
 
   async cancelQueue(userId: string): Promise<void> {
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     const sessionKey = `session:${userId}`;
     const queueKey = 'match_queue';
 
@@ -177,35 +173,58 @@ export class QueueService implements OnModuleInit {
   }
 
   async recoverStaleInGameSession(userId: string): Promise<void> {
-    const redis = this.getRedisClient();
-    const sessionKey = `session:${userId}`;
+    console.log(`[QueueService] recoverStaleInGameSession 시작 - userId: ${userId}`);
+    
+    try {
+      console.log('[QueueService] Redis 클라이언트 가져오는 중...');
+      const redis = this.redis;
+      console.log('[QueueService] Redis 클라이언트 획득 완료');
+      
+      const sessionKey = `session:${userId}`;
+      console.log(`[QueueService] Redis HGETALL 호출 - key: ${sessionKey}`);
+      
+      const session = await redis.hgetall(sessionKey);
+      console.log(`[QueueService] Redis HGETALL 완료 - 결과:`, session);
+      
+      if (!session || Object.keys(session).length === 0) {
+        console.log('[QueueService] 세션 정보 없음 - 종료');
+        return;
+      }
 
-    const session = await redis.hgetall(sessionKey);
-    if (!session || Object.keys(session).length === 0) return;
+      console.log(`[QueueService] 세션 상태: ${session.status}`);
+      if (session.status !== PlayerStatus.IN_GAME) {
+        console.log('[QueueService] IN_GAME 상태 아님 - 종료');
+        return;
+      }
 
-    if (session.status !== PlayerStatus.IN_GAME) return;
+      console.log('[QueueService] stale IN_GAME 세션 발견 - IDLE로 복구 중...');
+      await redis.hset(sessionKey, 'status', PlayerStatus.IDLE);
+      await redis.expire(sessionKey, this.SESSION_TTL);
 
-    await redis.hset(sessionKey, 'status', PlayerStatus.IDLE);
-    await redis.expire(sessionKey, this.SESSION_TTL);
-
-    console.warn(
-      `[RECOVER] stale IN_GAME session reset to IDLE (userId=${userId})`,
-    );
+      console.warn(
+        `[RECOVER] stale IN_GAME session reset to IDLE (userId=${userId})`,
+      );
+    } catch (error) {
+      console.error(`[QueueService] recoverStaleInGameSession 에러 - userId: ${userId}`, error);
+      throw error;
+    }
   }
 
   async getQueueLength(): Promise<number> {
-    const redis = this.getRedisClient();
-    return redis.llen('match_queue');
+    const redis = this.redis;
+    const length = await redis.llen('match_queue');
+    console.log(`[QueueService] getQueueLength: ${length}`);
+    return length;
   }
 
   async getSessionInfo(userId: string): Promise<any> {
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     const sessionKey = `session:${userId}`;
     return redis.hgetall(sessionKey);
   }
 
   async updateStatus(userId: string, newStatus: PlayerStatus): Promise<void> {
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     const sessionKey = `session:${userId}`;
     await redis.hset(sessionKey, 'status', newStatus);
   }
@@ -213,7 +232,7 @@ export class QueueService implements OnModuleInit {
   async rollbackParticipants(participants: string[]): Promise<void> {
     if (!participants || participants.length === 0) return;
 
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     const queueKey = 'match_queue';
 
     await redis.lpush(queueKey, ...participants);
@@ -223,16 +242,13 @@ export class QueueService implements OnModuleInit {
     }
   }
 
-  getRedis() {
-    return getRedis();
-  }
 
   // ============================================
   // 보스모드 큐 메서드
   // ============================================
 
   async enterBossQueue(userId: string, nickname: string): Promise<string> {
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     const sessionKey = `session:${userId}`;
     const queueKey = 'boss_match_queue';
     const now = Date.now().toString();
@@ -261,7 +277,7 @@ export class QueueService implements OnModuleInit {
   }
 
   async extractBossMatchParticipants(count: number): Promise<string[] | null> {
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     const queueKey = 'boss_match_queue';
 
     const result = await redis.eval(
@@ -275,14 +291,14 @@ export class QueueService implements OnModuleInit {
   }
 
   async getBossLastJoinedAt(): Promise<number | null> {
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     const queueKey = 'boss_match_queue';
     const value = await redis.get(`${queueKey}:lastJoinedAt`);
     return value ? Number(value) : null;
   }
 
   async extractBossMatchUpTo(count: number): Promise<string[] | null> {
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     const queueKey = 'boss_match_queue';
 
     const result = await redis.eval(
@@ -296,7 +312,7 @@ export class QueueService implements OnModuleInit {
   }
 
   async cancelBossQueue(userId: string): Promise<void> {
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     const sessionKey = `session:${userId}`;
     const queueKey = 'boss_match_queue';
 
@@ -336,14 +352,14 @@ export class QueueService implements OnModuleInit {
   }
 
   async getBossQueueLength(): Promise<number> {
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     return redis.llen('boss_match_queue');
   }
 
   async rollbackBossParticipants(participants: string[]): Promise<void> {
     if (!participants || participants.length === 0) return;
 
-    const redis = this.getRedisClient();
+    const redis = this.redis;
     const queueKey = 'boss_match_queue';
 
     await redis.lpush(queueKey, ...participants);

@@ -10,7 +10,7 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
-import { closeRedis } from './common/redis';
+
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -45,9 +45,8 @@ async function bootstrap() {
       await app.close();
       console.log('✅ NestJS application closed');
 
-      // 2. Close Redis connection
-      await closeRedis();
-      console.log('✅ Redis connection closed');
+      // 2. NestJS가 자동으로 Redis 연결 정리
+      console.log('✅ All connections closed');
 
       console.log('👋 Graceful shutdown completed');
       process.exit(0);

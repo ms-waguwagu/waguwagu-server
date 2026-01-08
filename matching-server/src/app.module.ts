@@ -44,17 +44,34 @@ import { GameRecord } from './ranking/game-record.entity';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => {
         const host = configService.get<string>('REDIS_HOST');
-        const port = configService.get<number>('REDIS_PORT');
-        console.log('[BOOT] Redis config:', host, port);
+        const port = configService.get<number>('REDIS_PORT') || 6379;
+        
+        console.log('[BOOT] Redis 연결 설정:', { host, port, tls: true });
+        
         return {
-          isGlobal: true,
           type: 'single',
           options: {
             host,
             port,
+            // AuthEnabled: false이므로 비밀번호 불필요
+            // TransitEncryption: true이므로 TLS 필수
             tls: {
               servername: host,
-              rejectUnauthorized: true,
+              rejectUnauthorized: false, // 자체 서명 인증서 허용
+            },
+            lazyConnect: false,
+            enableReadyCheck: false,
+            connectTimeout: 10000,
+            commandTimeout: 5000,
+            maxRetriesPerRequest: 3,
+            retryStrategy: (times) => {
+              if (times > 3) {
+                console.error('[Redis] 최대 재시도 횟수 초과');
+                return null;
+              }
+              const delay = Math.min(times * 500, 2000);
+              console.log(`[Redis] 재시도 ${times}회, ${delay}ms 대기`);
+              return delay;
             },
           },
         };

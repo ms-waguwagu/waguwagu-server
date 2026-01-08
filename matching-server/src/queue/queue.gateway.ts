@@ -99,10 +99,13 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // 대기열 입장 요청
   @SubscribeMessage('join_queue')
   async handleJoinQueue(@ConnectedSocket() client: Socket) {
+    this.logger.log(`[join_queue] 이벤트 수신 - socketId: ${client.id}`);
     const { userId, nickname } = client.data;
+    this.logger.log(`[join_queue] userId: ${userId}, nickname: ${nickname}`);
 
     const ns = AWSXRay.getNamespace();
     if (!ns) {
+      this.logger.debug('[join_queue] X-Ray 네임스페이스 없음 - 일반 실행');
       await this.processJoinQueue(client, userId, nickname);
       return;
     }
@@ -113,6 +116,7 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
       try {
         await this.processJoinQueue(client, userId, nickname);
       } catch (error) {
+        this.logger.error('[join_queue] 에러 발생:', error);
         segment.addError(error);
         client.emit('error', { message: error.message });
       } finally {
@@ -122,10 +126,26 @@ export class QueueGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private async processJoinQueue(client: Socket, userId: string, nickname: string) {
-    await this.queueService.recoverStaleInGameSession(userId);
-    await this.queueService.enterQueue(userId, nickname);
-    client.emit('queue_joined', { message: '대기열 진입 성공' });
-    this.broadcastQueueStatus();
+    this.logger.log(`[processJoinQueue] 시작 - userId: ${userId}, nickname: ${nickname}`);
+    
+    try {
+      this.logger.debug('[processJoinQueue] recoverStaleInGameSession 호출');
+      await this.queueService.recoverStaleInGameSession(userId);
+      
+      this.logger.log('[processJoinQueue] enterQueue 호출');
+      await this.queueService.enterQueue(userId, nickname);
+      
+      this.logger.log('[processJoinQueue] 대기열 진입 성공 - queue_joined 이벤트 전송');
+      client.emit('queue_joined', { message: '대기열 진입 성공' });
+      
+      this.logger.debug('[processJoinQueue] broadcastQueueStatus 호출');
+      this.broadcastQueueStatus();
+      
+      this.logger.log(`[processJoinQueue] 완료 - userId: ${userId}`);
+    } catch (error) {
+      this.logger.error(`[processJoinQueue] 에러 발생 - userId: ${userId}`, error);
+      throw error;
+    }
   }
 
 
