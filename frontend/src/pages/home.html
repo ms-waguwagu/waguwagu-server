@@ -40,7 +40,7 @@
     </div>
 
     <script type="module">
-      import { CONFIG } from "../../config.js";
+      import { CONFIG, MATCHING_CONFIG } from "../../config.js";
 
       // 로그인 유지 체크
       const token = localStorage.getItem("accessToken");
@@ -76,7 +76,7 @@
       // 랭킹 로드 (login.html과 동일 로직)
       async function loadRanking() {
         try {
-          const res = await fetch(CONFIG.API_URL + "/ranking/top");
+          const res = await fetch(MATCHING_CONFIG.API_BASE_URL + "/ranking/top");
           const data = await res.json();
 
           const list = document.getElementById("ranking-list");

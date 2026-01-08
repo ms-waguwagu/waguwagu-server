@@ -15,15 +15,16 @@
     local ttl = tonumber(ARGV[3])
     local userId = ARGV[4]
 
+		-- ❗️테스트 끝난 후 삭제!!!!!!!
 		-- 1. 중복 진입 방지 로직
-    local currentStatus = redis.call('HGET', sessionKey, 'status')
+    -- local currentStatus = redis.call('HGET', sessionKey, 'status')
 		
-		-- 2. 상태에 따른 분기 처리
-    if currentStatus == 'WAITING' then
-        return 'DUPLICATE_ENTRY' 
-    elseif currentStatus == 'IN_GAME' then
-        return 'ALREADY_IN_GAME' 
-    end
+		-- -- 2. 상태에 따른 분기 처리
+    -- if currentStatus == 'WAITING' then
+    --     return 'DUPLICATE_ENTRY' 
+    -- elseif currentStatus == 'IN_GAME' then
+    --     return 'ALREADY_IN_GAME' 
+    -- end
 
 		-- 3. 세션 정보 저장
     redis.call('HSET', sessionKey,

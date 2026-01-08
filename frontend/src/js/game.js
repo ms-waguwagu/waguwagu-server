@@ -1,6 +1,6 @@
 import { Renderer } from "../game/renderer.js";
 import { io } from "https://cdn.socket.io/4.5.4/socket.io.esm.min.js";
-import { CONFIG } from "../../config.js";
+import { CONFIG, MATCHING_CONFIG } from "../../config.js";
 
 export class GameManager {
   constructor({
@@ -341,7 +341,7 @@ export class GameManager {
 
   async loadRanking() {
     try {
-      const response = await fetch(CONFIG.API_URL + "/ranking/top");
+      const response = await fetch(MATCHING_CONFIG.API_BASE_URL + "/ranking/top");
       if (!response.ok) throw new Error("Failed to fetch");
 
       const data = await response.json();

@@ -8,6 +8,9 @@ import { RedisModule } from '@nestjs-modules/ioredis';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AgonesAllocatorModule } from './agones-allocator/agoness-allocator.module';
 import { QueueModule } from './queue/queue.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { RankingModule } from './ranking/ranking.module';
+import { GameRecord } from './ranking/game-record.entity';
 
 @Module({
   imports: [
@@ -17,6 +20,22 @@ import { QueueModule } from './queue/queue.module';
     AuthModule,
 	  AgonesAllocatorModule,
 		QueueModule,
+		RankingModule,
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: 'mysql',
+        host: config.get<string>('DB_HOST'),
+        port: config.get<number>('DB_PORT', 3306),
+        username: config.get<string>('DB_USER'),
+        password: config.get<string>('DB_PASSWORD'),
+        database: config.get<string>('DB_NAME'),
+        entities: [GameRecord],
+        synchronize: config.get<string>('NODE_ENV') === 'development',
+        logging: config.get<string>('NODE_ENV') === 'development',
+      }),
+    }),
     RedisModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => {

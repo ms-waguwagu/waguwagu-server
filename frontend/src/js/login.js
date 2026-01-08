@@ -1,5 +1,5 @@
 import { setNickname } from "../api/login-api.js";
-import { CONFIG } from "../../config.js";
+import { CONFIG, MATCHING_CONFIG } from "../../config.js";
 // import { matchingQueue } from "../api/queue-api.js";
 
 const nicknameInput = document.getElementById("nickname-input");
@@ -35,7 +35,7 @@ startButton.addEventListener("click", async () => {
 
 async function loadHomeRanking() {
   try {
-    const res = await fetch(CONFIG.API_URL + "/ranking/top");
+    const res = await fetch(MATCHING_CONFIG.API_BASE_URL + "/ranking/top");
     if (!res.ok) throw new Error("API 요청 실패");
 
     const data = await res.json();
