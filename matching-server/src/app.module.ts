@@ -21,17 +21,27 @@ import { QueueModule } from './queue/queue.module';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => {
         const host = configService.get<string>('REDIS_HOST');
-        const port = configService.get<number>('REDIS_PORT');
-        console.log('[BOOT] Redis config:', host, port);
+        const port = configService.get<number>('REDIS_PORT') || 6379;
+        
+        console.log('[BOOT] Redis 연결 설정 (TLS):', { host, port });
+        
         return {
-          isGlobal: true,
           type: 'single',
           options: {
             host,
             port,
             tls: {
               servername: host,
-              rejectUnauthorized: true,
+              rejectUnauthorized: false, // 자체 서명 인증서 허용
+            },
+            lazyConnect: false,
+            enableReadyCheck: false,
+            connectTimeout: 10000,
+            commandTimeout: 5000,
+            maxRetriesPerRequest: 3,
+            retryStrategy: (times) => {
+              const delay = Math.min(times * 500, 2000);
+              return delay;
             },
           },
         };
