@@ -1,4 +1,4 @@
-import { TILE_SIZE } from '../../map/map.data';
+import { TILE_SIZE, PLAYER_SIZE } from '../../map/map.data';
 import { getPathBFS, findRandomTarget } from '../../pathfinding/pathfinding';
 import { BotState } from '../../state/bot-state';
 import { PlayerState } from '../../state/player-state';
@@ -36,7 +36,7 @@ export class BotMoveService {
 
       if (bot.path && bot.path.length > 0) {
         const nextStep = bot.path.shift()!;
-        const offset = TILE_SIZE / 2;
+        const offset = (TILE_SIZE - PLAYER_SIZE) / 2;
         bot.targetX = nextStep.x * TILE_SIZE + offset;
         bot.targetY = nextStep.y * TILE_SIZE + offset;
       }

@@ -32,7 +32,7 @@ import { GameRecord } from './ranking/game-record.entity';
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_NAME'),
         entities: [GameRecord],
-        synchronize: config.get<string>('NODE_ENV') === 'development',
+        synchronize: true, // 테이블 자동 생성 활성화
         logging: config.get<string>('NODE_ENV') === 'development',
       }),
     }),
