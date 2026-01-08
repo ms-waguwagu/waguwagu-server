@@ -4,16 +4,16 @@
   box-sizing: border-box;
   background: linear-gradient(
     135deg,
-    rgba(30, 30, 50, 0.95),
-    rgba(20, 20, 35, 0.95)
+    rgba(42, 55, 68, 0.95),
+    rgba(32, 42, 52, 0.95)
   );
   padding: 22px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 215, 77, 0.25);
+  border: 2px solid rgba(217, 125, 84, 0.3);
   backdrop-filter: blur(12px);
   box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 8px 32px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   height: calc(100vh - 48px);
   position: relative;
   overflow: hidden;
@@ -29,7 +29,7 @@
   height: 200px;
   background: radial-gradient(
     circle at 50% 0%,
-    rgba(255, 216, 77, 0.1) 0%,
+    rgba(244, 197, 78, 0.08) 0%,
     transparent 70%
   );
   pointer-events: none;
@@ -42,20 +42,19 @@
   font-weight: 800;
   letter-spacing: 3px;
   text-transform: uppercase;
-  background: linear-gradient(135deg, #ffd84d, #ffed4e, #f9ca24);
+  background: linear-gradient(135deg, #f4c54e, #f4b183, #d9a66a);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   padding-bottom: 12px;
-  border-bottom: 2px solid rgba(255, 216, 77, 0.3);
+  border-bottom: 2px solid rgba(244, 177, 131, 0.3);
   position: relative;
-  text-shadow: 0 2px 10px rgba(255, 216, 77, 0.3);
   animation: headerGlow 3s ease-in-out infinite;
 }
 
 @keyframes headerGlow {
-  0%, 100% { filter: drop-shadow(0 0 8px rgba(255, 216, 77, 0.3)); }
-  50% { filter: drop-shadow(0 0 15px rgba(255, 216, 77, 0.5)); }
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(244, 197, 78, 0.3)); }
+  50% { filter: drop-shadow(0 0 12px rgba(244, 197, 78, 0.5)); }
 }
 
 #ranking-panel h2::after {
@@ -64,6 +63,7 @@
   right: 0;
   top: -2px;
   font-size: 20px;
+  filter: drop-shadow(0 0 8px rgba(244, 197, 78, 0.5));
   animation: bounce 2s ease-in-out infinite;
 }
 
@@ -78,7 +78,7 @@
   padding-right: 8px;
 }
 
-/* 스크롤바 개선 */
+/* 스크롤바 */
 #ranking-list::-webkit-scrollbar {
   width: 8px;
 }
@@ -90,18 +90,18 @@
 }
 
 #ranking-list::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, rgba(255, 216, 77, 0.4), rgba(255, 216, 77, 0.2));
+  background: linear-gradient(135deg, rgba(217, 125, 84, 0.4), rgba(217, 125, 84, 0.2));
   border-radius: 10px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
 #ranking-list::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, rgba(255, 216, 77, 0.6), rgba(255, 216, 77, 0.4));
+  background: linear-gradient(135deg, rgba(217, 125, 84, 0.6), rgba(217, 125, 84, 0.4));
   background-clip: padding-box;
 }
 
-/* 랭킹 아이템 개선 */
+/* 랭킹 아이템 */
 .ranking-item {
   display: flex;
   align-items: center;
@@ -110,17 +110,17 @@
   margin-bottom: 10px;
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.05),
-    rgba(255, 255, 255, 0.02)
+    rgba(244, 177, 131, 0.05),
+    rgba(244, 177, 131, 0.02)
   );
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(244, 177, 131, 0.1);
   overflow: hidden;
   position: relative;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 호버 시 빛나는 효과 */
+/* 호버 효과 */
 .ranking-item::before {
   content: "";
   position: absolute;
@@ -131,7 +131,7 @@
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 216, 77, 0.1),
+    rgba(244, 177, 131, 0.1),
     transparent
   );
   transition: left 0.5s ease;
@@ -144,21 +144,21 @@
 .ranking-item:hover {
   background: linear-gradient(
     135deg,
-    rgba(255, 216, 77, 0.12),
-    rgba(255, 216, 77, 0.06)
+    rgba(244, 177, 131, 0.12),
+    rgba(244, 177, 131, 0.06)
   );
-  border-color: rgba(255, 216, 77, 0.3);
+  border-color: rgba(244, 177, 131, 0.3);
   transform: translateX(6px) scale(1.02);
   box-shadow: 
-    0 4px 12px rgba(255, 216, 77, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 4px 12px rgba(217, 125, 84, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .ranking-item:last-child {
   margin-bottom: 0;
 }
 
-/* 순위 뱃지 개선 */
+/* 순위 뱃지 */
 .ranking-item .rank {
   display: flex;
   align-items: center;
@@ -167,12 +167,12 @@
   height: 36px;
   font-weight: 800;
   font-size: 15px;
-  background: linear-gradient(135deg, #ffd84d, #f9ca24);
-  color: #1a1a2e;
+  background: linear-gradient(135deg, #f4c54e, #d9a66a);
+  color: #2a3744;
   border-radius: 10px;
   box-shadow: 
-    0 2px 8px rgba(255, 216, 77, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    0 2px 8px rgba(244, 197, 78, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
@@ -183,69 +183,69 @@
   transform: rotate(5deg) scale(1.1);
 }
 
-/* 1위 금메달 효과 */
+/* 1위 빈티지 골드 */
 .ranking-item:nth-child(1) {
   background: linear-gradient(
     135deg,
-    rgba(255, 215, 0, 0.15),
-    rgba(255, 215, 0, 0.05)
+    rgba(244, 197, 78, 0.15),
+    rgba(244, 197, 78, 0.05)
   );
-  border-color: rgba(255, 215, 0, 0.3);
+  border-color: rgba(244, 197, 78, 0.35);
 }
 
 .ranking-item:nth-child(1) .rank {
-  background: linear-gradient(135deg, #ffd700, #ffa500);
+  background: linear-gradient(135deg, #f4c54e, #e8936a);
   box-shadow: 
-    0 4px 12px rgba(255, 215, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    0 4px 12px rgba(244, 197, 78, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
   animation: goldPulse 2s ease-in-out infinite;
 }
 
 @keyframes goldPulse {
   0%, 100% { 
     box-shadow: 
-      0 4px 12px rgba(255, 215, 0, 0.6),
-      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      0 4px 12px rgba(244, 197, 78, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
   }
   50% { 
     box-shadow: 
-      0 4px 20px rgba(255, 215, 0, 0.9),
-      inset 0 1px 0 rgba(255, 255, 255, 0.5);
+      0 4px 20px rgba(244, 197, 78, 0.7),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
   }
 }
 
-/* 2위 은메달 효과 */
+/* 2위 빈티지 실버 */
 .ranking-item:nth-child(2) {
   background: linear-gradient(
     135deg,
-    rgba(192, 192, 192, 0.15),
-    rgba(192, 192, 192, 0.05)
+    rgba(217, 166, 106, 0.15),
+    rgba(217, 166, 106, 0.05)
   );
-  border-color: rgba(192, 192, 192, 0.3);
+  border-color: rgba(217, 166, 106, 0.3);
 }
 
 .ranking-item:nth-child(2) .rank {
-  background: linear-gradient(135deg, #e8e8e8, #a8a8a8);
+  background: linear-gradient(135deg, #d9a66a, #b89e8e);
   box-shadow: 
-    0 4px 12px rgba(192, 192, 192, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    0 4px 12px rgba(217, 166, 106, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
-/* 3위 동메달 효과 */
+/* 3위 빈티지 브론즈 */
 .ranking-item:nth-child(3) {
   background: linear-gradient(
     135deg,
-    rgba(205, 127, 50, 0.15),
-    rgba(205, 127, 50, 0.05)
+    rgba(205, 127, 84, 0.15),
+    rgba(205, 127, 84, 0.05)
   );
-  border-color: rgba(205, 127, 50, 0.3);
+  border-color: rgba(205, 127, 84, 0.3);
 }
 
 .ranking-item:nth-child(3) .rank {
-  background: linear-gradient(135deg, #cd7f32, #8b4513);
+  background: linear-gradient(135deg, #cd7f54, #a66347);
   box-shadow: 
-    0 4px 12px rgba(205, 127, 50, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    0 4px 12px rgba(205, 127, 84, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .ranking-item .nick {
@@ -253,16 +253,16 @@
   margin: 0 12px;
   font-weight: 600;
   font-size: 15px;
-  color: #ffffff;
+  color: #e8d5c4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   transition: color 0.3s ease;
 }
 
 .ranking-item:hover .nick {
-  color: #ffd84d;
+  color: #f4c54e;
 }
 
 .ranking-item .score-wrapper {
@@ -275,33 +275,33 @@
 .ranking-item .score {
   font-weight: 800;
   font-size: 17px;
-  color: #4ecca3;
+  color: #8cb9a8;
   text-shadow: 
-    0 0 10px rgba(78, 204, 163, 0.5),
-    0 1px 2px rgba(0, 0, 0, 0.8);
+    0 0 8px rgba(140, 185, 168, 0.4),
+    0 1px 2px rgba(0, 0, 0, 0.6);
   line-height: 1.1;
   transition: all 0.3s ease;
 }
 
 .ranking-item:hover .score {
-  color: #5eddb4;
+  color: #a5d4be;
   text-shadow: 
-    0 0 15px rgba(78, 204, 163, 0.8),
-    0 1px 2px rgba(0, 0, 0, 0.8);
+    0 0 12px rgba(165, 212, 190, 0.6),
+    0 1px 2px rgba(0, 0, 0, 0.6);
   transform: scale(1.1);
 }
 
 .ranking-item .played-at {
   margin-top: 4px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(232, 213, 196, 0.5);
   white-space: nowrap;
 }
 
 .empty-ranking {
   text-align: center;
   padding: 40px 12px;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(232, 213, 196, 0.4);
   font-size: 14px;
   display: flex;
   flex-direction: column;
@@ -312,7 +312,7 @@
 .empty-ranking::before {
   content: "🎮";
   font-size: 32px;
-  opacity: 0.5;
+  opacity: 0.4;
   animation: float 3s ease-in-out infinite;
 }
 
@@ -321,7 +321,7 @@
   50% { transform: translateY(-10px); }
 }
 
-/* 반응형 조정 */
+/* 반응형 */
 @media (max-width: 1200px) {
   #ranking-panel {
     width: 280px;
