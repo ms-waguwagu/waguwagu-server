@@ -12,6 +12,7 @@ export function getPathBFS(
   startY: number,
   targetX: number,
   targetY: number,
+  blockingValues: number[] = [1], // 기본은 벽(1)만 차단
 ): Tile[] {
   const queue: Array<{ x: number; y: number; path: Tile[] }> = [];
   const visited = new Set<string>();
@@ -36,7 +37,7 @@ export function getPathBFS(
       const key = `${nx},${ny}`;
       if (visited.has(key)) continue;
       if (nx < 0 || nx >= map[0].length || ny < 0 || ny >= map.length) continue;
-      if (map[ny][nx] === 1) continue;
+      if (blockingValues.includes(map[ny][nx])) continue;
       visited.add(key);
       queue.push({ x: nx, y: ny, path: [...path, { x: nx, y: ny }] });
     }
@@ -44,7 +45,13 @@ export function getPathBFS(
   return [];
 }
 
-export function findRandomTarget(map: number[][], startX: number, startY: number, maxDepth = 10): Tile | null {
+export function findRandomTarget(
+  map: number[][],
+  startX: number,
+  startY: number,
+  maxDepth = 12,
+  blockingValues: number[] = [1],
+): Tile | null {
   const visited = new Set<string>();
   const queue: Array<{ x: number; y: number; depth: number }> = [];
   const candidates: Tile[] = [];
@@ -71,7 +78,7 @@ export function findRandomTarget(map: number[][], startX: number, startY: number
       const key = `${nx},${ny}`;
       if (visited.has(key)) continue;
       if (nx < 0 || nx >= map[0].length || ny < 0 || ny >= map.length) continue;
-      if (map[ny][nx] === 1) continue;
+      if (blockingValues.includes(map[ny][nx])) continue;
       visited.add(key);
       queue.push({ x: nx, y: ny, depth: depth + 1 });
     }

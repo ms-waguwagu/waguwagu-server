@@ -6,6 +6,7 @@ import {
   PLAYER_SIZE,
   PLAYER_SPEED,
   PLAYER_COLORS,
+  PLAYER_SPAWNS,
 } from '../../map/map.data';
 
 export type Player = PlayerState;
@@ -61,8 +62,8 @@ export class PlayerService {
 
   addPlayer(roomId: string, id: string, googleSub: string, nickname: string) {
 		this.ensureRoom(roomId);
-    const spawnCol = 1;
-    const spawnRow = 1;
+    const playerCount = this.playerCount(roomId);
+    const spawn = PLAYER_SPAWNS[playerCount % PLAYER_SPAWNS.length];
 
     const color = this.pickColor(roomId);
 
@@ -70,8 +71,8 @@ export class PlayerService {
       id,
       googleSub,
       nickname,
-      x: spawnCol * TILE_SIZE + (TILE_SIZE - PLAYER_SIZE) / 2,
-      y: spawnRow * TILE_SIZE + (TILE_SIZE - PLAYER_SIZE) / 2,
+      x: spawn.x * TILE_SIZE + (TILE_SIZE - PLAYER_SIZE) / 2,
+      y: spawn.y * TILE_SIZE + (TILE_SIZE - PLAYER_SIZE) / 2,
       dir: { dx: 0, dy: 0 },
       color,
       score: 0,
@@ -130,7 +131,7 @@ export class PlayerService {
         if (tx < 0 || ty < 0 || ty >= map.length || tx >= map[0].length) {
           return true;
         }
-        if (map[ty][tx] === 1) return true;
+        if (map[ty][tx] === 1 || map[ty][tx] === 2) return true;
       }
     }
     return false;
