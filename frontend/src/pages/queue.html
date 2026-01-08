@@ -1,44 +1,53 @@
-	<!DOCTYPE html>
-	<html>
-	<head>
-		<title>Queue</title>
-		<link rel="stylesheet" href="../styles/queue.css">
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Queue</title>
+    <link rel="stylesheet" href="../styles/queue.css" />
+    <link rel="icon" href="src/images/pacmanfav.png" type="image/png">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script type="module">
-    // 로그인 체크
-    const token = localStorage.getItem("accessToken");
-    if (!token) {
-      location.href = "./login.html";
-    }
+      // 로그인 체크
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
+        location.href = "./login.html";
+      }
 
-    // 게임 중 잔존 roomId 있으면 홈으로
-    const roomId = localStorage.getItem("waguwagu_room_id");
-    if (roomId) {
-      console.warn("잔존 roomId 감지 → 홈으로 이동");
-      localStorage.removeItem("waguwagu_room_id");
-      location.replace("./home.html");
-    }
-  </script>
-	</head>
-	<body>
-		<!-- 대기열 화면	 -->
-			 <div id="queue-screen" >
-        <div class="queue-overlay">
-          <div class="queue-top">
-            <div id="queue-timer">0:00</div>
-            <div class="queue-label">MATCHMAKING QUEUE</div>
-          </div>
-
-          <div class="queue-center">
-            <div class="queue-count-box">
-              <span id="current-queue-count">1</span>
-              <span class="divider">/</span>
-              <span id="max-queue-count">5</span>
-            </div>
-            <p class="queue-status-text">플레이어를 찾는 중입니다...</p>
-          </div>
-
-          <button id="cancel-queue-btn">대기 취소</button>
+      // 게임 중 잔존 roomId 있으면 홈으로
+      const roomId = localStorage.getItem("waguwagu_room_id");
+      if (roomId) {
+        console.warn("잔존 roomId 감지 → 홈으로 이동");
+        localStorage.removeItem("waguwagu_room_id");
+        location.replace("./home.html");
+      }
+    </script>
+  </head>
+  <body>
+    <div id="queue-screen">
+      <div class="queue-overlay">
+        
+        <div class="queue-top">
+          <div id="queue-timer">00:00</div>
+          <div class="queue-label">MATCHMAKING QUEUE</div>
         </div>
+
+        <div class="queue-center">
+          <div class="queue-count-box">
+            <span id="current-queue-count">1</span>
+            <span class="divider">/</span>
+            <span id="max-queue-count">5</span>
+          </div>
+          
+          <p class="queue-status-text">
+            플레이어를 찾는 중입니다<span class="dots"></span>
+          </p>
+        </div>
+
+        <button id="cancel-queue-btn">대기 취소</button>
       </div>
-			<script type="module" src="../js/queue.js"></script>
+    </div>
+    
+    <script type="module" src="../js/queue.js"></script>
+  </body>
+</html>

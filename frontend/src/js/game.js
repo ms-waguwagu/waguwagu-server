@@ -82,8 +82,8 @@ export class GameManager {
 
     if (this.homeButton) {
       this.homeButton.addEventListener("click", () => {
-        this.sendGameLeave(); // 홈 버튼도 동일 처리
         this.stop();
+        this.sendGameLeave(); // 홈 버튼도 동일 처리
         window.location.href = "login.html";
       });
     }
@@ -104,6 +104,12 @@ export class GameManager {
   }
 
   sendGameLeave() {
+    // ⭐ 먼저 소켓 끊기 (reconnect 막기)
+    if (this.socket) {
+      this.socket.io.opts.reconnection = false; // 재연결 끄기
+      this.socket.disconnect();
+    }
+
     localStorage.removeItem("waguwagu_room_id");
     localStorage.removeItem("waguwagu_game_mode");
 
@@ -335,6 +341,7 @@ export class GameManager {
       localStorage.removeItem("waguwagu_room_id");
       localStorage.removeItem("waguwagu_game_mode");
       this.stop();
+      this.sendGameLeave();
       window.location.href = "home.html";
     }, 5000);
   }

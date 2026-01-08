@@ -8,6 +8,7 @@
     <!-- 기존 스타일 -->
     <link rel="stylesheet" href="../styles/main.css" />
     <link rel="stylesheet" href="../styles/ranking.css" />
+    <link rel="icon" href="src/images/pacmanfav.png" type="image/png">
 
     <!-- Google Identity Services SDK -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -35,7 +36,7 @@
         <!-- 배경 + 중앙정렬 기준 히어로 -->
         <section id="hero">
           <div id="center-area">
-            <div id="game-title">WAGUWAGU</div>
+            <div id="game-title" data-text="WAGUWAGU">WAGUWAGU</div> 
 
             <!-- 구글 로그인 버튼 영역 -->
             <div id="google-login-area"></div>
@@ -94,8 +95,11 @@
         google.accounts.id.renderButton(
           document.getElementById("google-login-area"),
           {
-            theme: "outline",
+            theme: "filled_black",
             size: "large",
+            shape: "rectangular", 
+            width: "300",          
+            logo_alignment: "center"
           }
         );
       };

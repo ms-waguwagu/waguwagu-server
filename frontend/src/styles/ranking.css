@@ -1,146 +1,170 @@
+/* ----------------------------------------------------
+   좌측 랭킹 패널 (8-bit Arcade Style)
+---------------------------------------------------- */
 #ranking-panel {
-  /* flex에게: '폭은 내가 width로 정할게, 넌 그냥 그대로 써' */
   flex: 0 0 auto;
-
-  /* 🔸큰 화면에서는 320px, 작아질수록 20vw까지 같이 줄어듦
-     (최소 200px 밑으로는 안 내려가게) */
-  width: 20vw;
+  /* 반응형 너비 유지 */
+  width: min(320px, 25vw);
+  min-width: 260px; /* 너무 작아지지 않게 */
+  
   box-sizing: border-box;
 
-  background: linear-gradient(
-    135deg,
-    rgba(30, 30, 50, 0.95),
-    rgba(20, 20, 35, 0.95)
-  );
+  /* 유리 효과 제거 -> 짙은 단색 배경 */
+  background: rgba(0, 0, 16, 0.95);
 
-  padding: 22px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 215, 77, 0.2);
-  backdrop-filter: blur(12px);
+  /* 레트로 이중 테두리 */
+  border: 4px double var(--primary-yellow, #ffdd39);
+  border-radius: 4px; /* 아주 살짝만 */
+  
+  /* 그림자는 딱 떨어지게 */
+  box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.5);
 
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-
-  /* 세로 규칙은 그대로 유지 (1~10등 한 번에 보이게) */
+  padding: 20px 16px;
+  
+  /* 전체 높이에서 여백 고려 */
   height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
 }
 
 #ranking-panel h2 {
   text-align: center;
-  margin: 0 0 14px 0;
+  margin: 0 0 16px 0;
   font-size: 22px;
   font-weight: 800;
   letter-spacing: 2px;
   text-transform: uppercase;
 
-  background: linear-gradient(135deg, #ffd84d, #ffed4e, #f9ca24);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  /* 그라데이션 텍스트 대신 단색 + 그림자 */
+  color: #fff;
+  text-shadow: 2px 2px 0px #ff00de; /* 핑크색 그림자 포인트 */
 
-  padding-bottom: 10px;
-  border-bottom: 2px solid rgba(255, 216, 77, 0.3);
+  padding-bottom: 12px;
+  /* 점선으로 구분선 */
+  border-bottom: 2px dashed rgba(255, 255, 255, 0.3);
 }
 
-/* ✅ “전체화면에서는 1~10을 한 번에”
-   - 리스트 높이를 패널 내부 남은 높이로 맞춤
-   - 필요하면(창 작아지면) 여기만 스크롤 */
+/* 리스트 영역 */
 #ranking-list {
-  height: calc(100% - 56px); /* h2 영역 만큼 제외(대략) */
+  flex: 1; /* 남은 공간 다 차지 */
   overflow-y: auto;
-  padding-right: 8px;
+  padding-right: 8px; /* 스크롤바와 간격 */
 }
 
-/* 스크롤바 */
+/* ----------------------------------------------------
+   커스텀 스크롤바 (각진 스타일)
+---------------------------------------------------- */
 #ranking-list::-webkit-scrollbar {
-  width: 6px;
+  width: 12px; /* 조금 더 두껍게 */
 }
 #ranking-list::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
+  background: #000;
+  border-left: 1px solid #333;
 }
 #ranking-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 216, 77, 0.3);
-  border-radius: 10px;
+  background: #555;
+  border: 2px solid #000; /* 테두리를 줘서 블럭 느낌 */
+  border-radius: 0;
 }
 #ranking-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 216, 77, 0.5);
+  background: var(--primary-yellow, #ffdd39);
 }
 
-/* 랭킹 아이템(10개 한 화면 최적화를 위해 height/padding을 과하지 않게) */
+/* ----------------------------------------------------
+   랭킹 아이템 (카드)
+---------------------------------------------------- */
 .ranking-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
 
-  padding: 10px 10px;
-  margin-bottom: 8px;
+  padding: 12px 10px;
+  margin-bottom: 10px;
 
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  /* 각진 배경 */
+  background: #111;
+  border: 2px solid #333;
+  border-radius: 0; /* 완전 사각형 */
 
   overflow: hidden;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition: transform 0.1s, background 0.1s;
 }
 
 .ranking-item:hover {
-  background: rgba(255, 216, 77, 0.08);
-  border-color: rgba(255, 216, 77, 0.2);
-  transform: translateX(4px);
+  /* 호버 시 살짝 들썩 + 노란 테두리 */
+  background: #222;
+  border-color: var(--primary-yellow, #ffdd39);
+  transform: translateX(-4px); /* 왼쪽으로 살짝 튀어나오는 느낌 */
+  box-shadow: 4px 4px 0 #000;
 }
 
 .ranking-item:last-child {
   margin-bottom: 0;
 }
 
+/* 순위 박스 */
 .ranking-item .rank {
   display: flex;
   align-items: center;
   justify-content: center;
 
-  min-width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
 
   font-weight: 800;
-  font-size: 14px;
+  font-size: 16px;
 
-  background: linear-gradient(135deg, #ffd84d, #f9ca24);
-  color: #1a1a2e;
-
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(255, 216, 77, 0.4);
-
+  /* 기본: 흑백 반전 */
+  background: #333;
+  color: #fff;
+  border: 2px solid #000;
+  
   flex-shrink: 0;
+  box-shadow: 2px 2px 0 #000;
 }
 
+/* 🥇 1, 2, 3위 스타일링 (색상으로 강조) */
+.ranking-item:nth-child(1) {
+  border-color: #ffd700; /* 금색 테두리 */
+  background: rgba(255, 215, 0, 0.05);
+}
 .ranking-item:nth-child(1) .rank {
-  background: linear-gradient(135deg, #ffd700, #ffa500);
+  background: #ffd700;
+  color: #000;
+}
+
+.ranking-item:nth-child(2) {
+  border-color: #c0c0c0; /* 은색 테두리 */
 }
 .ranking-item:nth-child(2) .rank {
-  background: linear-gradient(135deg, #c0c0c0, #a8a8a8);
+  background: #c0c0c0;
+  color: #000;
+}
+
+.ranking-item:nth-child(3) {
+  border-color: #cd7f32; /* 동색 테두리 */
 }
 .ranking-item:nth-child(3) .rank {
-  background: linear-gradient(135deg, #cd7f32, #a0522d);
+  background: #cd7f32;
+  color: #000;
 }
 
+/* 닉네임 */
 .ranking-item .nick {
-  width: 120px;
-  margin: 0 10px;
-
+  width: 100px; /* 적절히 조절 */
+  margin: 0 12px;
   font-weight: 600;
   font-size: 15px;
-  color: #ffffff;
-
+  color: #ddd;
+  
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-
   flex: 1;
 }
 
+/* 점수 영역 */
 .ranking-item .score-wrapper {
-  width: 120px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -149,22 +173,27 @@
 
 .ranking-item .score {
   font-weight: 800;
-  font-size: 16px;
-  color: #4ecca3;
-  text-shadow: 0 0 10px rgba(78, 204, 163, 0.4);
-  line-height: 1.1;
+  font-size: 18px;
+  
+  /* 아케이드 그린 */
+  color: #4ecca3; 
+  text-shadow: 2px 2px 0 #000; /* 선명하게 */
+  line-height: 1;
 }
 
 .ranking-item .played-at {
-  margin-top: 4px;
+  margin-top: 6px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.55);
-  white-space: nowrap;
+  color: #777;
+  font-family: monospace; /* 날짜는 고정폭 폰트가 어울림 */
 }
 
+/* 데이터 없을 때 */
 .empty-ranking {
   text-align: center;
-  padding: 28px 12px;
-  color: rgba(255, 255, 255, 0.55);
+  padding: 40px 12px;
+  color: #555;
   font-size: 14px;
+  border: 2px dashed #333; /* 비어있음 표시 */
+  margin-top: 20px;
 }

@@ -1,31 +1,20 @@
 @font-face {
   font-family: "RoundedFixedsys";
-  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/DungGeunMo.woff")
-    format("woff");
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/DungGeunMo.woff") format("woff");
   font-weight: normal;
   font-display: swap;
 }
 
-html,
-body,
-button,
-input {
-  font-family: "RoundedFixedsys", system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+html, body, button, input {
+  font-family: "RoundedFixedsys", system-ui, -apple-system, sans-serif;
 }
 
-html,
-body {
+html, body {
   height: 100%;
   margin: 0;
-}
-
-/*  전체 화면 스크롤 정책:
-   - 전체 화면에서는 대개 스크롤 없음
-   - 창모드(작아짐)에서는 필요한 경우에만 자동으로 생김 */
-body {
   background: #000016;
   color: #fff;
+  overflow: hidden; /* 스캔라인 효과 등을 위해 화면 밖 요소 숨김 */
 }
 
 /* 좌(랭킹) + 우(메인) */
@@ -36,146 +25,222 @@ body {
   padding: 24px;
   box-sizing: border-box;
   gap: 20px;
-
-  overflow: auto; /*  “창모드일 때만” 스크롤이 생기는 핵심 */
+  overflow: auto;
+  position: relative;
+  z-index: 1; /* 스캔라인보다 위에 위치 */
 }
 
 /* 우측 메인 영역 */
 #main-screen {
   flex: 1;
-  min-width: 520px; /* 너무 좁아지는 거 방지(원하면 줄여도 됨) */
+  min-width: 520px;
 }
 
-/* 배경 이미지는 body가 아니라 hero에만 깐다. "배경 중앙"이 곧 로고/입력의 기준 중앙 */
 #hero {
   width: 100%;
   height: 100%;
-
+  /* 배경 이미지 */
   background-image: url("../images/pacman_background.png");
   background-repeat: no-repeat;
   background-position: center center;
-  background-size: 100% auto;
-
+  background-size: cover; /* 100% auto 대신 cover 추천 (빈공간 방지) */
+  
   display: flex;
   justify-content: center;
   align-items: center;
 
-  border-radius: 18px;
+  /* 둥근 테두리 제거 -> 픽셀 느낌 살리기 위해 약간만 주거나 제거 */
+  border-radius: 4px; 
+  border: 2px solid #333; /* 레트로 모니터 베젤 느낌 */
+  position: relative;
+  overflow: hidden;
+}
+
+/* CRT 모니터 스캔라인 효과 (배경 위에 얇은 줄무늬) */
+#hero::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0) 50%,
+    rgba(0, 0, 0, 0.2) 50%,
+    rgba(0, 0, 0, 0.2)
+  );
+  background-size: 100% 4px;
+  pointer-events: none; /* 클릭 방해 안 함 */
+  z-index: 0;
 }
 
 :root {
   --hero-shift-y: -4vh;
+  --primary-yellow: #ffdd39;
+  --shadow-dark: #b89200;
 }
 
 #center-area {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(16px, 4vh, 32px);
-
+  gap: clamp(20px, 5vh, 40px);
   transform: translateY(var(--hero-shift-y));
+  z-index: 10; /* 스캔라인 위로 올리기 */
 }
 
-/* 로고 */
+/* ----------------------------------------------------
+   1. 글리치(Glitch) 효과 타이틀
+   HTML 예시: <h1 id="game-title" data-text="WAGUWAGU">WAGUWAGU</h1> 
+---------------------------------------------------- */
 #game-title {
-  font-size: clamp(34px, 6vw, 100px);
-  letter-spacing: clamp(2px, 0.5vw, 6px);
+  position: relative;
+  font-size: clamp(40px, 7vw, 110px);
+  letter-spacing: clamp(4px, 1vw, 10px);
   text-transform: uppercase;
-
   color: #fff;
-  text-shadow: 0 0 10px rgba(255, 216, 77, 0.9),
-    0 0 22px rgba(255, 216, 77, 0.8);
-
   margin: 0;
+  /* 기존 네온 글로우는 약하게 유지하거나 제거 */
+  text-shadow: 2px 2px 0px #ff00de, -2px -2px 0px #00ffff; 
 }
 
-/* 카드(닉네임 입력/버튼) */
-#app {
-  background: radial-gradient(
-    circle at 0 0,
-    rgba(255, 255, 255, 0.05),
-    rgba(10, 10, 20, 0.98)
-  );
-  border-radius: 24px;
-  border: 1px solid rgba(255, 216, 77, 0.25);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(0, 0, 0, 0.8);
-  box-sizing: border-box;
+/* 글리치 애니메이션 정의 */
+@keyframes glitch-anim {
+  0% { clip-path: inset(10% 0 80% 0); transform: translate(-2px, 1px); }
+  20% { clip-path: inset(80% 0 1% 0); transform: translate(2px, -1px); }
+  40% { clip-path: inset(30% 0 10% 0); transform: translate(-2px, 2px); }
+  60% { clip-path: inset(50% 0 60% 0); transform: translate(2px, -2px); }
+  80% { clip-path: inset(10% 0 30% 0); transform: translate(-1px, 1px); }
+  100% { clip-path: inset(90% 0 20% 0); transform: translate(1px, -1px); }
+}
 
+#game-title::before,
+#game-title::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent; /* 배경색 투명으로 */
+}
+
+#game-title::before {
+  color: #00ffff;
+  text-shadow: -1px 0 #ff00de;
+  animation: glitch-anim 2.5s infinite linear alternate-reverse;
+  clip-path: inset(0 0 0 0);
+  opacity: 0.7;
+}
+
+#game-title::after {
+  color: #ff00de;
+  text-shadow: -1px 0 #00ffff;
+  animation: glitch-anim 2s infinite linear alternate-reverse;
+  clip-path: inset(0 0 0 0);
+  opacity: 0.7;
+}
+
+/* ----------------------------------------------------
+   2. 레트로 박스 디자인 (카드/모달)
+---------------------------------------------------- */
+#app {
+  /* 그라데이션 대신 짙은 단색 배경으로 변경해 가독성 확보 */
+  background: rgba(16, 16, 32, 0.95);
+  
+  /* 둥근 모서리 줄이기 (픽셀 느낌) */
+  border-radius: 4px;
+  
+  /* 이중 테두리로 레트로 느낌 강조 */
+  border: 4px double var(--primary-yellow);
+  
+  /* 그림자는 뭉개지지 않고 딱 떨어지게 */
+  box-shadow: 10px 10px 0px rgba(0, 0, 0, 0.5);
+  
+  box-sizing: border-box;
   width: min(420px, 30vw);
-  padding: 20px 24px 12px;
+  padding: 30px 24px 24px;
   text-align: center;
 }
 
 #app input {
   width: 100%;
-  font-size: clamp(12px, 1.2vw, 16px);
-  padding: 10px 12px;
-  margin: 0 0 12px 0;
-
+  font-size: clamp(14px, 1.4vw, 18px);
+  padding: 14px 12px;
+  margin: 0 0 16px 0;
   box-sizing: border-box;
-  background: rgba(0, 0, 0, 0.55);
-
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #fff;
+  
+  /* 입력창도 각지게 */
+  background: #000;
+  border-radius: 0px; 
+  border: 2px solid #555;
+  color: var(--primary-yellow);
   outline: none;
-
-  box-shadow: 0 0 8px rgba(255, 216, 77, 0.6), 0 0 18px rgba(255, 216, 77, 0.5);
-
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  
+  /* 입력창 그림자 제거 */
+  box-shadow: none;
+  transition: border-color 0.2s;
 }
 
 #app input::placeholder {
-  color: rgba(255, 255, 255, 0.55);
+  color: #555;
 }
 
+#app input:focus {
+  border-color: var(--primary-yellow);
+  background: #111;
+}
+
+/* ----------------------------------------------------
+   3. 8비트 스타일 버튼
+---------------------------------------------------- */
 #app button {
   width: 100%;
-  font-size: clamp(13px, 1.3vw, 18px);
-  padding: 12px 0;
-  margin-top: 4px;
+  font-size: clamp(14px, 1.4vw, 20px);
+  padding: 14px 0;
+  margin-top: 8px;
 
-  border-radius: 10px;
-  border: none;
+  border-radius: 2px; /* 아주 살짝만 */
+  border: 2px solid #000; /* 만화 같은 테두리 */
 
-  background: linear-gradient(135deg, #ffdd39, #ffb800);
-  color: #201a2e;
+  background: var(--primary-yellow);
+  color: #000;
   font-weight: 800;
   letter-spacing: 2px;
-
   cursor: pointer;
 
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8), 0 0 14px rgba(255, 216, 77, 0.7);
+  /* 입체감을 주는 딱딱한 그림자 (Blur 0) */
+  box-shadow: 0px 6px 0px var(--shadow-dark), 
+              0px 6px 10px rgba(0,0,0,0.5);
 
-  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+  transform: translateY(0);
+  transition: all 0.1s;
+  text-shadow: none;
 }
 
 #app button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.9), 0 0 20px rgba(255, 216, 77, 0.95);
-  filter: brightness(1.05);
+  filter: brightness(1.1);
+}
+
+#app button:active {
+  /* 눌렀을 때 그림자 줄어들고 버튼 내려감 */
+  transform: translateY(6px);
+  box-shadow: 0px 0px 0px var(--shadow-dark);
 }
 
 #user-info {
   margin-bottom: 24px;
   font-size: clamp(16px, 1.8vw, 24px);
-  color: #ffdd39;
-  text-shadow: 0 0 10px rgba(255, 221, 57, 0.4);
+  color: var(--primary-yellow);
+  text-shadow: 2px 2px 0 #000; /* 글자 테두리 느낌 */
   font-weight: bold;
 }
 
 #status-message {
-  margin: 10px 0 0 0;
+  margin: 15px 0 0 0;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.8);
+  color: #aaa;
+  font-family: monospace; /* 시스템 메시지 느낌 */
 }
-
-/*  창이 작아질수록, 오른쪽 밀림을 자동으로 줄여서 “항상 자연스럽게”  임시로 주석 처리 */
-/* @media (max-width: 1200px) {
-  :root {
-  }
-} */
 
 @media (max-width: 980px) {
   :root {
@@ -184,4 +249,35 @@ body {
   #main-screen {
     min-width: 0;
   }
+}
+
+/* 구글 버튼을 감싸는 영역 스타일링 */
+#google-login-area {
+  /* 버튼 크기에 딱 맞게 */
+  display: inline-block;
+  
+  /* 레트로 이중 테두리 (노란색) */
+  border: 4px double #ffdd39; 
+  
+  /* 그림자 (입체감) */
+  box-shadow: 6px 6px 0px #000; 
+  
+  /* 배경색 (혹시 모를 빈틈 방지) */
+  background: #000;
+  
+  /* 위치 잡아주기 */
+  margin-top: 20px;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+/* 마우스 올렸을 때 반응 (구글 버튼 위가 아니라 박스가 반응) */
+#google-login-area:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px #000;
+  border-color: #fff; /* 호버 시 테두리 흰색 반짝임 효과 */
+}
+
+#google-login-area:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px #000;
 }

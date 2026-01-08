@@ -8,6 +8,7 @@
     <!-- 기존 스타일 재사용 -->
     <link rel="stylesheet" href="../styles/main.css" />
     <link rel="stylesheet" href="../styles/ranking.css" />
+    <link rel="icon" href="src/images/pacmanfav.png" type="image/png">
   </head>
 
   <body class="mode-main">
@@ -31,7 +32,6 @@
                 <span id="display-nickname"></span>
               </div>
               <button id="start-button">게임 시작</button>
-              <button id="boss-start-button">보스 테스트</button>
               <button id="logout-button">로그아웃</button>
             </div>
           </div>
@@ -68,10 +68,26 @@
       };
 
       // 로그아웃
-      document.getElementById("logout-button").onclick = () => {
-        localStorage.clear();
-        location.href = "./login.html";
-      };
+      document.getElementById("logout-button").onclick = async () => {
+  try {
+    const userId = localStorage.getItem("googlesub");
+
+    if (userId) {
+      await fetch(CONFIG.API_URL + "/leave", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, reason: "LOGOUT" }),
+        keepalive: true, // 페이지 이동 중에도 전송
+      });
+    }
+  } catch (e) {
+    console.warn("logout leave failed", e);
+  }
+
+  localStorage.clear();
+  location.href = "./login.html";
+};
+
 
       // 랭킹 로드 (login.html과 동일 로직)
       async function loadRanking() {

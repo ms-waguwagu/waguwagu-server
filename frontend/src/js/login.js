@@ -1,12 +1,15 @@
 import { setNickname } from "../api/login-api.js";
-import { CONFIG, MATCHING_CONFIG } from "../../config.js";
-// import { matchingQueue } from "../api/queue-api.js";
+import { CONFIG } from "../../config.js"; 
 
 const nicknameInput = document.getElementById("nickname-input");
 const startButton = document.getElementById("start-button");
 const statusMessage = document.getElementById("status-message");
+
+// ⚠️ 중요: HTML에 'boss-start-button' 아이디를 가진 버튼이 없으면 에러가 날 수 있습니다.
+// 만약 보스 버튼을 안 만드셨다면 아래 bossStartButton 관련 코드는 주석 처리하거나 지워야 합니다.
 const bossStartButton = document.getElementById("boss-start-button");
 
+// 1. 게임 시작 버튼 이벤트
 startButton.addEventListener("click", async () => {
   const nickname = nicknameInput.value.trim();
 
@@ -17,25 +20,22 @@ startButton.addEventListener("click", async () => {
   }
 
   try {
-    // 닉네임 설정
     const { accessToken } = await setNickname(nickname);
 
-    // OAuth 토큰을 새 토큰으로 교체
     localStorage.setItem("accessToken", accessToken);
     localStorage.setItem("waguwagu_nickname", nickname);
 
     console.log("닉네임 설정 & 토큰 교체 완료:", nickname);
-
-    // 홈 화면으로 이동하여 닉네임 확인
     window.location.href = "home.html";
   } catch (error) {
     statusMessage.textContent = error.message;
   }
 });
 
+// 2. 랭킹 로드 함수 (디자인 연결 수정됨 ✨)
 async function loadHomeRanking() {
   try {
-    const res = await fetch(MATCHING_CONFIG.API_BASE_URL + "/ranking/top");
+    const res = await fetch(CONFIG.API_URL + "/ranking/top");
     if (!res.ok) throw new Error("API 요청 실패");
 
     const data = await res.json();
@@ -43,7 +43,7 @@ async function loadHomeRanking() {
     if (!list) return;
 
     if (!data || data.length === 0) {
-      list.innerHTML = "<div class='empty-ranking'>데이터 없음</div>";
+      list.innerHTML = "<div class='empty-ranking'>데이터가 없습니다</div>";
       return;
     }
 
@@ -51,7 +51,7 @@ async function loadHomeRanking() {
       .map((item) => {
         const date = new Date(item.playedAt);
 
-        // 초 제거 (HH:mm)
+        // 날짜 포맷 (MM-DD HH:mm)
         const formattedTime =
           `${String(date.getMonth() + 1).padStart(2, "0")}-${String(
             date.getDate()
@@ -60,15 +60,16 @@ async function loadHomeRanking() {
             date.getMinutes()
           ).padStart(2, "0")}`;
 
+        // 🔥 여기가 핵심 수정 포인트! 🔥
+        // 1) class="time" -> class="played-at" (CSS랑 맞춤)
+        // 2) item.score -> item.score.toLocaleString() (1,500 처럼 콤마 찍기)
         return `
-          <div class="ranking-item rank-${item.rank}">
+          <div class="ranking-item">
             <div class="rank">${item.rank}</div>
-
-            <div class="nick">${item.nickname}</div>
-
+            <div class="nick" title="${item.nickname}">${item.nickname}</div>
             <div class="score-wrapper">
-              <div class="score">${item.score}</div>
-              <div class="time">${formattedTime}</div>
+              <div class="score">${item.score.toLocaleString()}</div>
+              <div class="played-at">${formattedTime}</div>
             </div>
           </div>
         `;
@@ -83,36 +84,31 @@ async function loadHomeRanking() {
     }
   }
 }
-// ============================
-// ‼️보스 테스트‼️
-// ============================
-bossStartButton.addEventListener("click", async () => {
-  const nickname = nicknameInput.value.trim();
 
-  if (!nickname) {
-    statusMessage.textContent = "닉네임을 입력해주세요.";
-    nicknameInput.focus();
-    return;
-  }
+// 3. 보스전 시작 버튼 이벤트 (버튼이 있을 때만 실행)
+if (bossStartButton) {
+  bossStartButton.addEventListener("click", async () => {
+    const nickname = nicknameInput.value.trim();
 
-  try {
-    // 닉네임 설정 (일반 게임 시작과 동일)
-    const { accessToken } = await setNickname(nickname);
+    if (!nickname) {
+      statusMessage.textContent = "닉네임을 입력해주세요.";
+      nicknameInput.focus();
+      return;
+    }
 
-    // OAuth 토큰을 새 토큰으로 교체
-    localStorage.setItem("accessToken", accessToken);
-    localStorage.setItem("waguwagu_nickname", nickname);
+    try {
+      const { accessToken } = await setNickname(nickname);
+      localStorage.setItem("accessToken", accessToken);
+      localStorage.setItem("waguwagu_nickname", nickname);
 
-    // 보스 모드 큐 페이지로 이동
-    window.location.href = "queue.html?mode=boss";
-  } catch (error) {
-    console.error(error);
-    statusMessage.textContent = error.message || "보스 모드 진입 실패";
-  }
-});
+      window.location.href = "queue.html?mode=boss";
+    } catch (error) {
+      console.error(error);
+      statusMessage.textContent = error.message || "보스 모드 진입 실패";
+    }
+  });
+}
 
-// 페이지 로드 시 TOP10 표시
+// 페이지 로드 시 실행
 loadHomeRanking();
-
-// 30초마다 자동 갱신
 setInterval(loadHomeRanking, 30000);
