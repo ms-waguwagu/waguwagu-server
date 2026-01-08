@@ -42,30 +42,77 @@ export class Renderer {
   }
 
   drawMap() {
-    this.ctx.fillStyle = "blue"; // 벽 색깔
+    const ctx = this.ctx;
+    ctx.save();
+    
+    // 네온 효과 설정 (성능을 위해 그림자 제거)
+    ctx.strokeStyle = "#4d4dff"; // 더 밝은 블루로 대체
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
     for (let row = 0; row < this.mapRows; row++) {
       for (let col = 0; col < this.mapCols; col++) {
         if (this.map[row][col] === 1) {
-          this.ctx.fillRect(
-            col * this.tileSize,
-            row * this.tileSize,
-            this.tileSize,
-            this.tileSize
-          );
+          const x = col * this.tileSize;
+          const y = row * this.tileSize;
+          const half = this.tileSize / 2;
+
+          // 주변 타일 확인 (0: 길, 1: 벽)
+          const up = row > 0 ? this.map[row - 1][col] : 0;
+          const down = row < this.mapRows - 1 ? this.map[row + 1][col] : 0;
+          const left = col > 0 ? this.map[row][col - 1] : 0;
+          const right = col < this.mapCols - 1 ? this.map[row][col + 1] : 0;
+
+          // 벽의 가장자리 그리기 (간단한 라인 기반)
+          ctx.beginPath();
+          
+          // 맵 데이터 특성에 따라 사각형 대신 선으로 연결감을 줌
+          if (up !== 1) { // 위쪽이 길이면 위쪽 가로선
+            ctx.moveTo(x + 2, y + 2);
+            ctx.lineTo(x + this.tileSize - 2, y + 2);
+          }
+          if (down !== 1) { // 아래쪽이 길이면 아래쪽 가로선
+            ctx.moveTo(x + 2, y + this.tileSize - 2);
+            ctx.lineTo(x + this.tileSize - 2, y + this.tileSize - 2);
+          }
+          if (left !== 1) { // 왼쪽이 길이면 왼쪽 세로선
+            ctx.moveTo(x + 2, y + 2);
+            ctx.lineTo(x + 2, y + this.tileSize - 2);
+          }
+          if (right !== 1) { // 오른쪽이 길이면 오른쪽 세로선
+            ctx.moveTo(x + this.tileSize - 2, y + 2);
+            ctx.lineTo(x + this.tileSize - 2, y + this.tileSize - 2);
+          }
+          
+          ctx.stroke();
         }
       }
     }
+    ctx.restore();
   }
 
   drawDots(dots = []) {
-    this.ctx.fillStyle = "#FFD700"; // 노란 점
+    this.ctx.fillStyle = "#FFB8AE"; // 클래식 연분홍 도트
     dots.forEach((dot) => {
       if (!dot.eaten) {
         const cx = dot.x * this.tileSize + this.tileSize / 2;
         const cy = dot.y * this.tileSize + this.tileSize / 2;
         this.ctx.beginPath();
-        this.ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+        
+        // 파워 펠렛인 경우 더 크게 그림 (임의의 기준: dot.isPowerPellet 같은 필드가 있다면)
+        const radius = dot.type === "power" ? 7 : 2.5;
+        this.ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         this.ctx.fill();
+        
+        // 파워 펠렛에 글로우 효과
+        if (dot.type === "power") {
+          this.ctx.save();
+          this.ctx.shadowColor = "#FFB8AE";
+          this.ctx.shadowBlur = 10;
+          this.ctx.fill();
+          this.ctx.restore();
+        }
       }
     });
   }
