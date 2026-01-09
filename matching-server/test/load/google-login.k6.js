@@ -4,7 +4,8 @@ import { check, sleep } from 'k6';
 // ==============================
 // 환경 변수
 // ==============================
-const BASE_URL = __ENV.API_BASE_URL || 'https://www.waguwagu.cloud';
+// const BASE_URL = __ENV.API_BASE_URL || 'https://www.waguwagu.cloud';
+const BASE_URL = __ENV.API_BASE_URL || 'https://www.mswagu.cloud';
 
 // ⚠️ 실제 Google OAuth로 발급받은 idToken (테스트용 계정)
 // 여러 개면 배열로 만들어도 됨

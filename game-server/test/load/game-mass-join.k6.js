@@ -22,8 +22,15 @@ if (!ACCESS_TOKEN) {
 }
 
 export default function () {
-  const url =
-    `wss://matching.waguwagu.cloud/queue/socket.io/` +
+	//waguwagu.cloud
+  // const url =
+  //   `wss://matching.waguwagu.cloud/queue/socket.io/` +
+  //   `?EIO=4&transport=websocket` +
+  //   `&auth[token]=${encodeURIComponent(ACCESS_TOKEN)}`;
+
+	//mswagu.cloud
+	  const url =
+    `wss://matching.mswagu.cloud/queue/socket.io/` +
     `?EIO=4&transport=websocket` +
     `&auth[token]=${encodeURIComponent(ACCESS_TOKEN)}`;
 

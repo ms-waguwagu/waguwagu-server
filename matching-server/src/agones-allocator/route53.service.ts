@@ -14,7 +14,8 @@ export class Route53Service {
   });
 
   private readonly hostedZoneId = process.env.ROUTE53_HOSTED_ZONE_ID!;
-  private readonly baseDomain = 'game.waguwagu.cloud';
+  // private readonly baseDomain = 'game.waguwagu.cloud';
+	private readonly baseDomain = 'game.mswagu.cloud';
 
   async upsertGameServerARecord(gameServerName: string, ip: string) {
     const fqdn = `${gameServerName}.${this.baseDomain}`;

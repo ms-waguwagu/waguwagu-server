@@ -138,13 +138,12 @@ if (document.getElementById("queue-screen")) {
   if (token) {
     // socket.io-client가 로드되어 있어야 함 (CDN)
     if (typeof io !== "undefined") {
-      const MATCHING_WS_URL = "https://matching.waguwagu.cloud"; // 고정 도메인
-      const socket = io(`${MATCHING_WS_URL}/queue`, {
+      const socket = io(`${MATCHING_CONFIG.API_BASE_URL}/queue`, {
         path: "/socket.io",
         auth: { token },
         transports: ["websocket"],
       });
-      console.log(`[Queue] Connecting to Matching Server: ${MATCHING_WS_URL}/queue`);
+      console.log(`[Queue] Connecting to Matching Server: ${MATCHING_CONFIG.API_BASE_URL}/queue`);
 
       // 소켓 연결되면 대기열 진입
       socket.on("connect", () => {
