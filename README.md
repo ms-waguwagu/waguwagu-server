@@ -3,19 +3,22 @@
 <h2 align="center">🎮 Pacman Multiplayer Project</h2>
 <p align="center">HTML5 Canvas + NestJS WebSocket 기반 실시간 멀티플레이 게임</p>
 
-
 ## 목차
 
 - [프로젝트 소개](#프로젝트-소개)
 - [프로젝트 구조](#프로젝트-구조)
 - [실행 및 배포 방법](#실행-및-배포-방법)
-- [프론트엔드 (Frontend)](#-프론트엔드-frontend)
-- [백엔드 배포 (Backend Deployment)](#-백엔드-배포-backend-deployment)
+  - [프론트엔드 (Frontend)](#프론트엔드-frontend)
+  - [백엔드 배포 (Backend Deployment)](#백엔드-배포-backend-deployment)
 - [서비스 주소 정보 (Domain Info)](#서비스-주소-정보-domain-info)
+- [기술 스택 (Tech Stack)](#기술-스택-tech-stack)
+- [시스템 아키텍처 (Architecture)](#시스템-아키텍처-architecture)
+- [주요 설정 (Environment Variables)](#주요-설정-environment-variables)
 - [게임 서버 구조 개념](#게임-서버-구조-개념)
 
+---
 
-# 프로젝트 소개
+## 프로젝트 소개
 
 본 프로젝트는 **고전 Pac-Man**을 기반으로 한
 **5인 실시간 멀티플레이 온라인 게임**을 목표로 합니다.
@@ -27,8 +30,7 @@
 
 ---
 
-# 프로젝트 구조
-
+## 프로젝트 구조
 ```
 waguwagu/
 ├── frontend/                 # 클라이언트 앱 (Vanilla JS, HTML, CSS)
@@ -62,26 +64,27 @@ waguwagu/
 │       └── state/            # 게임 전체 상태(State Machine) 동기화
 │   
 └── package.json            # 프로젝트 전체 의존성 및 스크립트
-
 ```
+
 ---
-# 실행 및 배포 방법
 
-## ▶ 프론트엔드 (Frontend)
+## 실행 및 배포 방법
+
+### 프론트엔드 (Frontend)
+
 로컬 테스트 시 `config.js`의 주소를 확인한 후 아래 명령어로 실행합니다.
-
 ```bash
 cd frontend
 npx http-server -p 5500
 ```
 
-접속 주소:
-- **운영 환경**: [https://www.waguwagu.cloud](https://www.mswagu.cloud)
+**접속 주소:**
+- **운영 환경**: [https://www.waguwagu.cloud](https://www.waguwagu.cloud)
 - **로컬 환경**: [http://localhost:5500](http://localhost:5500)
 
 ---
 
-## ▶ 백엔드 배포 (Backend Deployment)
+### 백엔드 배포 (Backend Deployment)
 
 본 프로젝트는 **Jenkins와 ArgoCD를 이용한 CI/CD 파이프라인**이 구축되어 있습니다. 
 
@@ -90,20 +93,54 @@ npx http-server -p 5500
 > [!IMPORTANT]
 > 이 자동 배포 프로세스는 **AWS EKS 클러스터 내에 ArgoCD가 정상적으로 실행 중**인 상태에서만 동작합니다.
 
-### 배포 절차
+**배포 절차:**
 1. 로컬에서 기능 개발 및 커밋
 2. 저장소로 **Push** 수행 시 자동 배포 시작
+
 ---
+
 ## 서비스 주소 정보 (Domain Info)
 
 - **공식 홈페이지**: `https://www.waguwagu.cloud`
 - **매칭/인증 API**: `https://matching.waguwagu.cloud`
-- **게임 서버(유령)**: `*.game.waguwagu.cloud` (Agones를 통해 동적 할당)
+- **게임 서버**: `*.game.waguwagu.cloud` (Agones를 통해 동적 할당)
 
 ---
 
-# 게임 서버 구조 개념
+## 기술 스택 (Tech Stack)
 
+| 분류 | 기술 |
+| --- | --- |
+| **Frontend** | Vanilla JS, HTML5 Canvas, CSS (Aesthetic Dark Mode) |
+| **Backend** | NestJS (Authoritative Engine), Socket.io, gRPC |
+| **Infrastructure** | AWS EKS, Agones (Game Server Scaling), Route53 |
+| **Data & Messaging** | Redis (Queueing), AWS SQS (Result Pipe), RDS (Ranking) |
+| **DevOps** | Jenkins, ArgoCD (GitOps), Docker |
+| **Testing** | k6 (Load Testing) |
+
+---
+
+## 시스템 아키텍처 (Architecture)
+
+본 프로젝트는 MSA(Microservice Architecture)와 클라우드 네이티브 기술을 결합하여 고가용성 게임 환경을 제공합니다.
+
+1. **Matching Server**: 구글 로그인 연동 및 Redis 기반 대기열 관리. 매칭 성사 시 Agones를 호출하여 최적의 게임 서버 위치를 할당합니다.
+2. **Game Server (Agones Fleet)**: 개별 게임 세션이 실행되는 독립된 Pod 단위입니다. 서버가 모든 물리 연산을 결정하여 변조를 방지합니다.
+3. **Data Flow**: 게임 종료 후 SQS를 통해 점수 데이터가 비동기적으로 전송되며, 랭킹 폴링 서비스가 이를 가공하여 최종 순위를 기록합니다.
+
+---
+
+## 주요 설정 (Environment Variables)
+
+배포 시 다음 환경 변수 설정이 필요합니다.
+
+- `ROUTE53_HOSTED_ZONE_ID`: 게임 서버 도메인 할당을 위한 AWS Zone ID
+- `JWT_SECRET`: 유저 인증을 위한 시크릿 키
+- `MATCHING_CONFIG`: 프론트엔드가 참조할 매칭 서버 도메인 주소
+
+---
+
+## 게임 서버 구조 개념
 ```
 [Frontend Canvas] ← state sync ← [GameEngine (Server)]
         ↑                             ↓
@@ -119,4 +156,3 @@ npx http-server -p 5500
 ✔ 동일한 상태가 모든 플레이어에게 동기화됨
 
 ---
-
