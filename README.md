@@ -1,9 +1,21 @@
-# 👾 **WAGUWAGU**
+# **WAGUWAGU**
 
 <h2 align="center">🎮 Pacman Multiplayer Project</h2>
 <p align="center">HTML5 Canvas + NestJS WebSocket 기반 실시간 멀티플레이 게임</p>
 
-# 🚀 프로젝트 소개
+
+## 목차
+
+- [프로젝트 소개](#프로젝트-소개)
+- [프로젝트 구조](#프로젝트-구조)
+- [실행 및 배포 방법](#실행-및-배포-방법)
+- [프론트엔드 (Frontend)](#-프론트엔드-frontend)
+- [백엔드 배포 (Backend Deployment)](#-백엔드-배포-backend-deployment)
+- [서비스 주소 정보 (Domain Info)](#서비스-주소-정보-domain-info)
+- [게임 서버 구조 개념](#게임-서버-구조-개념)
+
+
+# 프로젝트 소개
 
 본 프로젝트는 **고전 Pac-Man**을 기반으로 한
 **5인 실시간 멀티플레이 온라인 게임**을 목표로 합니다.
@@ -15,137 +27,48 @@
 
 ---
 
-# 📂 프로젝트 구조
+# 프로젝트 구조
 
 ```
-waguwagu-server/
+waguwagu/
+├── frontend/                 # 클라이언트 앱 (Vanilla JS, HTML, CSS)
+│   ├── src/
+│   │   ├── pages/            # HTML 페이지 (login, home, queue, game)
+│   │   ├── js/               # 대기열 및 화면 전환 로직 JS
+│   │   ├── game/             # 게임 렌더링(Canvas) 및 클라이언트 엔진
+│   │   ├── styles/           # CSS 스타일 파일 (main, game, ranking)
+│   │   └── images/           # 게임 에셋 (팩맨, 유령, 배경 이미지)
+│   └── config.js             # 프런트엔드 전용 API/웹소켓 URL 설정
 │
-├── frontend/
-│   ├── pacman-client.js
-│   └── config.js            
+├── matching-server/          # 매칭 및 인증 서버 (NestJS)
+│   ├── src/
+│   │   ├── auth/             # Google OAuth 및 JWT 인증 로직
+│   │   ├── queue/            # Redis 기반 대기열 처리 및 매칭 알고리즘
+│   │   ├── matching/         # 매칭 성사 시 게임 서버 할당 및 통보 (Worker)
+│   │   ├── agones-allocator/ # Agones SDK를 통한 게임 서버(Pod) 동적 할당
+│   │   ├── ranking/          # 점수 저장 및 랭킹 조회 시스템
+│   │   └── common/           # 공통 상수 및 유틸리티
+│   └── test/load/            # k6 기반 부하 테스트 스크립트
+│
+├── game-server/              # 실제 게임 물리 엔진 서버 (NestJS)
 │   └── src/
-│       ├── api/
-│       │   └── login-api.js/
-│       ├── js/
-│       │   ├── engine.js
-│       │   ├── player.js
-│       │   ├── ghost.js
-│       │   └── bot.js
-│       ├── pages/
-│       │   ├── game.html
-│       │   ├── login.html
-│       │   └── queue.html
-│       ├── game/
-│       │   ├── render.js
-│       ├── styles/
-│       │   ├── main.css
-│       │   ├── game.css
-│       │   ├── queue.css
-│       │   └── ranking.css
-│       ├── utils/
-│       │   └── storage.js
-│       └── index.html
-│
-├── game-server/                  # 실시간 게임 서버 (WebSocket, Server-Authoritative)
-│   └── src/
-│       ├── main.ts
-│       ├── app.controller.spec.ts
-│       ├── app.controller.ts
-│       ├── app.module.ts
-│       ├── app.service.ts
-│       ├── config
-│       │   └── app.config.ts
-│       ├── engine
-│       │   ├── bot
-│       │   │   ├── bot-manager.service.ts
-│       │   │   ├── bot-move.service.ts
-│       │   │   └── bot.module.ts
-│       │   ├── core
-│       │   │   ├── collision.service.ts
-│       │   │   ├── core.module.ts
-│       │   │   ├── game-loop.service.ts
-│       │   │   ├── lifecycle.service.ts
-│       │   │   └── loop/
-│       │   │       └── game-loop.worker.ts
-│       │   ├── game-engine.service.ts
-│       │   ├── ghost
-│       │   │   ├── ghost-manager.service.ts
-│       │   │   ├── ghost-move.service.ts
-│       │   │   └── ghost.module.ts
-│       │   ├── physics.service.ts
-│       │   ├── player
-│       │   │   ├── player.module.ts
-│       │   │   └── player.service.ts
-│       │   └── utils.service.ts
-│       ├── gateway
-│       │   ├── game.controller.ts
-│       │   ├── game.gateway.ts
-│       │   ├── game.module.ts
-│       │   └── game.service.ts
-│       ├── map
-│       │   ├── map.data.ts
-│       │   └── map.service.ts
-│       ├── pathfinding
-│       │   └── pathfinding.ts
-│       ├── ranking
-│       │   ├── dynamo-ranking.repository.ts
-│       │   ├── memory-ranking.repository.ts
-│       │   ├── ranking.controller.ts
-│       │   ├── ranking.module.ts
-│       │   ├── ranking.repository.ts
-│       │   └── ranking.service.ts
-│       ├── state
-│       │   ├── bot-state.ts
-│       │   ├── ghost-state.ts
-│       │   └── player-state.ts
-│       └── types
-│           └── direction.type.ts
-│
-├── matching-server/              # 매칭 + 인증 서버
-│   └── src/
-│       ├── main.ts
-│       ├── app.module.ts
-│       ├── app.controller.ts
-│       ├── app.module.ts
-│       ├── app.service.ts
-│       ├── auth/
-│       │   ├── dto/
-│       │   │    └── nickname.dto.ts
-│       │   ├── auth.module.ts
-│       │   ├── auth.controller.ts
-│       │   ├── auth.service.ts
-│       │   └── jwt/
-│       │       ├── jwt.module.ts
-│       │       ├── jwt-payload.interface.ts
-│       │       ├── jwt.strategy.ts
-│       │       └── jwt.guard.ts
-│       ├── common/
-│       │   └── constants.ts 
-│       ├── queue/               
-│       │   ├── queue.service.ts
-│       │   └── queue.entity.ts
-│       ├── matching/             
-│       │   ├── matching.module.ts
-│       │   └── matching-worker.service.ts
-│       └──  queue/
-│           ├── lua/
-│           │   ├── enter-match.lua
-│           │   ├── extract-match.lua
-│           │   ├── extract-partial-match.lua
-│           │   └── cancel-match.lua
-│           ├── queue.module.ts
-│           ├── queue.controller.ts
-│           ├── queue.gateway.ts
-│           └── queue.service.ts
-│
-│
-└── README.md
+│       ├── engine/           # 팩맨 게임 물리, 충돌, 점수 계산 핵심 엔진
+│       │   ├── player/       # 플레이어 상태 제어 및 스폰 관리
+│       │   ├── bot/          # 봇 생성 및 경로 이동 관리
+│       │   └── ghost/        # 유령 행동 패턴 관리
+│       ├── map/              # 맵 데이터 파싱 및 지형 정보 관리
+│       ├── gateway/          # 게임 내 실시간 조작을 위한 웹소켓 게이트웨이
+│       ├── ranking/          # 게임 종료 시 결과 SQS 전송 로직
+│       └── state/            # 게임 전체 상태(State Machine) 동기화
+│   
+└── package.json            # 프로젝트 전체 의존성 및 스크립트
 
 ```
 ---
-# 🖥 실행 방법
+# 실행 및 배포 방법
 
-## ▶ 프론트 실행
+## ▶ 프론트엔드 (Frontend)
+로컬 테스트 시 `config.js`의 주소를 확인한 후 아래 명령어로 실행합니다.
 
 ```bash
 cd frontend
@@ -153,32 +76,33 @@ npx http-server -p 5500
 ```
 
 접속 주소:
-🔗 **[http://localhost:5500](http://localhost:5500)**
-🔗 **[http://127.0.0.1:5500]**
+- **운영 환경**: [https://www.waguwagu.cloud](https://www.mswagu.cloud)
+- **로컬 환경**: [http://localhost:5500](http://localhost:5500)
+
 ---
 
-## ▶ 백엔드 실행
+## ▶ 백엔드 배포 (Backend Deployment)
 
-```bash
-# game-server 실행
-cd game-server
-npm install      # 최초 1회
-npm run start:dev
+본 프로젝트는 **Jenkins와 ArgoCD를 이용한 CI/CD 파이프라인**이 구축되어 있습니다. 
 
-#matching-server 실행
-cd matching-server
-npm install      # 최초 1회
-docker-compose up --build
-```
+소스 코드를 수정하고 원격 저장소에 **Push**하면, Jenkins가 빌드를 수행하고 ArgoCD가 변경 사항을 감지하여 클러스터에 자동으로 배포합니다.
 
-웹소켓 서버 주소:
-🔗 ws://localhost:3001/game
+> [!IMPORTANT]
+> 이 자동 배포 프로세스는 **AWS EKS 클러스터 내에 ArgoCD가 정상적으로 실행 중**인 상태에서만 동작합니다.
 
-매칭 서버 주소:
-🔗 http://localhost:3000
+### 배포 절차
+1. 로컬에서 기능 개발 및 커밋
+2. 저장소로 **Push** 수행 시 자동 배포 시작
+---
+## 서비스 주소 정보 (Domain Info)
+
+- **공식 홈페이지**: `https://www.waguwagu.cloud`
+- **매칭/인증 API**: `https://matching.waguwagu.cloud`
+- **게임 서버(유령)**: `*.game.waguwagu.cloud` (Agones를 통해 동적 할당)
+
 ---
 
-# 🎮 게임 서버 구조 개념
+# 게임 서버 구조 개념
 
 ```
 [Frontend Canvas] ← state sync ← [GameEngine (Server)]
@@ -186,92 +110,13 @@ docker-compose up --build
         input → WebSocket → RoomManager
 ```
 
-✔ 프론트는 **입력(input)**만 서버로 보냄
+✔ 프론트는 입력(input)만 서버로 보냄
+
 ✔ 서버가 **모든 이동·충돌·점수 계산** 담당
+
 ✔ 서버가 계산한 GameState를 모든 클라이언트에 브로드캐스트
+
 ✔ 동일한 상태가 모든 플레이어에게 동기화됨
 
 ---
 
-# 👥 팀 개발 규칙
-
-### 1️⃣ 서버 상태가 진짜다 (Server Authoritative)
-
-- 프론트는 절대 위치/점수를 직접 수정하지 않음
-- 서버가 보내준 값을 그대로 렌더링한다
-
-### 2️⃣ 타입은 반드시 `backend/src/game/types` 기준으로 공유
-
-- GameState / PlayerState / RoomState 통일
-
-### 3️⃣ 파일 구조를 마음대로 바꾸지 않는다
-
-- 구조 변경은 팀 리더 승인 후 적용
-
-### 4️⃣ PR은 기능 단위로 작게
-
-- “매칭 구현 + 방 생성 + 엔진 넣음” 같은 PR → ❌
-- “매칭 큐 추가”, “Room 타입 정의” → ⭕ 좋은 PR 방식
-
----
-
-# ⚡️ 브랜치 전략
-
-| 브랜치 종류       | 이름 규칙         | 용도                  | 규칙                                      |
-|-----------------|----------------|---------------------|-----------------------------------------|
-| 메인 브랜치       | main           | 배포용 안정 버전       | 직접 커밋 금지. PR 통해서만 merge 가능      |
-| 기능 브랜치       | feature/기능명  | 새로운 기능 개발 시 사용 | 기능 단위로 생성                           |
-| 버그 수정 브랜치    | fix/이슈명      | 버그 수정 전용         | 단일 버그에 대해 생성                       |
-| 리팩토링 브랜치     | refactor/대상명 | 구조 개선 전용         | 기능 변경 없이 코드 품질 개선 작업용           |
-
-
-# ✨ COMMIT 방법
-
-```bash
-git checkout -b feature/브랜치명
-git commit -m "feat:설명"
-git push origin feature/브랜치명
-```
-
----
-
-# 🧩 개발 로드맵
-
-### ✔ 0단계 — 게임 기초 구현
-- PACMAN 게임을 기반으로 한 게임 기초 구현
-- 맵 생성
-- 닷(dot)으로 점수 생성 및 랭크 구현
-- 유령 스폰
-
-### ◻ 1단계 — 연결
-
-- WebSocket Gateway
-- 프론트 ↔ 서버 연결
-
-### ◻ 2단계 — 타입/기초 구조 정리 
-
-- GameState / Player / Room 타입 추가
-- 디렉토리 구조 정리
-
-### ◻ 3단계 — RoomManager 구현
-
-- 방 생성/입장/퇴장
-- 플레이어 스폰
-
-### ◻ 4단계 — GameEngine tick loop
-
-- 이동 처리
-- 충돌/펠릿 먹기
-- 점수 계산
-
-### ◻ 5단계 — 멀티플레이 렌더링
-
-- 서버 state 받은 뒤 canvas repaint
-
-### ◻ 6단계 — 매칭 시스템/대기열
-
-### ◻ 7단계 — AI bot
-
-### ◻ 8단계 — 리더보드/DB
-
----
