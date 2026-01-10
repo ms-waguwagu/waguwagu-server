@@ -528,7 +528,7 @@ input {
   border-radius: 50%;
   background: #ffed4e;
   position: relative;
-  box-shadow: 0 0 30px rgba(255, 237, 78, 0.4);
+  /* box-shadow: 0 0 30px rgba(255, 237, 78, 0.4); */
   animation: mouthOpen 0.4s ease-in-out infinite alternate;
 }
 

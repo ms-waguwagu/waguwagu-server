@@ -105,11 +105,11 @@
   font-weight: 800;
   font-size: 14px;
 
-  background: linear-gradient(135deg, #ffd84d, #f9ca24);
-  color: #1a1a2e;
+  background: linear-gradient(135deg, #1e3a8a, #172554);
+  color: #ffffff;
 
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(255, 216, 77, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 
   flex-shrink: 0;
 }
