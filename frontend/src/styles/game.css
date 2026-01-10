@@ -18,7 +18,31 @@ input {
     "Segoe UI", sans-serif;
 }
 
-/* 캔버스 스타일 - 빈티지 */
+/* main.css의 #app(카드 스타일)이 게임 화면을 가두지 않도록 오버라이드 */
+#app {
+  width: 100% !important;
+  max-width: none !important;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  text-align: center !important; /* 내부 텍스트 및 요소 중앙 정렬 */
+  
+  /* 화면 전체 중앙 정렬을 위한 설정 */
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  min-height: 100vh !important;
+}
+
+#game-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0; /* 맵과 가이드 간격을 세밀하게 조정하기 위해 0으로 설정 */
+}
+
 #pacman-canvas {
   border: 3px solid #d97d54;
   background: #2a3744;
@@ -224,7 +248,7 @@ input {
   max-width: 100%;
 }
 
-/* 1등 왕관 */
+/* 1등만 왕관 */
 #score-entries div:nth-child(1) .player-name::before {
   content: "👑";
   margin-right: 8px;
@@ -467,6 +491,7 @@ input {
   border-radius: 50%;
   background: #f4c54e;
   position: relative;
+  /* box-shadow: 0 0 30px rgba(255, 237, 78, 0.4); */
   animation: mouthOpen 0.4s ease-in-out infinite alternate;
 }
 

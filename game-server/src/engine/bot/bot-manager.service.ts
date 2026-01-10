@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { TILE_SIZE, PLAYER_SIZE } from '../../map/map.data';
+import { TILE_SIZE, PLAYER_SIZE, PLAYER_SPAWNS } from '../../map/map.data';
 import { BotMoveService } from './bot-move.service';
 import { BotState } from '../../state/bot-state';
 import { PlayerState } from '../../state/player-state';
@@ -39,19 +39,19 @@ export class BotManagerService {
 
   addBotPlayer(roomId: string, nickname?: string) {
     this.ensureRoom(roomId);
-    const spawnCol = 1;
-    const spawnRow = 1;
+    // 현재 봇 인원수를 기반으로 스폰 지점 결정 (플레이어와 겹치지 않게 하려면 나중에 조정 필요할 수 있음)
+    const botIdx = this.botPlayers[roomId].length;
+    const spawn = PLAYER_SPAWNS[(botIdx + 1) % PLAYER_SPAWNS.length]; // 플레이어(0번) 다음부터 배치 시도
     const offset = (TILE_SIZE - PLAYER_SIZE) / 2;
     
-    // 봇은 번호로 생성
     const botNum = this.getNextBotNumber(roomId);
     const botName = `bot-${botNum}`;
 
     this.botPlayers[roomId].push({
       id: botName,
       nickname: botName,
-      x: spawnCol * TILE_SIZE + offset,
-      y: spawnRow * TILE_SIZE + offset,
+      x: spawn.x * TILE_SIZE + offset,
+      y: spawn.y * TILE_SIZE + offset,
       dir: { dx: 0, dy: 0 },
       color: 'gray',
       score: 0,
@@ -59,8 +59,8 @@ export class BotManagerService {
       stunEndTime: 0,
       alpha: 1,
       path: [],
-      targetX: spawnCol * TILE_SIZE + offset,
-      targetY: spawnRow * TILE_SIZE + offset,
+      targetX: spawn.x * TILE_SIZE + offset,
+      targetY: spawn.y * TILE_SIZE + offset,
     });
   }
 
@@ -85,7 +85,11 @@ export class BotManagerService {
 
   stunBot(bot: BotState) {
     bot.stunned = true;
+<<<<<<< HEAD
     bot.stunEndTime = Date.now() + 5000;
+=======
+    bot.stunEndTime = Date.now() + 3000;
+>>>>>>> feature/connect-v4
     bot.alpha = 0.4;
     bot.score = Math.max(0, bot.score - 30);
   }

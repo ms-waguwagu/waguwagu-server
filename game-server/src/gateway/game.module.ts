@@ -6,7 +6,6 @@ import { BotModule } from 'src/engine/bot/bot.module';
 import { CoreModule } from 'src/engine/core/core.module';
 import { GameController } from './game.controller';
 import { GameService } from './game.service';
-import { BossModule } from '../boss/boss.module';
 import { AgonesModule } from '../agones/agones.module';
 import { GameResultProducer } from './producer/game-result.producer';
 
@@ -16,7 +15,6 @@ import { GameResultProducer } from './producer/game-result.producer';
     PlayerModule,
     BotModule,
     CoreModule,
-    BossModule,
     AgonesModule,
   ],
   controllers: [GameController],

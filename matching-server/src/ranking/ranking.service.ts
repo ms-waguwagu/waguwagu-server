@@ -27,13 +27,12 @@ export class RankingService {
   }
 
   async getTopRanking(limit = 100) {
-    // 유저별 최고 점수만 추출하는 서브쿼리
-		// 닉네임별로 할지 결정 필요
+    // 닉네임별 최고 점수만 추출하는 서브쿼리
     const subQuery = this.repo
       .createQueryBuilder('gr')
-      .select('gr.userId', 'userId')
+      .select('gr.nickname', 'nickname')
       .addSelect('MAX(gr.score)', 'maxScore')
-      .groupBy('gr.userId');
+      .groupBy('gr.nickname');
 
     // 메인 쿼리: 서브쿼리 결과와 조인하여 최고 점수 기록만 가져오기
     const results = await this.repo
@@ -41,7 +40,7 @@ export class RankingService {
       .innerJoin(
         `(${subQuery.getQuery()})`,
         'best',
-        'record.userId = best.userId AND record.score = best.maxScore',
+        'record.nickname = best.nickname AND record.score = best.maxScore',
       )
       .orderBy('record.score', 'DESC')
       .addOrderBy('record.playedAt', 'DESC') // 동점일 경우 최신 기록 우선

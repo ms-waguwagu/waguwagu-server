@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
+import { RankingModule } from './ranking/ranking.module';
 import { GameModule } from './gateway/game.module';
-import { AiModule } from './ai/ai.module';
-import { BossModule } from './boss/boss.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -16,8 +15,7 @@ import { ResultQueueModule } from './result-queue/result-queue.module';
       isGlobal: true,
     }),
     AgonesModule,
-    AiModule,
-    BossModule,
+    RankingModule, 
     GameModule, 
     ResultQueueModule,
   ],

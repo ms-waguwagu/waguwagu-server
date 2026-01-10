@@ -26,9 +26,9 @@ const gameEndModal = document.getElementById("game-end-modal");
 const finalScoreList = document.getElementById("final-score-list");
 
 // UI 초기화
-myNicknameLabel.textContent = nickname;
+if (myNicknameLabel) myNicknameLabel.textContent = nickname;
 const roomId = localStorage.getItem("waguwagu_room_id");
-roomIdLabel.textContent = roomId;
+if (roomIdLabel) roomIdLabel.textContent = roomId;
 
 // ====== 게임 매니저 시작 ======
 // localStorage에서 mode 가져오기 (없으면 기본값 'NORMAL')

@@ -1,13 +1,8 @@
-// 화면 그리기 담당 - VINTAGE PACMAN STYLE
+// 화면 그리기 담당
 const CONSTANTS = {
-  GHOST_SIZE: 20,
-  PLAYER_SIZE: 18,
-  BOSS_SIZE: 26,
+  GHOST_SIZE: 28,
+  PLAYER_SIZE: 20,
 };
-
-// 유령 아이콘과 빈티지 색상
-const GHOST_ICONS = ['👻', '😈', '🤖', '👾'];
-const GHOST_COLORS = ['#d97d54', '#c46c44', '#f4b183', '#d9a66a'];
 
 export class Renderer {
   constructor(canvasId, mapData) {
@@ -26,10 +21,28 @@ export class Renderer {
       `[Renderer Init] Canvas Size: ${this.canvas.width}x${this.canvas.height} (Rows: ${this.mapRows}, Cols: ${this.mapCols})`
     );
 
-    this.previousScores = {};
-    this.ghostIconIndices = {};
+    this.previousScores = {}; // 플레이어 점수 변화 체크용
+
+    // 유령 이미지 로드
+    this.ghostImages = {
+      red: new Image(),
+      yellow: new Image(),
+      green: new Image(),
+			pink: new Image(),
+    };
+    this.ghostImages.red.src = "../images/red.webp";
+    this.ghostImages.yellow.src = "../images/yellow.webp";
+    this.ghostImages.green.src = "../images/green.png";
+    this.ghostImages.pink.src = "../images/pink.webp";
+
+    // 봇 이미지 로드
+    this.botImage = new Image();
+    this.botImage.src = "../images/bot.png";
   }
 
+  // -------------------------------
+  // 메인 그리기 루프 
+  // -------------------------------
   draw(gameState) {
     this.clearCanvas();
     this.drawMap();
@@ -38,128 +51,113 @@ export class Renderer {
     this.drawGhosts(gameState.ghosts || {});
     this.drawBotPlayers(gameState.botPlayers || {});
     this.updateScoreboard(gameState);
-
-    if (gameState.boss) {
-      this.drawBoss(gameState.boss);
-    }
   }
-
-  // 보스 그리기 - 빈티지 스타일
-  drawBoss(boss) {
-    const ctx = this.ctx;
-    ctx.save();
-
-    const size = CONSTANTS.BOSS_SIZE;
-    const cx = boss.x + size / 2;
-    const cy = boss.y + size / 2;
-
-    // 약한 글로우
-    const pulse = Math.sin(Date.now() / 400) * 0.1 + 1;
-    ctx.shadowBlur = 12 * pulse;
-    ctx.shadowColor = 'rgba(217, 90, 70, 0.4)';
-    
-    // 보스 몸체 - 빈티지 오렌지
-    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, size / 2);
-    gradient.addColorStop(0, '#e8936a');
-    gradient.addColorStop(1, '#d95a46');
-    
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 테두리
-    ctx.strokeStyle = '#c44e3a';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // 보스 아이콘
-    ctx.shadowBlur = 8;
-    ctx.font = `${size * 0.7}px Arial`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('💀', cx, cy);
-
-    ctx.restore();
-  }
-
   clearCanvas() {
-    // 빈티지 다크 블루그레이 배경
-    this.ctx.fillStyle = '#2a3744';
+    this.ctx.fillStyle = "black";
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
-  // 빈티지 팩맨 스타일 벽 - 둥근 테두리
   drawMap() {
     const ctx = this.ctx;
-    const ts = this.tileSize;
+    ctx.save();
     
+    // 네온 블루 스타일 설정
+    ctx.strokeStyle = "#2121ff"; 
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    const r = 8; // 라운딩 반경
+    const off = 4; // 벽 안쪽으로의 오프셋
+
     for (let row = 0; row < this.mapRows; row++) {
       for (let col = 0; col < this.mapCols; col++) {
         if (this.map[row][col] === 1) {
-          const x = col * ts;
-          const y = row * ts;
-          
-          ctx.save();
-          
-          // 빈티지 오렌지 벽
-          ctx.strokeStyle = '#d97d54';
-          ctx.lineWidth = 2;
-          
-          // 부드러운 글로우
-          ctx.shadowBlur = 5;
-          ctx.shadowColor = 'rgba(217, 125, 84, 0.3)';
-          
-          // 둥근 모서리 사각형
-          const radius = ts * 0.25;
-          const padding = 2;
-          
+          const x = col * this.tileSize;
+          const y = row * this.tileSize;
+          const w = this.tileSize;
+
+          const up = row > 0 ? this.map[row - 1][col] : 0;
+          const down = row < this.mapRows - 1 ? this.map[row + 1][col] : 0;
+          const left = col > 0 ? this.map[row][col - 1] : 0;
+          const right = col < this.mapCols - 1 ? this.map[row][col + 1] : 0;
+
           ctx.beginPath();
-          ctx.moveTo(x + padding + radius, y + padding);
-          ctx.lineTo(x + ts - padding - radius, y + padding);
-          ctx.arcTo(x + ts - padding, y + padding, x + ts - padding, y + padding + radius, radius);
-          ctx.lineTo(x + ts - padding, y + ts - padding - radius);
-          ctx.arcTo(x + ts - padding, y + ts - padding, x + ts - padding - radius, y + ts - padding, radius);
-          ctx.lineTo(x + padding + radius, y + ts - padding);
-          ctx.arcTo(x + padding, y + ts - padding, x + padding, y + ts - padding - radius, radius);
-          ctx.lineTo(x + padding, y + padding + radius);
-          ctx.arcTo(x + padding, y + padding, x + padding + radius, y + padding, radius);
-          ctx.closePath();
           
-          ctx.stroke();
-          
-          ctx.restore();
+          // 위쪽 변
+          if (up !== 1) {
+            ctx.moveTo(left === 1 ? x : x + r + off, y + off);
+            ctx.lineTo(right === 1 ? x + w : x + w - r - off, y + off);
+          }
+          // 아래쪽 변
+          if (down !== 1) {
+            ctx.moveTo(left === 1 ? x : x + r + off, y + w - off);
+            ctx.lineTo(right === 1 ? x + w : x + w - r - off, y + w - off);
+          }
+          // 왼쪽 변
+          if (left !== 1) {
+            ctx.moveTo(x + off, up === 1 ? y : y + r + off);
+            ctx.lineTo(x + off, down === 1 ? y + w : y + w - r - off);
+          }
+          // 오른쪽 변
+          if (right !== 1) {
+            ctx.moveTo(x + w - off, up === 1 ? y : y + r + off);
+            ctx.lineTo(x + w - off, down === 1 ? y + w : y + w - r - off);
+          }
+          ctx.stroke(); // 직선들 먼저 그리기
+
+          // 바깥쪽 모서리 라운딩 (각 모서리 독립적으로 렌더링하여 연결선 방지)
+          if (up !== 1 && left !== 1) {
+            ctx.beginPath();
+            ctx.arc(x + r + off, y + r + off, r, Math.PI, Math.PI * 1.5);
+            ctx.stroke();
+          }
+          if (up !== 1 && right !== 1) {
+            ctx.beginPath();
+            ctx.arc(x + w - (r + off), y + r + off, r, Math.PI * 1.5, 0);
+            ctx.stroke();
+          }
+          if (down !== 1 && right !== 1) {
+            ctx.beginPath();
+            ctx.arc(x + w - (r + off), y + w - (r + off), r, 0, Math.PI * 0.5);
+            ctx.stroke();
+          }
+          if (down !== 1 && left !== 1) {
+            ctx.beginPath();
+            ctx.arc(x + r + off, y + w - (r + off), r, Math.PI * 0.5, Math.PI);
+            ctx.stroke();
+          }
         }
       }
     }
+    ctx.restore();
   }
 
-  // 점(먹이) 그리기 - 빈티지 노란색
   drawDots(dots = []) {
-    const ctx = this.ctx;
-    
+    this.ctx.fillStyle = "#FFB8AE"; // 클래식 연분홍 도트
     dots.forEach((dot) => {
       if (!dot.eaten) {
         const cx = dot.x * this.tileSize + this.tileSize / 2;
         const cy = dot.y * this.tileSize + this.tileSize / 2;
+        this.ctx.beginPath();
         
-        ctx.save();
+        // 파워 펠렛인 경우 더 크게 그림 (임의의 기준: dot.isPowerPellet 같은 필드가 있다면)
+        const radius = dot.type === "power" ? 7 : 2.5;
+        this.ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        this.ctx.fill();
         
-        // 부드러운 글로우
-        ctx.shadowBlur = 6;
-        ctx.shadowColor = 'rgba(244, 197, 78, 0.4)';
-        
-        ctx.fillStyle = '#f4c54e';
-        ctx.beginPath();
-        ctx.arc(cx, cy, 3, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.restore();
+        // 파워 펠렛에 글로우 효과
+        if (dot.type === "power") {
+          this.ctx.save();
+          this.ctx.shadowColor = "#FFB8AE";
+          this.ctx.shadowBlur = 10;
+          this.ctx.fill();
+          this.ctx.restore();
+        }
       }
     });
   }
 
-  // 플레이어(팩맨) 그리기 - 빈티지
   drawPlayers(players) {
     const ctx = this.ctx;
 
@@ -184,12 +182,7 @@ export class Renderer {
       else if (player.dir.dy === -1) directionAngle = -Math.PI / 2;
       else if (player.dir.dy === 1) directionAngle = Math.PI / 2;
 
-      // 부드러운 글로우
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = this.adjustColorToVintage(player.color) + '50';
-
-      // 색상을 빈티지 톤으로 변환
-      ctx.fillStyle = this.adjustColorToVintage(player.color);
+      ctx.fillStyle = player.color;
       ctx.beginPath();
       ctx.moveTo(cx, cy);
       ctx.arc(cx, cy, radius, directionAngle + mouthAngle, directionAngle - mouthAngle);
@@ -200,16 +193,6 @@ export class Renderer {
     });
   }
 
-  // 색상을 빈티지 톤으로 조정하는 헬퍼 함수
-  adjustColorToVintage(color) {
-    // 노란색 계열은 빈티지 골드로
-    if (color.includes('yellow') || color.includes('#ff') || color.includes('#FE')) {
-      return '#f4c54e';
-    }
-    return color;
-  }
-
-  // 봇 플레이어 그리기 - 빈티지
   drawBotPlayers(botPlayers) {
     const ctx = this.ctx;
   
@@ -217,64 +200,95 @@ export class Renderer {
       ctx.save();
   
       ctx.globalAlpha = bot.alpha !== undefined ? bot.alpha : 1;
-      const color = bot.color === "yellow" ? "#f4c54e" : bot.color;
+      
+      const botRenderSize = 30; 
 
-      // 부드러운 글로우
-      ctx.shadowBlur = 6;
-      ctx.shadowColor = color + '40';
-
-      ctx.fillStyle = color;
-      ctx.fillRect(bot.x, bot.y, CONSTANTS.PLAYER_SIZE, CONSTANTS.PLAYER_SIZE);
+      if (this.botImage.complete) {
+        const isFlipped = bot.dir && bot.dir.dx < 0;
+        if (isFlipped) {
+          ctx.save();
+          // 이미지의 중심점을 기준으로 반전
+          ctx.translate(bot.x + botRenderSize / 2, bot.y + botRenderSize / 2);
+          ctx.scale(-1, 1);
+          ctx.drawImage(
+            this.botImage,
+            -botRenderSize / 2,
+            -botRenderSize / 2,
+            botRenderSize,
+            botRenderSize
+          );
+          ctx.restore();
+        } else {
+          ctx.drawImage(
+            this.botImage,
+            bot.x,
+            bot.y,
+            botRenderSize,
+            botRenderSize
+          );
+        }
+      } else {
+        ctx.fillStyle = bot.color ?? "yellow";
+        ctx.fillRect(
+          bot.x,
+          bot.y,
+          botRenderSize,
+          botRenderSize
+        );
+      }
   
       ctx.restore();
     });
   }
 
-  // 유령 그리기 - 빈티지 아이콘
+  
   drawGhosts(ghosts) {
     const ctx = this.ctx;
-    
-    Object.entries(ghosts).forEach(([ghostId, ghost], index) => {
-      // 각 유령마다 고유 아이콘 할당
-      if (!this.ghostIconIndices[ghostId]) {
-        this.ghostIconIndices[ghostId] = index % GHOST_ICONS.length;
+    Object.values(ghosts).forEach((ghost) => {
+      let img = this.ghostImages.yellow; // 기본값
+      if (ghost.color === "red" || ghost.id === "g1") {
+        img = this.ghostImages.red;
+      } else if (ghost.color === "yellow" || ghost.id === "g2") {
+        img = this.ghostImages.yellow;
+      } else if (ghost.color === "green" || ghost.id === "g3") {
+        img = this.ghostImages.green;
+      } else if (ghost.color === "pink" || ghost.id === "g4") {
+        img = this.ghostImages.pink;
       }
-      
-      const iconIndex = this.ghostIconIndices[ghostId];
-      const ghostIcon = GHOST_ICONS[iconIndex];
-      const ghostColor = GHOST_COLORS[iconIndex];
-      
-      const cx = ghost.x;
-      const cy = ghost.y;
-      const size = CONSTANTS.GHOST_SIZE;
-      
-      ctx.save();
-      
-      // 약한 펄스
-      const pulse = Math.sin(Date.now() / 600 + index) * 0.08 + 1;
-      
-      // 배경 원
-      ctx.fillStyle = 'rgba(42, 55, 68, 0.6)';
-      ctx.beginPath();
-      ctx.arc(cx, cy, size * 0.5 * pulse, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // 빈티지 테두리
-      ctx.strokeStyle = ghostColor;
-      ctx.lineWidth = 2;
-      ctx.shadowBlur = 6;
-      ctx.shadowColor = ghostColor + '40';
-      ctx.stroke();
-      
-      // 유령 아이콘
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = ghostColor + '50';
-      ctx.font = `${size * 0.8}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(ghostIcon, cx, cy);
-      
-      ctx.restore();
+
+      if (img && img.complete) {
+        ctx.save();
+        
+        // 왼쪽으로 이동 중이면 이미지 반전 (눈이 왼쪽을 보도록)
+        const isFlipped = ghost.dir && ghost.dir.dx < 0;
+        if (isFlipped) {
+          ctx.translate(ghost.x, ghost.y);
+          ctx.scale(-1, 1);
+          ctx.drawImage(
+            img,
+            -CONSTANTS.GHOST_SIZE / 2,
+            -CONSTANTS.GHOST_SIZE / 2,
+            CONSTANTS.GHOST_SIZE,
+            CONSTANTS.GHOST_SIZE
+          );
+        } else {
+          ctx.drawImage(
+            img,
+            ghost.x - CONSTANTS.GHOST_SIZE / 2,
+            ghost.y - CONSTANTS.GHOST_SIZE / 2,
+            CONSTANTS.GHOST_SIZE,
+            CONSTANTS.GHOST_SIZE
+          );
+        }
+        
+        ctx.restore();
+      } else {
+        // 이미지 로딩 전에는 기존처럼 원형으로 그림
+        ctx.fillStyle = ghost.color || "white";
+        ctx.beginPath();
+        ctx.arc(ghost.x, ghost.y, CONSTANTS.GHOST_SIZE / 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
     });
   }
 
@@ -286,7 +300,7 @@ export class Renderer {
     gameScreen.classList.add("show-scoreboard");
     container.innerHTML = "";
   
-    // 사람 + 봇 합치기
+    // 사람 + 봇 모두 합치기
     const humanPlayers = Object.entries(gameState.players || {}).map(
       ([id, p]) => ({
         id,
@@ -300,7 +314,7 @@ export class Renderer {
       id: b.id,
       nickname: b.nickname,
       score: typeof b.score === "number" ? b.score : 0,
-      color: b.color || "#f4c54e",
+      color: b.color || "yellow",
     }));
   
     const allPlayers = [...humanPlayers, ...botPlayers];

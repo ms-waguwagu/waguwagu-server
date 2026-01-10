@@ -15,7 +15,7 @@
     local ttl = tonumber(ARGV[3])
     local userId = ARGV[4]
 
-		-- 1. 중복 진입 방지 로직
+		1. 중복 진입 방지 로직
     local currentStatus = redis.call('HGET', sessionKey, 'status')
 		
 		-- 2. 상태에 따른 분기 처리

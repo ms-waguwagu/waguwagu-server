@@ -1,12 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WAGUWAGU Home</title>
-
-    <!-- ✅ favicon -->
-    <link rel="icon" href="../images/favicon.png" type="image/x-icon" />
+    <title>WAGUWAGU</title>
 
     <!-- 기존 스타일 재사용 -->
     <link rel="stylesheet" href="../styles/main.css" />
@@ -34,7 +32,6 @@
                 <span id="display-nickname"></span>
               </div>
               <button id="start-button">게임 시작</button>
-              <button id="boss-start-button">보스 테스트</button>
               <button id="logout-button">로그아웃</button>
             </div>
           </div>
@@ -43,7 +40,7 @@
     </div>
 
     <script type="module">
-      import { CONFIG } from "/config.js";
+      import { CONFIG, MATCHING_CONFIG } from "../../config.js";
 
       // 로그인 유지 체크
       const token = localStorage.getItem("accessToken");
@@ -65,21 +62,16 @@
         location.href = "./queue.html";
       };
 
-      // 보스 테스트
-      document.getElementById("boss-start-button").onclick = () => {
-        location.href = "./queue.html?mode=boss";
-      };
-
       // 로그아웃
       document.getElementById("logout-button").onclick = () => {
         localStorage.clear();
         location.href = "./login.html";
       };
 
-      // 랭킹 로드
+      // 랭킹 로드 (login.html과 동일 로직)
       async function loadRanking() {
         try {
-          const res = await fetch(CONFIG.RANKING_API_URL + "/ranking/top");
+          const res = await fetch(MATCHING_CONFIG.API_BASE_URL + "/ranking/top");
           const data = await res.json();
 
           const list = document.getElementById("ranking-list");

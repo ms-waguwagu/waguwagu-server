@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WAGUWAGU Pacman (Dev Mode)</title>
+    <title>WAGUWAGU Pacman</title>
     <link rel="stylesheet" href="../styles/main.css" />
     <link rel="stylesheet" href="../styles/game.css" />
   </head>
@@ -21,30 +21,13 @@
 
     <div id="app">
       <div id="game-screen" style="position: relative">
-        <!-- 예전 상단 바(#game-info)는 삭제 -->
-        <!--
-        <div id="game-info">
-          <span>내 닉네임: <span id="my-nickname" style="color: yellow"></span></span>
-          <span>방 번호: <span id="room-id"></span></span>
-        </div>
-        -->
+ 
 
         <!-- 게임 맵 -->
         <canvas id="pacman-canvas" width="600" height="400"></canvas>
 
         <!--  오른쪽 사이드 점수판 -->
         <div id="scoreboard">
-          <!-- 닉네임 / 방 번호 요약 -->
-          <!-- <div id="player-summary">
-            <div class="info-row">
-              <span class="info-label">닉네임</span>
-              <span id="my-nickname" class="info-value"></span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">방 번호</span>
-              <span id="room-id" class="info-value"></span>
-            </div>
-          </div> -->
 
           <!-- 남은 시간 -->
           <div id="game-timer">남은 시간: 60초</div>
