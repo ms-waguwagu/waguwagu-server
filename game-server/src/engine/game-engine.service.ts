@@ -9,7 +9,6 @@ import { BotManagerService } from './bot/bot-manager.service';
 import { CollisionService } from './core/collision.service';
 import { LifecycleService } from './core/lifecycle.service';
 import { GameLoopService } from './core/game-loop.service';
-import { BossManagerService } from '../boss/boss-manager.service';
 
 type GameMode = 'NORMAL' | 'BOSS';
 
@@ -34,7 +33,6 @@ export class GameEngineService {
     private readonly collisionService: CollisionService,
     private readonly lifecycle: LifecycleService,
     private readonly gameLoop: GameLoopService,
-    private readonly bossManager: BossManagerService,
   ) {
     const { map } = parseMap(MAP_DESIGN);
 

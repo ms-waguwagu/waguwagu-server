@@ -5,7 +5,6 @@ import { GhostManagerService } from '../ghost/ghost-manager.service';
 import { PlayerService, Player, Dot } from '../player/player.service';
 import { BotManagerService, Bot } from '../bot/bot-manager.service';
 import { Logger } from '@nestjs/common';
-import { BossManagerService } from '../../boss/boss-manager.service';
 import { RankingService } from '../../ranking/ranking.service';
 import axios from 'axios';
 
@@ -41,7 +40,6 @@ export class LifecycleService {
     private readonly ghostManager: GhostManagerService,
     private readonly playerService: PlayerService,
     private readonly botManager: BotManagerService,
-		private readonly bossManager: BossManagerService,
     private readonly rankingService: RankingService,
   ) {}
 
@@ -193,7 +191,6 @@ export class LifecycleService {
     this.playerService.clearRoom(roomId);
     this.botManager.resetBots(roomId);
     this.ghostManager.clearRoom(roomId);
-		this.bossManager.removeBoss(roomId);
 
     this.logger.log(`게임룸 ${roomId} 이 삭제되었습니다.`);
   }
@@ -275,8 +272,6 @@ export class LifecycleService {
       ghosts: Object.values(this.ghostManager.getGhosts(roomId)).map((g) => ({
         ...g,
       })),
-			// 일반모드는 null, 보스모드는 실제 상태
-      boss: this.bossManager.getBoss(roomId), 
       gameOver: state.gameOver,
       gameOverPlayerId: state.gameOverPlayerId,
       gameOverReason: state.gameOverReason,
