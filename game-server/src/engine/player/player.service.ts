@@ -60,10 +60,9 @@ export class PlayerService {
     return color;
   }
 
-  addPlayer(roomId: string, id: string, googleSub: string, nickname: string) {
+  addPlayer(roomId: string, id: string, googleSub: string, nickname: string, spawnIndex: number) {
 		this.ensureRoom(roomId);
-    const playerCount = this.playerCount(roomId);
-    const spawn = PLAYER_SPAWNS[playerCount % PLAYER_SPAWNS.length];
+    const spawn = PLAYER_SPAWNS[spawnIndex % PLAYER_SPAWNS.length];
 
     const color = this.pickColor(roomId);
 

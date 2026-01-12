@@ -74,7 +74,7 @@ export class RankingPollingService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      this.logger.log(`[SQS] 결과 저장 중: roomId=${roomId}, participants=${results.length}`);
+      this.logger.log(`[SQS] DB에 결과 저장 중: roomId=${roomId}, participants=${results.length}`);
       
       // RDS 저장
       await this.rankingService.saveGameResults(roomId, results);

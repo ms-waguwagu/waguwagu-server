@@ -37,15 +37,13 @@ export class BotManagerService {
     return this.botCount[roomId];
   }
 
-  addBotPlayer(roomId: string, nickname?: string) {
+  addBotPlayer(roomId: string, spawnIndex: number, nickname?: string) {
     this.ensureRoom(roomId);
-    // 현재 봇 인원수를 기반으로 스폰 지점 결정 (플레이어와 겹치지 않게 하려면 나중에 조정 필요할 수 있음)
-    const botIdx = this.botPlayers[roomId].length;
-    const spawn = PLAYER_SPAWNS[(botIdx + 1) % PLAYER_SPAWNS.length]; // 플레이어(0번) 다음부터 배치 시도
+    const spawn = PLAYER_SPAWNS[spawnIndex % PLAYER_SPAWNS.length];
     const offset = (TILE_SIZE - PLAYER_SIZE) / 2;
     
     const botNum = this.getNextBotNumber(roomId);
-    const botName = `bot-${botNum}`;
+    const botName = nickname || `bot-${botNum}`;
 
     this.botPlayers[roomId].push({
       id: botName,

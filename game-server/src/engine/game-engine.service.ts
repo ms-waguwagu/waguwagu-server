@@ -21,6 +21,7 @@ export class GameEngineService {
   interval: NodeJS.Timeout | null = null;
 
   gameMode: GameMode = 'NORMAL';
+  private participantCount = 0;
 
   readonly rows: number;
   readonly cols: number;
@@ -96,8 +97,9 @@ export class GameEngineService {
     return this.playerService.getPlayer(this.roomId, id);
   }
 
-  addPlayer(id: string, googleSub: string, nickname: string) {
-    this.playerService.addPlayer(this.roomId, id, googleSub, nickname);
+  addPlayer(id: string, googleSub: string, nickname: string, forcedIndex?: number) {
+    const idx = forcedIndex !== undefined ? forcedIndex : this.participantCount++;
+    this.playerService.addPlayer(this.roomId, id, googleSub, nickname, idx);
   }
 
   removePlayer(id: string) {
@@ -116,8 +118,9 @@ export class GameEngineService {
     this.ghostManager.addGhost(this.roomId, id, opts);
   }
 
-  addBotPlayer(nickname?: string) {
-    this.botManager.addBotPlayer(this.roomId, nickname);
+  addBotPlayer(nickname?: string, forcedIndex?: number) {
+    const idx = forcedIndex !== undefined ? forcedIndex : this.participantCount++;
+    this.botManager.addBotPlayer(this.roomId, idx, nickname);
   }
 
   getBotCount() {
