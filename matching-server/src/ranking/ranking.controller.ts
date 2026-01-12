@@ -7,7 +7,7 @@ export class RankingController {
 
   @Get('top')
   async getTopRanking(@Query('limit') limit?: string) {
-    const limitNum = limit ? parseInt(limit, 10) : 100;
+    const limitNum = limit ? parseInt(limit, 10) : 10;
     const records = await this.rankingService.getTopRanking(limitNum);
 
     return records.map((record, index) => ({

@@ -27,7 +27,7 @@ export class RankingService {
     );
   }
 
-  async getTopRanking(limit = 100) {
+  async getTopRanking(limit = 10) {
     // 닉네임별 최고 점수만 추출하는 서브쿼리
     const subQuery = this.repo
       .createQueryBuilder('gr')
