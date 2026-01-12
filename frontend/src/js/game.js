@@ -1,6 +1,6 @@
 import { Renderer } from "../game/renderer.js";
 import { io } from "https://cdn.socket.io/4.5.4/socket.io.esm.min.js";
-import { CONFIG } from "../../config.js";
+import { CONFIG, MATCHING_CONFIG } from "../../config.js";
 
 export class GameManager {
   constructor({
@@ -51,6 +51,15 @@ export class GameManager {
 
     // Flags
     this.gameOverHandled = false;
+
+    // BGM 초기화 (파일명 단순화하여 로드 문제 해결)
+    this.bgm = new Audio("../sounds/bgm.wav");
+    this.bgm.loop = true;
+    this.bgm.volume = 0.05;
+    this.bgmStarted = false; // 재생 시작 여부 플래그
+
+    // 초기값 설정: 데이터 수신 전까지 입력 및 BGM 차단
+    window.isCountdownActive = true;
 
     this.setupEventListeners();
   }
@@ -213,13 +222,22 @@ export class GameManager {
 
       // 카운트다운 동안 입력 막기
       window.isCountdownActive = count > 0;
+
+      // 0 -> 1로 변경.
+      if (count === 1 && !this.bgmStarted) {
+        this.bgm.play()
+          .then(() => {
+            this.bgmStarted = true;
+            console.log("[BGM] Started successfully at game start");
+          })
+          .catch((err) => {
+            console.warn("[BGM] Autoplay blocked, will try on interaction:", err);
+          });
+      }
     });
 
     this.socket.on("state", (serverState) => {
       if (!serverState) return;
-
-      // ‼️보스 테스트‼️
-      // console.log("state.boss:", serverState.boss);
 
       // 타이머 갱신 코드 추가
       const timerEl = document.getElementById("game-timer");
@@ -303,6 +321,12 @@ export class GameManager {
       gameEndText.classList.add("show");
     }
 
+    // BGM 정지
+    if (this.bgm) {
+      this.bgm.pause();
+      this.bgm.currentTime = 0;
+    }
+
     // 4. 모달 표시 (기존 로직 유지)
     if (this.gameEndModal) {
       this.gameEndModal.classList.remove("hidden");
@@ -341,7 +365,7 @@ export class GameManager {
 
   async loadRanking() {
     try {
-      const response = await fetch(CONFIG.API_URL + "/ranking/top");
+      const response = await fetch(MATCHING_CONFIG.API_BASE_URL + "/ranking/top");
       if (!response.ok) throw new Error("Failed to fetch");
 
       const data = await response.json();
@@ -409,6 +433,15 @@ export class GameManager {
       else if (this.keys["ArrowLeft"]) dir.dx = -1;
       else if (this.keys["ArrowRight"]) dir.dx = 1;
 
+      // 브라우저 자동 재생 정책 대비: 카운트다운 종료 후 실제 키 입력 시점에 BGM이 멈춰있다면 재생 시도
+      const hasInput = dir.dx !== 0 || dir.dy !== 0;
+      if (hasInput && this.bgm && !this.bgmStarted) {
+        this.bgm.play().then(() => {
+          this.bgmStarted = true;
+          console.log("[BGM] Started by user input");
+        }).catch(() => {});
+      }
+
       this.socket.emit("input", { dir });
     }, 33);
   }
@@ -432,6 +465,12 @@ export class GameManager {
 
     const gameEndText = document.getElementById("game-end-text");
     if (gameEndText) gameEndText.classList.remove("show");
+
+    if (this.bgm) {
+      this.bgm.pause();
+      this.bgm.currentTime = 0;
+    }
+    this.bgmStarted = false;
 
     if (this.gameEndModal) this.gameEndModal.classList.add("hidden");
 

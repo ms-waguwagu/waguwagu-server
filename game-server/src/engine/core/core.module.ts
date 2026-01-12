@@ -5,10 +5,10 @@ import { BotModule } from '../bot/bot.module';
 import { PlayerModule } from '../player/player.module';
 import { LifecycleService } from './lifecycle.service';
 import { GameLoopService } from './game-loop.service';
-import { BossModule } from '../../boss/boss.module';
+import { RankingModule } from '../../ranking/ranking.module';
 
 @Module({
-  imports: [GhostModule, PlayerModule, BotModule, BossModule],
+  imports: [GhostModule, PlayerModule, BotModule, RankingModule],
   providers: [CollisionService, LifecycleService, GameLoopService],
   exports: [CollisionService, LifecycleService, GameLoopService],
 })

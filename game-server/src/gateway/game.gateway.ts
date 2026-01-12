@@ -19,7 +19,6 @@ import { BotManagerService } from 'src/engine/bot/bot-manager.service';
 import { CollisionService } from 'src/engine/core/collision.service';
 import { LifecycleService } from 'src/engine/core/lifecycle.service';
 import { GameLoopService } from 'src/engine/core/game-loop.service';
-import { BossManagerService } from '../boss/boss-manager.service';
 import * as jwt from 'jsonwebtoken';
 
 interface RoomWrapper {
@@ -56,7 +55,6 @@ export class GameGateway
     private collisionService: CollisionService,
     private lifecycleService: LifecycleService,
     private gameLoopService: GameLoopService,
-    private bossManagerService: BossManagerService,
     private agonesService: AgonesService,
   ) {}
 
@@ -224,7 +222,6 @@ export class GameGateway
       this.collisionService,
       this.lifecycleService,
       this.gameLoopService,
-      this.bossManagerService,
     );
 
     engine.roomId = roomId;
@@ -235,11 +232,6 @@ export class GameGateway
     }
 
     this.lifecycleService.initialize(roomId);
-
-    if (mode === 'BOSS') {
-      this.bossManagerService.spawnBoss(roomId, { x: 200, y: 200 });
-      engine.startBossMode();
-    }
 
     this.rooms[roomId] = { engine, users: [] };
     this.logger.log(`room created roomId=${roomId} mode=${mode}`);
@@ -313,7 +305,9 @@ export class GameGateway
       roomWrapper.users.push(userId);
     }
 
-    room.addPlayer(client.id, userId, nickname);
+    // 유저의 인덱스 확인 (토큰 순서대로 스폰 지점 결정)
+    const userIndexInToken = tokenUserIds.indexOf(userId);
+    room.addPlayer(client.id, userId, nickname, userIndexInToken);
 
     // [New] 봇 자동 추가 로직 (Agones 흐름 복구)
     // 방이 처음 생성되었고, 토큰 등으로 전달받은 예상 유저수보다 부족한 경우 봇으로 채움
@@ -324,7 +318,8 @@ export class GameGateway
       this.logger.log(`[Agones Flow] Initializing room. roomId: ${roomId}, botsToAdd: ${botsToAdd}, maxPlayers: ${maxPlayers}, Players: ${playersInToken}`);
       
       for (let i = 0; i < botsToAdd; i++) {
-        room.addBotPlayer(); // BotManager에서 내부적으로 번호 매김
+        // 봇은 휴먼 플레이어 다음 인덱스부터 배치
+        room.addBotPlayer(undefined, playersInToken + i);
       }
     }
 
@@ -430,34 +425,4 @@ export class GameGateway
     this.startCountdown(roomId);
     this.server.to(roomId).emit('state', room.getState());
   }
-
-  // ============================
-  // matching 서버로 종료 알림
-  // ============================
-  /*
-  private async notifyGameFinished(roomId: string, userIds: string[]) {
-    if (!roomId || !userIds || userIds.length === 0) {
-      this.logger.warn('game-finished: invalid payload');
-      return;
-    }
-
-    const url =
-      process.env.MATCHING_INTERNAL_URL ||
-      'http://matching:3000/internal/game-finished';
-      
-
-    try {
-      await axios.post(
-        url,
-        { roomId, userIds },
-        { timeout: 3000 },
-      );
-      this.logger.log(
-        `🏁 game-finished notified roomId=${roomId} users=${userIds.join(',')}`,
-      );
-    } catch (err) {
-      this.logger.error('game-finished notify failed', err as any);
-    }
-  }
-  */
 }

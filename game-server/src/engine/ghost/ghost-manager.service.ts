@@ -25,6 +25,7 @@ export class GhostManagerService {
     this.addGhost(roomId, 'g1');
     this.addGhost(roomId, 'g2');
     this.addGhost(roomId, 'g3');
+    this.addGhost(roomId, 'g4');
   }
 
   getGhosts(roomId: string) {
@@ -62,7 +63,12 @@ export class GhostManagerService {
 
     ghostArray.forEach((ghost, index) => {
       const isChaser = index === 0;
-      ghost.color = isChaser ? 'red' : 'white';
+      // 인덱스에 따라 기본 색상 지정 (그린 유령 등 추가 대응)
+      if (index === 0) ghost.color = 'red';
+      else if (index === 1) ghost.color = 'yellow';
+      else if (index === 2) ghost.color = 'green';
+      else ghost.color = 'pink';
+      
       GhostMoveService.updateGhost(ghost, roomId, map, players, isChaser);
     });
   }

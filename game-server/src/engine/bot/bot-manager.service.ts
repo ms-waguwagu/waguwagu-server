@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { TILE_SIZE, PLAYER_SIZE } from '../../map/map.data';
+import { TILE_SIZE, PLAYER_SIZE, PLAYER_SPAWNS } from '../../map/map.data';
 import { BotMoveService } from './bot-move.service';
 import { BotState } from '../../state/bot-state';
 import { PlayerState } from '../../state/player-state';
@@ -37,21 +37,19 @@ export class BotManagerService {
     return this.botCount[roomId];
   }
 
-  addBotPlayer(roomId: string, nickname?: string) {
+  addBotPlayer(roomId: string, spawnIndex: number, nickname?: string) {
     this.ensureRoom(roomId);
-    const spawnCol = 1;
-    const spawnRow = 1;
+    const spawn = PLAYER_SPAWNS[spawnIndex % PLAYER_SPAWNS.length];
     const offset = (TILE_SIZE - PLAYER_SIZE) / 2;
     
-    // 봇은 번호로 생성
     const botNum = this.getNextBotNumber(roomId);
-    const botName = `bot-${botNum}`;
+    const botName = nickname || `bot-${botNum}`;
 
     this.botPlayers[roomId].push({
       id: botName,
       nickname: botName,
-      x: spawnCol * TILE_SIZE + offset,
-      y: spawnRow * TILE_SIZE + offset,
+      x: spawn.x * TILE_SIZE + offset,
+      y: spawn.y * TILE_SIZE + offset,
       dir: { dx: 0, dy: 0 },
       color: 'gray',
       score: 0,
@@ -59,8 +57,8 @@ export class BotManagerService {
       stunEndTime: 0,
       alpha: 1,
       path: [],
-      targetX: spawnCol * TILE_SIZE + offset,
-      targetY: spawnRow * TILE_SIZE + offset,
+      targetX: spawn.x * TILE_SIZE + offset,
+      targetY: spawn.y * TILE_SIZE + offset,
     });
   }
 
@@ -85,7 +83,7 @@ export class BotManagerService {
 
   stunBot(bot: BotState) {
     bot.stunned = true;
-    bot.stunEndTime = Date.now() + 10000;
+    bot.stunEndTime = Date.now() + 3000;
     bot.alpha = 0.4;
     bot.score = Math.max(0, bot.score - 30);
   }

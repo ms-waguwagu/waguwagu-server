@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
 import { RankingService } from './ranking.service';
-import { RankingController } from './ranking.controller';
+import { SqsResultService } from './sqs-result.service';
 
 @Module({
-  providers: [RankingService],
-  controllers: [RankingController],
+  providers: [RankingService, SqsResultService],
   exports: [RankingService],
 })
 export class RankingModule {}

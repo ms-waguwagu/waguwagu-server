@@ -1,4 +1,4 @@
-import { TILE_SIZE } from '../../map/map.data';
+import { TILE_SIZE, PLAYER_SIZE, PLAYER_SPEED } from '../../map/map.data';
 import { getPathBFS, findRandomTarget } from '../../pathfinding/pathfinding';
 import { BotState } from '../../state/bot-state';
 import { PlayerState } from '../../state/player-state';
@@ -21,6 +21,8 @@ export class BotMoveService {
           map,
           Math.floor(bot.x / TILE_SIZE),
           Math.floor(bot.y / TILE_SIZE),
+          12,
+          [1, 2],
         );
 
         if (targetTile) {
@@ -30,13 +32,14 @@ export class BotMoveService {
             Math.floor(bot.y / TILE_SIZE),
             targetTile.x,
             targetTile.y,
+            [1, 2],
           );
         }
       }
 
       if (bot.path && bot.path.length > 0) {
         const nextStep = bot.path.shift()!;
-        const offset = TILE_SIZE / 2;
+        const offset = (TILE_SIZE - PLAYER_SIZE) / 2;
         bot.targetX = nextStep.x * TILE_SIZE + offset;
         bot.targetY = nextStep.y * TILE_SIZE + offset;
       }
@@ -48,7 +51,7 @@ export class BotMoveService {
       const dist = Math.hypot(dx, dy);
 
       if (dist > 0) {
-        const step = Math.min(3, dist); // 봇 속도
+        const step = Math.min(PLAYER_SPEED, dist); // 봇 속도를 플레이어와 동일하게 변경
         bot.x += (dx / dist) * step;
         bot.y += (dy / dist) * step;
         bot.dir = { dx: dx / dist, dy: dy / dist };
