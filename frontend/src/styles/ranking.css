@@ -67,7 +67,7 @@
   background: rgba(255, 216, 77, 0.5);
 }
 
-/* 랭킹 아이템(10개 한 화면 최적화를 위해 height/padding을 과하지 않게) */
+/* 랭킹 아이템(10개 한 화면 최적화를 위해height/padding을 과하지 않게) */
 .ranking-item {
   display: flex;
   align-items: center;

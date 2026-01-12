@@ -470,7 +470,7 @@ input {
   box-shadow: 0 6px 20px rgba(241, 196, 15, 0.4);
 }
 
-/* 게임 시작 전에 카운트다운 효과. */
+/* 게임 시작 전에 카운트다운 효과 */
 
 #countdown-display {
   position: fixed;
@@ -545,10 +545,26 @@ input {
 
 @keyframes mouthOpen {
   from {
-    clip-path: polygon(100% 50%, 100% 0, 0 0, 0 100%, 100% 100%, 100% 50%, 50% 50%);
+    clip-path: polygon(
+      100% 50%,
+      100% 0,
+      0 0,
+      0 100%,
+      100% 100%,
+      100% 50%,
+      50% 50%
+    );
   }
   to {
-    clip-path: polygon(100% 15%, 100% 0, 0 0, 0 100%, 100% 100%, 100% 85%, 50% 50%);
+    clip-path: polygon(
+      100% 15%,
+      100% 0,
+      0 0,
+      0 100%,
+      100% 100%,
+      100% 85%,
+      50% 50%
+    );
   }
 }
 
@@ -562,6 +578,11 @@ input {
 }
 
 @keyframes textBlink {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
 }
