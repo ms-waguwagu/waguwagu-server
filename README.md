@@ -31,8 +31,6 @@
 - [사전 요구사항](#사전-요구사항)
 - [프로젝트 구조](#프로젝트-구조)
 - [실행 및 배포 방법](#실행-및-배포-방법)
-  - [프론트엔드 (Frontend)](#프론트엔드-frontend)
-  - [백엔드 배포 (Backend Deployment)](#백엔드-배포-backend-deployment)
 - [서비스 주소 정보 (Domain Info)](#서비스-주소-정보-domain-info)
 - [기술 스택 (Tech Stack)](#기술-스택-tech-stack)
 - [시스템 아키텍처 (Architecture)](#시스템-아키텍처-architecture)
@@ -115,32 +113,20 @@ waguwagu/
 
 ## 실행 및 배포 방법
 
-### 프론트엔드 (Frontend)
+본 프로젝트는 **AWS EKS, Agones, mTLS, Route53** 등 클라우드 네이티브 기술에 강하게 결합되어 있어, **로컬 환경(Localhost)에서의 단독 실행이 불가능**합니다. 
 
-로컬 테스트 시 `config.js`의 주소를 확인한 후 아래 명령어로 실행합니다.
-```bash
-cd frontend
-npx http-server -p 5500
-```
+<br>모든 서버 로직과 매칭 시스템은 클러스터 환경에서 유기적으로 동작하도록 설계되었습니다.
 
-**접속 주소:**
-- **운영 환경**: [https://www.waguwagu.cloud](https://www.waguwagu.cloud)
-- **로컬 환경**: [http://localhost:5500](http://localhost:5500)
+### 배포 절차 (GitOps)
 
----
+모든 배포는 **Jenkins와 ArgoCD를 통한 자동화 파이프라인**을 통해 이루어지며, 개발자는 소스 코드 수정 후 원격 저장소에 Push하는 것으로 배포를 완료합니다.
 
-### 백엔드 배포 (Backend Deployment)
-
-본 프로젝트는 **Jenkins와 ArgoCD를 이용한 CI/CD 파이프라인**이 구축되어 있습니다. 
-
-소스 코드를 수정하고 원격 저장소에 **Push**하면, Jenkins가 빌드를 수행하고 ArgoCD가 변경 사항을 감지하여 클러스터에 자동으로 배포합니다.
+1. **Code Push**: 개발자가 원격 저장소의 `main` 브랜치에 코드를 푸시합니다.
+2. **CI Pipeline (Jenkins)**: 코드를 체크아웃하고 Docker 이미지를 빌드하여 **Amazon ECR**에 업로드합니다.
+3. **CD Pipeline (ArgoCD)**: Git 저장소의 매니페스트 변경 사항을 감지하여 EKS 클러스터와 동기화(Sync)합니다.
 
 > [!IMPORTANT]
-> 이 자동 배포 프로세스는 **AWS EKS 클러스터 내에 ArgoCD가 정상적으로 실행 중**인 상태에서만 동작합니다.
-
-**배포 절차:**
-1. 로컬에서 기능 개발 및 커밋
-2. 저장소로 **Push** 수행 시 자동 배포 시작
+> 게임 서버(game-server)는 Agones Fleet에 의해 자동으로 관리되므로 수동 배포가 필요하지 않습니다.
 
 ---
 
@@ -168,12 +154,12 @@ npx http-server -p 5500
 
 ## 시스템 아키텍처 (Architecture)
 
-본 프로젝트는 MSA(Microservice Architecture)와 클라우드 네이티브 기술을 결합하여 고가용성 게임 환경을 제공합니다.
-
-1. **Matching Server**: 구글 로그인 연동 및 Redis 기반 대기열 관리. 매칭 성사 시 **Lua 스크립트**를 사용하여 원자적으로 참가자를 추출하며, **mTLS** 보안 통신을 통해 Agones에 서버 할당을 요청합니다.
-2. **Game Server (Agones Fleet)**: 독립된 Pod에서 세션이 실행됩니다. **Route53 Dynamic DNS**를 통해 서버 IP를 `*.game.waguwagu.cloud` 형태의 도메인으로 자동 매핑하여 클라이언트의 보안 연결(WSS)을 지원합니다.
-3. **Data Flow (SQS to DB)**: 게임 종료 시 결과 데이터는 SQS로 즉시 전송되어 유실을 방지합니다. 매칭 서버의 **RankingPollingService**가 이를 5초 주기로 소비(Consume)하여 Aurora DB에 안전하게 반영합니다.
-4. **Observability**: **AWS X-Ray**를 통해 매칭 요청부터 서버 할당, 게임 종료까지의 전체 라이프사이클을 추적(Tracing)하여 성능 병목 지점을 시각화합니다.
+| 서비스/기능 | 주요 역할 및 핵심 기술 |
+| :--- | :--- |
+| **Matching Server** | Google OAuth, Redis **Lua 스크립트** (원자적 매칭), **mTLS** 보안 요청 |
+| **Game Server** | **Agones Fleet** (세션 격리), **Route53 Dynamic DNS** (WSS 도메인 자동 할당) |
+| **Data Pipeline** | Game Server → **SQS** (버퍼) → Ranking Polling → **Aurora DB** (MySQL) |
+| **Observability** | **AWS X-Ray** (전구간 트레이싱), Prometheus & Grafana (상태 시각화) |
 
 ---
 
